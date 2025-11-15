@@ -103,7 +103,6 @@ export default function ShipperDashboard() {
   
   // 筛选器状态
   const [dateRange, setDateRange] = useState<'7days' | '30days' | 'thisMonth' | 'lastMonth'>('30days');
-  const [shipperScope, setShipperScope] = useState<'all' | 'self' | 'direct'>('all');
   const [selectedShipperId, setSelectedShipperId] = useState<string | null>(null);
 
   // 判断用户类型和权限
@@ -192,15 +191,15 @@ export default function ShipperDashboard() {
     try {
       const dates = getDateRange(dateRange);
       
-      // 加载总体统计
+      // 加载总体统计（货主看板数据总是包括本级和下级）
       const { data: statsData, error: statsError } = await supabase.rpc(
         'get_shipper_dashboard_stats',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,
           p_end_date: dates.endDate,
-          p_include_self: shipperScope !== 'direct',
-          p_include_subordinates: shipperScope !== 'self'
+          p_include_self: true,  // 总是包含本级
+          p_include_subordinates: true  // 总是包含下级
         }
       );
 
@@ -231,7 +230,7 @@ export default function ShipperDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [isPartnerRole, currentShipperId, dateRange, shipperScope, toast]);
+  }, [isPartnerRole, currentShipperId, dateRange, toast]);
 
   // 初始加载可用货主列表
   useEffect(() => {
@@ -356,17 +355,6 @@ export default function ShipperDashboard() {
             </SelectContent>
           </Select>
 
-          {/* 货主范围筛选 */}
-          <Select value={shipperScope} onValueChange={(value: 'all' | 'self' | 'direct') => setShipperScope(value)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部</SelectItem>
-              <SelectItem value="self">仅本级</SelectItem>
-              <SelectItem value="direct">仅下级</SelectItem>
-            </SelectContent>
-          </Select>
 
           {/* 操作按钮 */}
           <Button onClick={handleExport} variant="outline" size="sm">
