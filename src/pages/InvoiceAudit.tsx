@@ -207,6 +207,7 @@ export default function InvoiceAudit() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Array<{id: string, name: string}>>([]); // ✅ 当前货主对应的项目列表
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -225,13 +226,25 @@ export default function InvoiceAudit() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1115', {
+      // ✅ 修改：支持多个 project_id（逗号分隔）
+      let projectIdParam: string | null = null;
+      if (selectedShipperId && selectedShipperId !== 'all') {
+        if (selectedProjectId === 'all' && availableProjects.length > 0) {
+          // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
+          projectIdParam = availableProjects.map(p => p.id).join(',');
+        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          // 选择具体项目时，传递该项目ID
+          projectIdParam = selectedProjectId;
+        }
+      }
+      
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1116', {
         p_request_number: filters.requestNumber || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
-        p_project_id: (filters.projectId && filters.projectId.trim() !== '' && filters.projectId !== 'all') ? filters.projectId : null,
+        p_project_id: projectIdParam,
         p_license_plate: filters.licensePlate || null,      // ✅ 添加车牌号筛选
         p_phone_number: filters.phoneNumber || null,        // ✅ 添加电话筛选
         p_platform_name: filters.platformName || null,      // ✅ 添加平台筛选
@@ -304,7 +317,7 @@ export default function InvoiceAudit() {
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (error && typeof error === 'object') {
-        const err = error as any;
+        const err = error as { message?: string; error_description?: string; hint?: string };
         errorMessage = err.message || err.error_description || err.hint || JSON.stringify(error);
       }
       
@@ -316,7 +329,7 @@ export default function InvoiceAudit() {
     } finally {
       setLoading(false);
     }
-  }, [toast, filters, currentPage, pageSize]);
+  }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
   useEffect(() => { fetchInvoiceRequests(); }, [fetchInvoiceRequests]);
 
@@ -352,11 +365,30 @@ export default function InvoiceAudit() {
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   // 筛选器处理函数
-  const handleFilterChange = (key: string, value: string | Date | null) => {
+  const handleFilterChange = useCallback((key: string, value: string | Date | null) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     // 筛选条件变化时重置到第一页，但不自动搜索
     setCurrentPage(1);
-  };
+  }, []);
+  
+  // ✅ 当项目列表加载完成且选择了货主时，自动设置 projectId
+  useEffect(() => {
+    // 如果选择了货主（非"全部货主"）且项目列表已加载，自动设置 projectId
+    if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
+      // 如果当前选择的是"所有项目"，需要特殊处理
+      // 注意：这些页面使用 projectId，对于"所有项目"的情况，我们保持空字符串
+      // 但需要确保 filters.projectId 与 selectedProjectId 同步
+      if (selectedProjectId === 'all' && filters.projectId !== '') {
+        // 保持空字符串，表示该货主的所有项目（后端会处理）
+        handleFilterChange('projectId', '');
+      }
+    } else if (selectedShipperId === 'all' || availableProjects.length === 0) {
+      // 如果选择的是"全部货主"或没有项目，清空 projectId
+      if (filters.projectId !== '') {
+        handleFilterChange('projectId', '');
+      }
+    }
+  }, [availableProjects, selectedShipperId, selectedProjectId, filters.projectId, handleFilterChange]);
 
   const clearFilters = () => {
     setFilters({
@@ -1674,10 +1706,16 @@ export default function InvoiceAudit() {
                 onShipperChange={(id) => {
                   setSelectedShipperId(id);
                   setSelectedProjectId('all');
+                  // ✅ 货主变化时，先清空 projectId，等待项目列表加载完成后再设置
+                  handleFilterChange('projectId', '');
                 }}
                 onProjectChange={(id) => {
                   setSelectedProjectId(id);
                   handleFilterChange('projectId', id === 'all' ? '' : id);
+                }}
+                onProjectsChange={(projects) => {
+                  // ✅ 当项目列表更新时，保存到状态
+                  setAvailableProjects(projects);
                 }}
               />
             </div>

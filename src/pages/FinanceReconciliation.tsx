@@ -32,6 +32,25 @@ import { PageHeader } from "@/components/PageHeader";
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
 interface PartnerPayable { partner_id: string; partner_name: string; level: number; total_payable: number; records_count: number; }
 interface LogisticsRecordWithPartners extends LogisticsRecord { partner_costs: { partner_id: string; partner_name: string; level: number; payable_amount: number; }[]; }
+interface ProjectPartnerData {
+  partner_id: string;
+  level: number;
+  partners: {
+    name: string;
+  };
+}
+interface FinanceReconciliationResponse {
+  records?: LogisticsRecordWithPartners[];
+  overview?: {
+    total_records: number;
+    total_freight: number;
+    total_extra_cost: number;
+    total_driver_receivable: number;
+  };
+  partner_summary?: PartnerPayable[];
+  count?: number;
+  total_pages?: number;
+}
 interface FinanceFilters { 
   projectId: string; 
   partnerId: string; 
@@ -64,7 +83,7 @@ const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded
 
 export default function FinanceReconciliation() {
   // --- State 管理 ---
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<FinanceReconciliationResponse | null>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +95,7 @@ export default function FinanceReconciliation() {
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Array<{id: string, name: string}>>([]); // ✅ 当前货主对应的项目列表
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [waybillInput, setWaybillInput] = useState('');
   const [batchDialog, setBatchDialog] = useState<{
@@ -99,7 +119,9 @@ export default function FinanceReconciliation() {
       if (error) throw error;
       
       const platformMap = new Map<string, number>();
-      (data || []).forEach(record => {
+      // 为查询结果添加类型定义
+      type PlatformRecord = { other_platform_names: string[] | null };
+      ((data as PlatformRecord[] | null) || []).forEach(record => {
         if (record.other_platform_names && Array.isArray(record.other_platform_names)) {
           record.other_platform_names.forEach((platform: string) => {
             if (platform && platform.trim()) {
@@ -133,9 +155,9 @@ export default function FinanceReconciliation() {
       setProjects(projectsResult.data || []);
       const uniquePartners = Array.from(
         new Map(
-          partnersResult.data?.map(p => [ 
+          (partnersResult.data as ProjectPartnerData[] | null)?.map(p => [ 
             p.partner_id, 
-            { id: p.partner_id, name: (p.partners as any).name, level: p.level } 
+            { id: p.partner_id, name: p.partners.name, level: p.level } 
           ]) || []
         ).values()
       ).sort((a, b) => a.level - b.level);
@@ -169,8 +191,20 @@ export default function FinanceReconciliation() {
       })() : null;
       
       // 使用优化的分页函数，包含billing_type_id和高级筛选
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1115' as any, {
-        p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
+      // ✅ 修改：支持多个 project_id（逗号分隔）
+      let projectIdParam: string | null = null;
+      if (selectedShipperId && selectedShipperId !== 'all') {
+        if (selectedProjectId === 'all' && availableProjects.length > 0) {
+          // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
+          projectIdParam = availableProjects.map(p => p.id).join(',');
+        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          // 选择具体项目时，传递该项目ID
+          projectIdParam = selectedProjectId;
+        }
+      }
+      
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1116', {
+        p_project_id: projectIdParam,
         p_start_date: utcStartDate,
         p_end_date: utcEndDate,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
@@ -185,23 +219,24 @@ export default function FinanceReconciliation() {
       });
       if (error) throw error;
       
-      setReportData(data);
+      setReportData(data as FinanceReconciliationResponse);
       setPagination(prev => ({ 
         ...prev, 
-        totalPages: (data as any)?.total_pages || 1 
+        totalPages: (data as FinanceReconciliationResponse)?.total_pages || 1 
       }));
       
       const loadTime = performance.now() - startTime;
-      const recordCount = (data as any)?.records?.length || 0;
+      const recordCount = (data as FinanceReconciliationResponse)?.records?.length || 0;
       console.log(`财务数据加载完成: ${loadTime.toFixed(2)}ms, ${recordCount}条记录`);
       
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
-      toast({ title: "错误", description: `加载财务对账数据失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `加载财务对账数据失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, pagination.currentPage, toast]);
+  }, [activeFilters, pagination.currentPage, toast, selectedShipperId, selectedProjectId, availableProjects]);
 
   // --- Effects ---
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
@@ -235,7 +270,7 @@ export default function FinanceReconciliation() {
     }
   };
 
-  const getQuantityDisplay = (record: any) => {
+  const getQuantityDisplay = (record: LogisticsRecordWithPartners) => {
     const billingTypeId = record.billing_type_id || 1;
     const loading = record.loading_weight || 0;
     const unloading = record.unloading_weight || 0;
@@ -345,7 +380,7 @@ export default function FinanceReconciliation() {
   };
 
   const handleSelectAllOnPage = (isChecked: boolean) => {
-    const pageIds = (reportData?.records || []).map((r: any) => r.id);
+    const pageIds = (reportData?.records || []).map((r) => r.id);
     if (isChecked) {
       setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) }));
     } else {
@@ -363,8 +398,18 @@ export default function FinanceReconciliation() {
     try {
       let error;
       if (selection.mode === 'all_filtered') {
-        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter' as any, {
-          p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
+        // ✅ 修改：支持多个 project_id（逗号分隔）
+        let projectIdParam: string | null = null;
+        if (selectedShipperId && selectedShipperId !== 'all') {
+          if (selectedProjectId === 'all' && availableProjects.length > 0) {
+            projectIdParam = availableProjects.map(p => p.id).join(',');
+          } else if (selectedProjectId && selectedProjectId !== 'all') {
+            projectIdParam = selectedProjectId;
+          }
+        }
+        
+        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter_1116', {
+          p_project_id: projectIdParam,
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,
           p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
@@ -446,9 +491,9 @@ export default function FinanceReconciliation() {
     // 计算相关的合作方和最高级别
     const relevantPartnerIds = new Set<string>();
     let maxLevel = 0;
-    reportData.records.forEach((record: any) => {
+    reportData.records.forEach((record) => {
       if (record && Array.isArray(record.partner_costs)) {
-        record.partner_costs.forEach((cost: any) => {
+        record.partner_costs.forEach((cost) => {
           relevantPartnerIds.add(cost.partner_id);
           if (cost.level > maxLevel) {
             maxLevel = cost.level;
@@ -475,14 +520,14 @@ export default function FinanceReconciliation() {
     }
     const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收'];
     displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
-    const dataToExport = (reportData.records || []).map((record: any) => {
-      const row: {[key: string]: any} = {
+    const dataToExport = (reportData.records || []).map((record) => {
+      const row: Record<string, string | number> = {
         '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
         '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
         '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
       };
       displayedPartners.forEach(p => {
-        const cost = (record.partner_costs || []).find((c:any) => c.partner_id === p.id);
+        const cost = (record.partner_costs || []).find((c) => c.partner_id === p.id);
         row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
       });
       return row;
@@ -495,7 +540,7 @@ export default function FinanceReconciliation() {
   };
 
   const isAllOnPageSelected = useMemo(() => {
-    const pageIds = (reportData?.records || []).map((r: any) => r.id);
+    const pageIds = (reportData?.records || []).map((r) => r.id);
     if (pageIds.length === 0) return false;
     return pageIds.every(id => selection.selectedIds.has(id));
   }, [reportData?.records, selection.selectedIds]);
@@ -528,11 +573,15 @@ export default function FinanceReconciliation() {
                 onShipperChange={(id) => {
                   setSelectedShipperId(id);
                   setSelectedProjectId('all');
+                  handleFilterChange('projectId', '');
                 }}
                 onProjectChange={(id) => {
                   setSelectedProjectId(id);
                   // ✅ 统一处理：'all' 转换为空字符串，与 RPC 调用时的处理保持一致
                   handleFilterChange('projectId', id === 'all' ? '' : id);
+                }}
+                onProjectsChange={(projects) => {
+                  setAvailableProjects(projects);
                 }}
               />
             </div>
@@ -746,7 +795,7 @@ export default function FinanceReconciliation() {
           <BatchInputDialog
             isOpen={batchDialog.isOpen}
             onClose={closeBatchDialog}
-            onConfirm={handleBatchConfirm}
+            onApply={handleBatchConfirm}
             title={getDialogConfig().title}
             placeholder={getDialogConfig().placeholder}
             description={getDialogConfig().description}
@@ -837,7 +886,7 @@ export default function FinanceReconciliation() {
                     </TableRow>
                   ) : (
                     <>
-                      {(reportData.partner_summary).map((partner: any, index: number) => (
+                      {(reportData.partner_summary).map((partner, index: number) => (
                         <TableRow key={partner.partner_id} className="even:bg-muted/40">
                           <TableCell className="font-medium">{partner.partner_name}</TableCell>
                           <TableCell className="text-center">{partner.records_count}</TableCell>
@@ -850,10 +899,10 @@ export default function FinanceReconciliation() {
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
                         <TableCell className="font-bold">合计</TableCell>
                         <TableCell className="text-center font-bold">
-                          {reportData.partner_summary?.reduce((sum: number, p: any) => sum + (p.records_count || 0), 0) || 0}
+                          {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-red-600">
-                          {formatCurrency(reportData.partner_summary?.reduce((sum: number, p: any) => sum + (p.total_payable || 0), 0) || 0)}
+                          {formatCurrency(reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0)}
                         </TableCell>
                       </TableRow>
                     </>
@@ -892,8 +941,8 @@ export default function FinanceReconciliation() {
                 <Table>
                   <TableHeader><TableRow><TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage}/></TableHead><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead><TableHead>装货数量</TableHead><TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead><TableHead className="text-green-600">司机应收</TableHead>{displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}<TableHead>状态</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {(reportData?.records || []).map((r: any) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"} className="whitespace-nowrap"><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{`${r.loading_location?.substring(0, 2) || ''}→${r.unloading_location?.substring(0, 2) || ''}`}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{getQuantityDisplay(r)}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.current_cost)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.extra_cost)}</TableCell><TableCell className="font-mono text-green-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c:any) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell></TableRow>))}
-                    <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={7} className="text-right font-bold">合计</TableCell><TableCell className="font-mono font-bold text-center"><div>{formatCurrency(reportData?.overview?.total_freight)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-mono font-bold text-orange-600 text-center"><div>{formatCurrency(reportData?.overview?.total_extra_cost)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell><TableCell className="text-center font-bold font-mono text-green-600"><div>{formatCurrency(reportData?.overview?.total_driver_receivable)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>{displayedPartners.map(p => { const total = (reportData?.partner_summary || []).find((pp: any) => pp.partner_id === p.id)?.total_payable || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}<TableCell></TableCell></TableRow>
+                    {(reportData?.records || []).map((r) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"} className="whitespace-nowrap"><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{`${r.loading_location?.substring(0, 2) || ''}→${r.unloading_location?.substring(0, 2) || ''}`}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{getQuantityDisplay(r)}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.current_cost)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.extra_cost)}</TableCell><TableCell className="font-mono text-green-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell></TableRow>))}
+                    <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={7} className="text-right font-bold">合计</TableCell><TableCell className="font-mono font-bold text-center"><div>{formatCurrency(reportData?.overview?.total_freight)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-mono font-bold text-orange-600 text-center"><div>{formatCurrency(reportData?.overview?.total_extra_cost)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell><TableCell className="text-center font-bold font-mono text-green-600"><div>{formatCurrency(reportData?.overview?.total_driver_receivable)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>{displayedPartners.map(p => { const total = (reportData?.partner_summary || []).find((pp) => pp.partner_id === p.id)?.total_payable || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}<TableCell></TableCell></TableRow>
                   </TableBody>
                 </Table>
                 )}

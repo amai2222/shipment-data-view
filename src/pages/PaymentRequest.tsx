@@ -85,13 +85,43 @@ interface PaymentPreviewSheet {
   paying_partner_branch_name: string; 
   record_count: number; 
   total_payable: number; 
-  records: LogisticsRecord[]; 
+  header_company_name?: string;
+  records: Array<{
+    record: LogisticsRecord;
+    payable_amount: number;
+  }>; 
 }
 interface PaymentPreviewData { sheets: PaymentPreviewSheet[]; processed_record_ids: string[]; }
 interface FinalPaymentData { sheets: PaymentPreviewSheet[]; all_record_ids: string[]; }
 interface PartnerChain { id: string; chain_name: string; is_default: boolean; }
 interface EditPartnerCostData { recordId: string; recordNumber: string; partnerCosts: PartnerCost[]; driverPayableCost: number; }
 interface EditChainData { recordId: string; recordNumber: string; projectId: string; currentChainName: string; }
+interface ProjectPartnerData {
+  partner_id: string;
+  level: number;
+  partners: {
+    name: string;
+  };
+}
+interface PaymentRequestResponse {
+  records?: LogisticsRecordWithPartners[];
+  overview?: {
+    total_records: number;
+    total_freight: number;
+    total_extra_cost: number;
+    total_driver_receivable: number;
+  };
+  partner_summary?: PartnerPayable[];
+  count?: number;
+  total_pages?: number;
+}
+interface PartnerPayable {
+  partner_id: string;
+  partner_name: string;
+  level: number;
+  total_payable: number;
+  records_count: number;
+}
 
 // ============================================================================
 // 区域3: 常量定义和初始状态
@@ -127,7 +157,7 @@ export default function PaymentRequest() {
   // ==========================================================================
   // 包含：数据状态、筛选状态、分页状态、选择状态、对话框状态等
   // ==========================================================================
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<PaymentRequestResponse | null>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,6 +168,7 @@ export default function PaymentRequest() {
   const [showAdvanced, setShowAdvanced] = useState(false); // 控制高级筛选展开/收起
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Array<{id: string, name: string}>>([]); // ✅ 当前货主对应的项目列表
   const [platformOptions, setPlatformOptions] = useState<{platform_name: string; usage_count: number}[]>([]); // 动态平台选项
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -189,7 +220,7 @@ export default function PaymentRequest() {
       const { data: projectsData } = await supabase.from('projects').select('id, name').order('name');
       setProjects(projectsData || []);
       const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
-      const uniquePartners = Array.from(new Map(partnersData?.map(p => [ p.partner_id, { id: p.partner_id, name: (p.partners as any).name, level: p.level } ]) || []).values()).sort((a, b) => a.level - b.level);
+      const uniquePartners = Array.from(new Map((partnersData as ProjectPartnerData[] | null)?.map(p => [ p.partner_id, { id: p.partner_id, name: p.partners.name, level: p.level } ]) || []).values()).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
       
       // 加载动态平台选项
@@ -211,8 +242,20 @@ export default function PaymentRequest() {
     try {
       const statusArray = activeFilters.paymentStatus === 'all' ? null : [activeFilters.paymentStatus];
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_payment_request_data_1113', {
-        p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
+      // ✅ 修改：支持多个 project_id（逗号分隔）
+      let projectIdParam: string | null = null;
+      if (selectedShipperId && selectedShipperId !== 'all') {
+        if (selectedProjectId === 'all' && availableProjects.length > 0) {
+          // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
+          projectIdParam = availableProjects.map(p => p.id).join(',');
+        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          // 选择具体项目时，传递该项目ID
+          projectIdParam = selectedProjectId;
+        }
+      }
+      
+      const { data, error } = await supabase.rpc('get_payment_request_data_1116', {
+        p_project_id: projectIdParam,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
         p_payment_status_array: statusArray,
@@ -226,15 +269,16 @@ export default function PaymentRequest() {
         p_page_number: pagination.currentPage,
       });
       if (error) throw error;
-      setReportData(data);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 }));
+      setReportData(data as PaymentRequestResponse);
+      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as PaymentRequestResponse)?.count || 0) / PAGE_SIZE) || 1 }));
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
-      toast({ title: "错误", description: `加载财务对账数据失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `加载财务对账数据失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, pagination.currentPage, toast]);
+  }, [activeFilters, pagination.currentPage, toast, selectedShipperId, selectedProjectId, availableProjects]);
 
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); setReportData(null); } }, [fetchReportData, isStale]);
@@ -386,7 +430,7 @@ export default function PaymentRequest() {
     return { title: '', placeholder: '', description: '' };
   };
   const handleRecordSelect = (recordId: string) => { setSelection(prev => { const newSet = new Set(prev.selectedIds); if (newSet.has(recordId)) { newSet.delete(recordId); } else { newSet.add(recordId); } if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); };
-  const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (sortedRecords || []).map((r: any) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
+  const handleSelectAllOnPage = (isChecked: boolean) => { const pageIds = (sortedRecords || []).map((r) => r.id); if (isChecked) { setSelection(prev => ({ ...prev, selectedIds: new Set([...prev.selectedIds, ...pageIds]) })); } else { setSelection(prev => { const newSet = new Set(prev.selectedIds); pageIds.forEach(id => newSet.delete(id)); if (prev.mode === 'all_filtered') { return { mode: 'none', selectedIds: newSet }; } return { ...prev, selectedIds: newSet }; }); } };
   
   // ==========================================================================
   // 区域7: 付款申请核心功能
@@ -415,8 +459,18 @@ export default function PaymentRequest() {
       let idsToProcess: string[] = [];
 
       if (isCrossPageSelection) {
-        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids' as any, {
-            p_project_id: (activeFilters.projectId === 'all' || activeFilters.projectId === '') ? null : activeFilters.projectId,
+        // ✅ 修改：支持多个 project_id（逗号分隔）
+        let projectIdParam: string | null = null;
+        if (selectedShipperId && selectedShipperId !== 'all') {
+          if (selectedProjectId === 'all' && availableProjects.length > 0) {
+            projectIdParam = availableProjects.map(p => p.id).join(',');
+          } else if (selectedProjectId && selectedProjectId !== 'all') {
+            projectIdParam = selectedProjectId;
+          }
+        }
+        
+        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids_1116', {
+            p_project_id: projectIdParam,
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,
             p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
@@ -438,16 +492,19 @@ export default function PaymentRequest() {
         return;
       }
 
-      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2' as any, {
+      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2', {
         p_record_ids: idsToProcess
       });
 
       if (rpcError) throw rpcError;
 
-      const v2 = (v2Data as any) || {};
+      interface PaymentRequestV2Response {
+        records?: LogisticsRecord[];
+      }
+      const v2 = (v2Data as PaymentRequestV2Response) || {};
       const records: LogisticsRecord[] = Array.isArray(v2.records) ? v2.records : [];
       
-      const sheetMap = new Map<string, any>();
+      const sheetMap = new Map<string, PaymentPreviewSheet>();
 
       // ✅ 修复：按每个运单单独判断最高级，只包含低层级合作方
       for (const rec of records) {
@@ -474,8 +531,8 @@ export default function PaymentRequest() {
                 paying_partner_id: key,
                 paying_partner_full_name: cost.full_name || cost.partner_name,
                 paying_partner_bank_account: cost.bank_account || '',
-                paying_partner_bank_name: (cost as any).bank_name || '',
-                paying_partner_branch_name: (cost as any).branch_name || '',
+                paying_partner_bank_name: cost.bank_name || '',
+                paying_partner_branch_name: cost.branch_name || '',
                 record_count: 0,
                 total_payable: 0,
                 header_company_name: rec.project_name,
@@ -483,11 +540,13 @@ export default function PaymentRequest() {
               });
             }
             const sheet = sheetMap.get(key);
-            if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+            if (sheet && !sheet.records.some((r) => r.record.id === rec.id)) {
                 sheet.record_count += 1;
             }
-            sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-            sheet.total_payable += Number(cost.payable_amount || 0);
+            if (sheet) {
+              sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+              sheet.total_payable += Number(cost.payable_amount || 0);
+            }
           }
         }
       }
@@ -496,7 +555,7 @@ export default function PaymentRequest() {
       
       // ✅ 对每个付款单的运单进行排序：先按日期降序，再按运单编号升序
       sheets.forEach(sheet => {
-        sheet.records.sort((a: any, b: any) => {
+        sheet.records.sort((a, b) => {
           // 主排序：日期降序（最新在前）
           const dateA = new Date(a.record.loading_date).getTime();
           const dateB = new Date(b.record.loading_date).getTime();
@@ -510,7 +569,7 @@ export default function PaymentRequest() {
       
       const finalRecordIds = new Set<string>();
       sheets.forEach(sheet => {
-        sheet.records.forEach((r: any) => finalRecordIds.add(r.record.id));
+        sheet.records.forEach((r) => finalRecordIds.add(r.record.id));
       });
       
       const previewData: PaymentPreviewData = { sheets, processed_record_ids: Array.from(finalRecordIds) };
@@ -536,7 +595,8 @@ export default function PaymentRequest() {
 
     } catch (error) {
       console.error("准备付款申请预览失败:", error);
-      toast({ title: "错误", description: `准备付款申请预览失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `准备付款申请预览失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -555,7 +615,7 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const allRecordIds = finalPaymentData.all_record_ids;
-      const { error } = await supabase.rpc('process_payment_application' as any, {
+      const { error } = await supabase.rpc('process_payment_application', {
         p_record_ids: allRecordIds,
       });
 
@@ -574,7 +634,8 @@ export default function PaymentRequest() {
 
     } catch (error) {
       console.error("保存付款申请失败:", error);
-      toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `操作失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -688,7 +749,8 @@ export default function PaymentRequest() {
       setAvailableChains(data || []);
     } catch (error) {
       console.error("获取合作链路失败:", error);
-      toast({ title: "错误", description: `获取合作链路失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `获取合作链路失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsLoadingChains(false);
     }
@@ -716,10 +778,11 @@ export default function PaymentRequest() {
       // 清除手动修改标记
       const { error: updateError } = await supabase
         .from('logistics_partner_costs')
+        // @ts-expect-error - Supabase 类型推断问题
         .update({
           is_manually_modified: false,  // 清除手动修改标记
           updated_at: new Date().toISOString()
-        })
+        } as Record<string, unknown>)
         .eq('logistics_record_id', editPartnerCostData.recordId)
         .eq('partner_id', highestLevelPartner.partner_id)
         .eq('level', maxLevel);
@@ -727,9 +790,9 @@ export default function PaymentRequest() {
       if (updateError) throw updateError;
       
       // 调用重算函数，使用系统自动计算的值
-      const recordData = reportData?.records.find((r: any) => r.id === editPartnerCostData.recordId);
+      const recordData = reportData?.records?.find((r) => r.id === editPartnerCostData.recordId);
       if (recordData && recordData.chain_id) {
-        const { error: recalcError } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+        const { error: recalcError } = await supabase.rpc('modify_logistics_record_chain_with_recalc', {
           p_record_id: editPartnerCostData.recordId,
           p_chain_name: recordData.chain_name || '默认链路'
         });
@@ -747,12 +810,14 @@ export default function PaymentRequest() {
         .single();
       
       if (recalculatedCost) {
+        const costData = recalculatedCost as { payable_amount: number };
         await supabase
           .from('logistics_records')
+          // @ts-expect-error - Supabase 类型推断问题
           .update({
-            payable_cost: recalculatedCost.payable_amount,  // 司机应收使用payable_cost字段
+            payable_cost: costData.payable_amount,  // 司机应收使用payable_cost字段
             updated_at: new Date().toISOString()
-          })
+          } as Record<string, unknown>)
           .eq('id', editPartnerCostData.recordId);
       }
       
@@ -766,7 +831,8 @@ export default function PaymentRequest() {
       fetchReportData();
     } catch (error) {
       console.error("恢复默认计算失败:", error);
-      toast({ title: "错误", description: `操作失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `操作失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -791,21 +857,23 @@ export default function PaymentRequest() {
         .eq('id', editPartnerCostData.recordId)
         .single();
       
-      if (checkError) throw checkError;
+      if (checkError || !recordData) throw checkError || new Error('未找到运单数据');
+      
+      const recordStatus = recordData as { payment_status: string; invoice_status: string | null };
       
       // 检查支付状态
-      if (recordData.payment_status !== 'Unpaid') {
+      if (recordStatus.payment_status !== 'Unpaid') {
         const statusText = {
           'Processing': '已申请支付',
           'Approved': '支付审核通过',
           'Paid': '已支付'
-        }[recordData.payment_status] || recordData.payment_status;
+        }[recordStatus.payment_status] || recordStatus.payment_status;
         throw new Error(`只有未支付状态的运单才能修改运费。当前付款状态：${statusText}`);
       }
       
       // 检查开票状态
-      if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
-        const statusText = recordData.invoice_status === 'Processing' ? '开票中' : '已开票';
+      if (recordStatus.invoice_status && recordStatus.invoice_status !== 'Uninvoiced') {
+        const statusText = recordStatus.invoice_status === 'Processing' ? '开票中' : '已开票';
         throw new Error(`只有未开票状态的运单才能修改运费。当前开票状态：${statusText}`);
       }
       
@@ -816,11 +884,12 @@ export default function PaymentRequest() {
         
         const { error: updateError } = await supabase
           .from('logistics_partner_costs')
+          // @ts-expect-error - Supabase 类型推断问题
           .update({
             payable_amount: amount,
             is_manually_modified: true,  // 标记为用户手动修改
             updated_at: new Date().toISOString()
-          })
+          } as Record<string, unknown>)
           .eq('logistics_record_id', editPartnerCostData.recordId)
           .eq('partner_id', cost.partner_id)
           .eq('level', cost.level);
@@ -832,10 +901,11 @@ export default function PaymentRequest() {
       const driverAmount = typeof tempDriverCost === 'string' ? parseFloat(tempDriverCost) : tempDriverCost;
       const { error: driverUpdateError } = await supabase
         .from('logistics_records')
+        // @ts-expect-error - Supabase 类型推断问题
         .update({
           payable_cost: driverAmount,
           updated_at: new Date().toISOString()
-        })
+        } as Record<string, unknown>)
         .eq('id', editPartnerCostData.recordId);
       
       if (driverUpdateError) throw driverUpdateError;
@@ -850,7 +920,8 @@ export default function PaymentRequest() {
       fetchReportData();
     } catch (error) {
       console.error("保存合作方运费失败:", error);
-      toast({ title: "错误", description: `保存失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `保存失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -873,14 +944,14 @@ export default function PaymentRequest() {
       if (!selectedChain) throw new Error("未找到选择的合作链路");
       
       // 调用修改合作链路的RPC函数（包含成本重算）
-      const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+      const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc', {
         p_record_id: editChainData.recordId,
         p_chain_name: selectedChain.chain_name
       });
       
       if (error) throw error;
       
-      const result = data as any;
+      const result = data as { success: boolean; message?: string; recalculated_partners?: number } | null;
       toast({ 
         title: "成功", 
         description: `合作链路已更新为"${selectedChain.chain_name}"，已重新计算${result?.recalculated_partners || 0}个合作方的成本` 
@@ -891,7 +962,8 @@ export default function PaymentRequest() {
       fetchReportData();
     } catch (error) {
       console.error("修改合作链路失败:", error);
-      toast({ title: "错误", description: `修改失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `修改失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -926,15 +998,21 @@ export default function PaymentRequest() {
             .eq('id', record.id)
             .single();
           
-          if (checkError) throw checkError;
+          if (checkError || !recordData) {
+            failedCount++;
+            failedList.push(`${record.auto_number}(查询失败)`);
+            continue;
+          }
           
-          if (recordData.payment_status !== 'Unpaid') {
+          const recordStatus = recordData as { payment_status: string; invoice_status: string | null; chain_name: string | null; chain_id: string | null };
+          
+          if (recordStatus.payment_status !== 'Unpaid') {
             failedCount++;
             failedList.push(`${record.auto_number}(已申请或已付款)`);
             continue;
           }
           
-          if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
+          if (recordStatus.invoice_status && recordStatus.invoice_status !== 'Uninvoiced') {
             failedCount++;
             failedList.push(`${record.auto_number}(已开票)`);
             continue;
@@ -954,15 +1032,16 @@ export default function PaymentRequest() {
             continue;
           }
           
-          const highestPartner = costs[0];
+          const highestPartner = costs[0] as { partner_id: string; level: number };
           
           // 1. 清除合作方手动修改标记
           const { error: updateError } = await supabase
             .from('logistics_partner_costs')
+            // @ts-expect-error - Supabase 类型推断问题
             .update({
               is_manually_modified: false,  // 清除标记
               updated_at: new Date().toISOString()
-            })
+            } as Record<string, unknown>)
             .eq('logistics_record_id', record.id)
             .eq('partner_id', highestPartner.partner_id)
             .eq('level', highestPartner.level);
@@ -970,10 +1049,10 @@ export default function PaymentRequest() {
           if (updateError) throw updateError;
           
           // 2. 触发重算（会重新计算合作方应收）
-          if (recordData.chain_name) {
-            await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+          if (recordStatus.chain_name) {
+            await supabase.rpc('modify_logistics_record_chain_with_recalc', {
               p_record_id: record.id,
-              p_chain_name: recordData.chain_name
+              p_chain_name: recordStatus.chain_name
             });
           }
           
@@ -989,12 +1068,14 @@ export default function PaymentRequest() {
             .single();
           
           if (recalculatedCost) {
+            const costData = recalculatedCost as { payable_amount: number };
             const { error: driverUpdateError } = await supabase
               .from('logistics_records')
+              // @ts-expect-error - Supabase 类型推断问题
               .update({
-                payable_cost: recalculatedCost.payable_amount,  // 司机应收使用payable_cost字段
+                payable_cost: costData.payable_amount,  // 司机应收使用payable_cost字段
                 updated_at: new Date().toISOString()
-              })
+              } as Record<string, unknown>)
               .eq('id', record.id);
             
             if (driverUpdateError) throw driverUpdateError;
@@ -1003,7 +1084,8 @@ export default function PaymentRequest() {
           successCount++;
         } catch (error) {
           failedCount++;
-          failedList.push(`${record.auto_number}(错误: ${(error as any).message})`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          failedList.push(`${record.auto_number}(错误: ${errorMessage})`);
         }
       }
 
@@ -1023,7 +1105,8 @@ export default function PaymentRequest() {
       fetchReportData();
     } catch (error) {
       console.error("批量恢复默认失败:", error);
-      toast({ title: "错误", description: `批量操作失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `批量操作失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsBatchModifying(false);
     }
@@ -1077,15 +1160,21 @@ export default function PaymentRequest() {
             .eq('id', record.id)
             .single();
           
-          if (checkError) throw checkError;
+          if (checkError || !recordData) {
+            failedCount++;
+            failedList.push(`${record.auto_number}(查询失败)`);
+            continue;
+          }
           
-          if (recordData.payment_status !== 'Unpaid') {
+          const recordStatus = recordData as { payment_status: string; invoice_status: string | null };
+          
+          if (recordStatus.payment_status !== 'Unpaid') {
             failedCount++;
             failedList.push(`${record.auto_number}(已申请或已付款)`);
             continue;
           }
           
-          if (recordData.invoice_status && recordData.invoice_status !== 'Uninvoiced') {
+          if (recordStatus.invoice_status && recordStatus.invoice_status !== 'Uninvoiced') {
             failedCount++;
             failedList.push(`${record.auto_number}(已开票)`);
             continue;
@@ -1105,16 +1194,17 @@ export default function PaymentRequest() {
             continue;
           }
           
-          const highestPartner = costs[0];
+          const highestPartner = costs[0] as { partner_id: string; level: number };
           
           // 1. 更新最高级合作方的金额
           const { error: updatePartnerError } = await supabase
             .from('logistics_partner_costs')
+            // @ts-expect-error - Supabase 类型推断问题
             .update({
               payable_amount: newPartnerAmount,
               is_manually_modified: true,  // 标记为用户手动修改
               updated_at: new Date().toISOString()
-            })
+            } as Record<string, unknown>)
             .eq('logistics_record_id', record.id)
             .eq('partner_id', highestPartner.partner_id)
             .eq('level', highestPartner.level);
@@ -1124,10 +1214,11 @@ export default function PaymentRequest() {
           // 2. 更新司机应收金额
           const { error: updateDriverError } = await supabase
             .from('logistics_records')
+            // @ts-expect-error - Supabase 类型推断问题
             .update({
               payable_cost: newDriverAmount,  // 司机应收使用payable_cost字段
               updated_at: new Date().toISOString()
-            })
+            } as Record<string, unknown>)
             .eq('id', record.id);
           
           if (updateDriverError) throw updateDriverError;
@@ -1138,7 +1229,8 @@ export default function PaymentRequest() {
           successCount++;
         } catch (error) {
           failedCount++;
-          failedList.push(`${record.auto_number}(错误: ${(error as any).message})`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          failedList.push(`${record.auto_number}(错误: ${errorMessage})`);
         }
       }
 
@@ -1158,7 +1250,8 @@ export default function PaymentRequest() {
       fetchReportData();
     } catch (error) {
       console.error("批量修改应收失败:", error);
-      toast({ title: "错误", description: `批量修改失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `批量修改失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsBatchModifying(false);
     }
@@ -1192,21 +1285,21 @@ export default function PaymentRequest() {
 
     setIsBatchModifying(true);
     try {
-      const { data, error } = await supabase.rpc('batch_modify_chain' as any, {
+      const { data, error } = await supabase.rpc('batch_modify_chain', {
         p_record_ids: idsToModify,
         p_chain_name: selectedChain.chain_name
       });
 
       if (error) throw error;
 
-      const result = data as any;
+      const result = data as { success: boolean; message?: string; failed_records?: string[] } | null;
       toast({
-        title: result.success ? "批量修改完成" : "修改失败",
-        description: result.message,
-        variant: result.success ? "default" : "destructive"
+        title: result?.success ? "批量修改完成" : "修改失败",
+        description: result?.message || '',
+        variant: result?.success ? "default" : "destructive"
       });
 
-      if (result.failed_records && result.failed_records.length > 0) {
+      if (result?.failed_records && result.failed_records.length > 0) {
         console.log('失败的运单:', result.failed_records);
       }
 
@@ -1217,7 +1310,8 @@ export default function PaymentRequest() {
       fetchReportData();
     } catch (error) {
       console.error("批量修改链路失败:", error);
-      toast({ title: "错误", description: `批量修改失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `批量修改失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsBatchModifying(false);
     }
@@ -1241,14 +1335,14 @@ export default function PaymentRequest() {
 
     if (type === 'cost') {
       // 准备批量修改应收的运单数据
-      const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id)) || [];
+      const selectedRecords = reportData?.records?.filter((r) => selection.selectedIds.has(r.id)) || [];
       
       const recordsWithCost = await Promise.all(
-        selectedRecords.map(async (record: any) => {
+        selectedRecords.map(async (record) => {
           // 获取最高级合作方的应收金额
           const highestCost = record.partner_costs && record.partner_costs.length > 0
-            ? record.partner_costs.reduce((max: any, cost: any) => 
-                cost.level > max.level ? cost : max
+            ? record.partner_costs.reduce((max, cost) => 
+                (cost.level || 0) > (max.level || 0) ? cost : max
               )
             : null;
           
@@ -1284,7 +1378,7 @@ export default function PaymentRequest() {
       setBatchCostRecords(sortedRecords);
     } else if (type === 'chain') {
       // 获取选中运单的项目（假设都是同一项目）
-      const selectedRecords = reportData?.records.filter((r: any) => selection.selectedIds.has(r.id));
+      const selectedRecords = reportData?.records?.filter((r) => selection.selectedIds.has(r.id));
       if (selectedRecords && selectedRecords.length > 0) {
         const firstRecord = selectedRecords[0];
         let projectId = firstRecord.project_id;
@@ -1335,9 +1429,9 @@ export default function PaymentRequest() {
     if (!reportData || !Array.isArray(reportData.records)) return [];
     const relevantPartnerIds = new Set<string>();
     let maxLevel = 0;
-    reportData.records.forEach((record: any) => {
+    reportData.records?.forEach((record) => {
       if (record && Array.isArray(record.partner_costs)) {
-        record.partner_costs.forEach((cost: any) => {
+        record.partner_costs.forEach((cost) => {
           relevantPartnerIds.add(cost.partner_id);
           if (cost.level > maxLevel) {
             maxLevel = cost.level;
@@ -1358,7 +1452,7 @@ export default function PaymentRequest() {
    */
   const isAllOnPageSelected = useMemo(() => {
     if (!sortedRecords || sortedRecords.length === 0) return false;
-    const pageIds = sortedRecords.map((r: any) => r.id);
+    const pageIds = sortedRecords.map((r) => r.id);
     return pageIds.every(id => selection.selectedIds.has(id));
   }, [sortedRecords, selection.selectedIds]);
 
@@ -1446,11 +1540,15 @@ export default function PaymentRequest() {
                   onShipperChange={(id) => {
                     setSelectedShipperId(id);
                     setSelectedProjectId('all');
+                    handleFilterChange('projectId', '');
                   }}
                   onProjectChange={(id) => {
                     setSelectedProjectId(id);
                     // ✅ 统一处理：'all' 转换为空字符串，与 RPC 调用时的处理保持一致
                     handleFilterChange('projectId', id === 'all' ? '' : id);
+                  }}
+                  onProjectsChange={(projects) => {
+                    setAvailableProjects(projects);
                   }}
                 />
               </div>
@@ -1745,7 +1843,7 @@ export default function PaymentRequest() {
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatQuantity(r)}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatDate(r.loading_date)}</TableCell>
                               <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>
-                              {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}
+                              {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}
                                <TableCell className="whitespace-nowrap">
                                  <span className="text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">{r.chain_name || '默认链路'}</span>
                                </TableCell>
@@ -1790,8 +1888,8 @@ export default function PaymentRequest() {
                       ))}
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
                         <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
-                        <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_payable_cost)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
-                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partners) && reportData.partners.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_driver_receivable || 0)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
+                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_summary) && reportData.partner_summary.find((pp) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
@@ -1832,7 +1930,7 @@ export default function PaymentRequest() {
               <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as any).transport_type}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as LogisticsRecordWithPartners & { transport_type?: string }).transport_type || '未填写'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
@@ -1931,7 +2029,7 @@ export default function PaymentRequest() {
                             const value = e.target.value;
                             // 允许输入空、负号、数字和小数点（不立即parseFloat）
                             if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
-                              setTempDriverCost(value as any);  // 临时保存字符串
+                              setTempDriverCost(value);  // 临时保存字符串
                             }
                           }}
                           onBlur={(e) => {
@@ -1979,7 +2077,9 @@ export default function PaymentRequest() {
                                 if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
                                   const newCosts = [...tempPartnerCosts];
                                   const targetIndex = newCosts.findIndex(c => c.partner_id === cost.partner_id);
-                                  newCosts[targetIndex].payable_amount = value as any;  // 临时保存字符串
+                                  if (targetIndex >= 0) {
+                                    (newCosts[targetIndex] as { payable_amount: number | string }).payable_amount = value;  // 临时保存字符串
+                                  }
                                   setTempPartnerCosts(newCosts);
                                 }
                               }}

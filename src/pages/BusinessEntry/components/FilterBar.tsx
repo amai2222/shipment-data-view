@@ -61,6 +61,35 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     selectedProjectIdRef.current = selectedProjectId;
   }, [selectedShipperId, selectedProjectId]);
   
+  // ✅ 使用 useCallback 包装 handleInputChange，避免每次渲染都重新创建
+  const handleInputChange = useCallback((field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
+    onFiltersChange({ ...filters, [field]: value });
+  }, [filters, onFiltersChange]);
+  
+  // ✅ 当项目列表加载完成且选择了货主时，自动设置项目名称
+  useEffect(() => {
+    // 如果选择了货主（非"全部货主"）且项目列表已加载，自动设置项目名称
+    if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
+      // 如果当前选择的是"所有项目"，使用所有项目名称（逗号分隔）
+      if (selectedProjectId === 'all') {
+        const projectNames = availableProjects
+          .map(p => p.name)
+          .filter((name, index, self) => self.indexOf(name) === index) // 去重
+          .sort()
+          .join(',');
+        // ✅ 只有当项目名称与当前 filters.projectName 不同时才更新，避免循环更新
+        if (filters.projectName !== projectNames) {
+          handleInputChange('projectName', projectNames);
+        }
+      }
+    } else if (selectedShipperId === 'all' || availableProjects.length === 0) {
+      // 如果选择的是"全部货主"或没有项目，清空项目名称
+      if (filters.projectName !== '') {
+        handleInputChange('projectName', '');
+      }
+    }
+  }, [availableProjects, selectedShipperId, selectedProjectId, filters.projectName, handleInputChange]);
+  
   // 合作商加载状态
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(false);
@@ -70,11 +99,6 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
     platform_name: string;
     usage_count: number;
   }[]>([]);
-
-  // ✅ 使用 useCallback 包装 handleInputChange，避免每次渲染都重新创建
-  const handleInputChange = useCallback((field: keyof Omit<LogisticsFilters, 'startDate' | 'endDate'>, value: string) => {
-    onFiltersChange({ ...filters, [field]: value });
-  }, [filters, onFiltersChange]);
 
   // ✅ 修改：移除未使用的日期转换函数，现在直接传递中国时区日期字符串给后端RPC函数
   // 格式化中国时区的日期为字符串（用于存储和显示）
@@ -348,8 +372,12 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                 }
               }}
               onProjectsChange={useCallback((projects: Project[]) => {
+                // ✅ 使用 ref 获取最新的状态值，避免闭包问题
+                const currentShipperId = selectedShipperIdRef.current;
+                const currentProjectId = selectedProjectIdRef.current;
+                
                 // ✅ 当项目列表更新时，保存到状态
-                setAvailableProjects(prevProjects => {
+                const projectsChanged = setAvailableProjects(prevProjects => {
                   // ✅ 优化：只在项目列表真正变化时才更新，避免不必要的重新渲染
                   const prevIds = new Set(prevProjects.map(p => p.id));
                   const newIds = new Set(projects.map(p => p.id));
@@ -363,12 +391,9 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                   return projects;
                 });
                 
-                // ✅ 使用 ref 获取最新的状态值，避免闭包问题
-                const currentShipperId = selectedShipperIdRef.current;
-                const currentProjectId = selectedProjectIdRef.current;
-                
                 // ✅ 关键修复：如果选择了货主（非"全部货主"）且项目列表已加载，自动设置项目名称
                 // 确保项目名称正确设置为该货主及其下级的所有项目
+                // 注意：无论项目列表是否变化，只要选择了货主，都应该设置项目名称
                 if (currentShipperId && currentShipperId !== 'all' && projects.length > 0) {
                   // 如果当前选择的是"所有项目"，使用所有项目名称（逗号分隔）
                   if (currentProjectId === 'all') {
@@ -378,6 +403,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                       .filter((name, index, self) => self.indexOf(name) === index) // 去重
                       .sort()
                       .join(',');
+                    // ✅ 立即设置项目名称，确保筛选时能正确使用
                     handleInputChange('projectName', projectNames);
                   } else {
                     // 如果选择了具体项目，使用该项目的名称

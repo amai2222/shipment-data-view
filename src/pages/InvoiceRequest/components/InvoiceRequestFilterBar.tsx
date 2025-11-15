@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,26 @@ export function InvoiceRequestFilterBar({
   // 货主-项目级联筛选
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Array<{id: string, name: string}>>([]); // ✅ 当前货主对应的项目列表
+
+  // ✅ 当项目列表加载完成且选择了货主时，自动设置 projectId
+  useEffect(() => {
+    // 如果选择了货主（非"全部货主"）且项目列表已加载，自动设置 projectId
+    if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
+      // 如果当前选择的是"所有项目"，需要特殊处理
+      // 注意：这些页面使用 projectId，对于"所有项目"的情况，我们保持空字符串
+      // 但需要确保 filters.projectId 与 selectedProjectId 同步
+      if (selectedProjectId === 'all' && filters.projectId !== '') {
+        // 保持空字符串，表示该货主的所有项目（后端会处理）
+        onFiltersChange({...filters, projectId: ''});
+      }
+    } else if (selectedShipperId === 'all' || availableProjects.length === 0) {
+      // 如果选择的是"全部货主"或没有项目，清空 projectId
+      if (filters.projectId !== '') {
+        onFiltersChange({...filters, projectId: ''});
+      }
+    }
+  }, [availableProjects, selectedShipperId, selectedProjectId, filters, onFiltersChange]);
 
   const handleReset = () => {
     onClear();
@@ -117,10 +137,16 @@ export function InvoiceRequestFilterBar({
               onShipperChange={(id) => {
                 setSelectedShipperId(id);
                 setSelectedProjectId('all');
+                // ✅ 货主变化时，先清空 projectId，等待项目列表加载完成后再设置
+                onFiltersChange({...filters, projectId: ''});
               }}
               onProjectChange={(id) => {
                 setSelectedProjectId(id);
                 onFiltersChange({...filters, projectId: id === 'all' ? '' : id});
+              }}
+              onProjectsChange={(projects) => {
+                // ✅ 当项目列表更新时，保存到状态
+                setAvailableProjects(projects);
               }}
             />
           </div>

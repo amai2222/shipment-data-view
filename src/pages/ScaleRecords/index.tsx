@@ -27,6 +27,30 @@ interface Project { id: string; name: string; }
 interface Driver { id: string; name: string; license_plate: string; }
 interface ScaleRecord { id: string; project_id: string; project_name: string; loading_date: string; trip_number: number; valid_quantity: number | null; billing_type_id: number; image_urls: string[]; license_plate: string | null; driver_name: string | null; created_at: string; logistics_number: string | null; }
 interface FilterState { projectId: string; startDate: string; endDate: string; licensePlate: string; }
+interface WaybillDetail {
+  auto_number: string;
+  project_name: string;
+  partner_chains?: { chain_name: string };
+  loading_date: string | null;
+  unloading_date: string | null;
+  driver_name: string;
+  license_plate: string | null;
+  driver_phone: string | null;
+  transport_type: string;
+  loading_location: string;
+  unloading_location: string;
+  loading_weight: number | null;
+  unloading_weight: number | null;
+  current_cost: number | null;
+  extra_cost: number | null;
+  payable_cost: number | null;
+  remarks: string | null;
+}
+interface BulkLinkResult {
+  id: string;
+  status: 'success' | 'not_found' | 'error';
+  logistics_number?: string;
+}
 
 const initialFilterState: FilterState = { projectId: '', startDate: '', endDate: '', licensePlate: '' };
 const PAGE_SIZE = 15;
@@ -45,7 +69,7 @@ export default function ScaleRecords() {
   const [showWaybillDetail, setShowWaybillDetail] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [editingRecord, setEditingRecord] = useState<ScaleRecord | null>(null);
-  const [viewingWaybill, setViewingWaybill] = useState<any>(null);
+  const [viewingWaybill, setViewingWaybill] = useState<WaybillDetail | null>(null);
   
   // 删除相关状态
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
@@ -68,15 +92,35 @@ export default function ScaleRecords() {
   // 货主-项目级联筛选
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Project[]>([]); // ✅ 当前货主对应的项目列表
 
   useEffect(() => {
     loadProjects();
     loadDrivers();
   }, []);
 
+  // ✅ 当项目列表加载完成且选择了货主时，自动设置 projectId
+  useEffect(() => {
+    // 如果选择了货主（非"全部货主"）且项目列表已加载，自动设置 projectId
+    if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
+      // 如果当前选择的是"所有项目"，需要特殊处理
+      // 注意：这些页面使用 projectId，对于"所有项目"的情况，我们保持空字符串
+      // 但需要确保 activeFilters.projectId 与 selectedProjectId 同步
+      if (selectedProjectId === 'all' && activeFilters.projectId !== '') {
+        // 保持空字符串，表示该货主的所有项目（后端会处理）
+        setUiFilters(prev => ({ ...prev, projectId: '' }));
+      }
+    } else if (selectedShipperId === 'all' || availableProjects.length === 0) {
+      // 如果选择的是"全部货主"或没有项目，清空 projectId
+      if (activeFilters.projectId !== '') {
+        setUiFilters(prev => ({ ...prev, projectId: '' }));
+      }
+    }
+  }, [availableProjects, selectedShipperId, selectedProjectId, activeFilters.projectId, setUiFilters]);
+
   useEffect(() => {
     loadRecords();
-  }, [activeFilters, currentPage]);
+  }, [activeFilters, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (isStale) {
@@ -116,7 +160,7 @@ export default function ScaleRecords() {
       const { data, error, count } = await query.range(from, to);
       if (error) throw error;
       
-      setRecords((data as any[]) || []);
+      setRecords((data as ScaleRecord[]) || []);
       setTotalRecordsCount(count || 0);
     } catch (error) {
       console.error('Error loading records:', error);
@@ -139,12 +183,12 @@ export default function ScaleRecords() {
 
       if (error) throw error;
 
-      const results = data.results;
-      const successfulUpdates = results.filter((r: any) => r.status === 'success');
-      const notFoundCount = results.filter((r: any) => r.status === 'not_found').length;
+      const results = (data?.results || []) as BulkLinkResult[];
+      const successfulUpdates = results.filter((r) => r.status === 'success');
+      const notFoundCount = results.filter((r) => r.status === 'not_found').length;
 
       if (successfulUpdates.length > 0) {
-        const updatesMap = new Map(successfulUpdates.map((u: any) => [u.id, u.logistics_number]));
+        const updatesMap = new Map(successfulUpdates.map((u) => [u.id, u.logistics_number || '']));
         
         setRecords(prevRecords =>
           prevRecords.map(record => 
@@ -382,10 +426,16 @@ export default function ScaleRecords() {
                   onShipperChange={(id) => {
                     setSelectedShipperId(id);
                     setSelectedProjectId('all');
+                    // ✅ 货主变化时，先清空 projectId，等待项目列表加载完成后再设置
+                    setUiFilters(prev => ({ ...prev, projectId: '' }));
                   }}
                   onProjectChange={(id) => {
                     setSelectedProjectId(id);
                     setUiFilters(prev => ({ ...prev, projectId: id === 'all' ? '' : id }));
+                  }}
+                  onProjectsChange={(projects) => {
+                    // ✅ 当项目列表更新时，保存到状态
+                    setAvailableProjects(projects);
                   }}
                 />
               </div>

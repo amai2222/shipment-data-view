@@ -122,7 +122,7 @@ export default function PaymentRequestsList() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1113', {
+      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1116', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,

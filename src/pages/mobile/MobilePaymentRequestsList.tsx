@@ -68,6 +68,84 @@ interface PartnerTotal {
   total_amount: number;
   level: number;
 }
+interface PaymentRequestData {
+  id: string;
+  request_id: string;
+  status: string;
+  notes: string | null;
+  logistics_record_ids: string[];
+  record_count: number;
+  max_amount?: number;
+  created_at: string;
+  total_count?: number; // 分页查询返回的总记录数
+}
+interface PaymentRequestV2Response {
+  records?: Array<{
+    id: string;
+    auto_number?: string;
+    project_name: string;
+    driver_name?: string;
+    license_plate?: string;
+    driver_phone?: string;
+    loading_location?: string;
+    unloading_location?: string;
+    loading_date?: string;
+    unloading_date?: string | null;
+    loading_weight?: number | null;
+    payable_cost?: number; // 司机应收金额
+    partner_costs?: Array<{
+      partner_id: string;
+      partner_name: string;
+      full_name?: string;
+      bank_account?: string;
+      bank_name?: string;
+      branch_name?: string;
+      payable_amount: number;
+      level?: number;
+    }>;
+    [key: string]: unknown;
+  }>;
+}
+interface PaymentSheet {
+  paying_partner_id: string;
+  paying_partner_full_name: string;
+  paying_partner_bank_account: string;
+  paying_partner_bank_name: string;
+  paying_partner_branch_name: string;
+  record_count: number;
+  total_payable: number;
+  project_name: string;
+  chain_name?: string; // 合作方链名称（可选）
+  records: Array<{
+    record: {
+      id: string;
+      auto_number: string;
+      project_name: string;
+      unloading_date: string | null;
+      loading_date?: string; // 添加 loading_date 字段
+      [key: string]: unknown;
+    };
+    payable_amount: number;
+  }>;
+}
+interface LogisticsRecordWithPartners {
+  id: string;
+  auto_number: string;
+  project_name: string;
+  unloading_date: string | null;
+  partner_costs?: Array<{
+    partner_id: string;
+    level: number;
+    payable_amount: number;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+interface RPCResponse {
+  updated_waybills?: number;
+  updated_partner_costs?: number;
+  waybill_count?: number;
+}
 
 export default function MobilePaymentRequestsList() {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
@@ -113,8 +191,7 @@ export default function MobilePaymentRequestsList() {
     try {
       // 使用后端筛选函数
       // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
-      // @ts-ignore - 新的RPC函数，TypeScript类型尚未更新
-      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1113', {
+      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1116', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
@@ -127,12 +204,12 @@ export default function MobilePaymentRequestsList() {
       if (error) throw error;
       
       // 处理返回的数据
-      const requestsData = (data as any[]) || [];
+      const requestsData = (data as PaymentRequestData[]) || [];
       setRequests(requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,
         request_id: item.request_id,
-        status: item.status,
+        status: item.status as PaymentRequest['status'],
         notes: item.notes,
         logistics_record_ids: item.logistics_record_ids,
         record_count: item.record_count
@@ -151,7 +228,7 @@ export default function MobilePaymentRequestsList() {
       console.error("加载付款申请列表失败:", error);
       toast({ 
         title: "错误", 
-        description: `加载付款申请列表失败: ${(error as any).message}`, 
+        description: `加载付款申请列表失败: ${error instanceof Error ? error.message : String(error)}`, 
         variant: "destructive" 
       });
     } finally {
@@ -164,7 +241,7 @@ export default function MobilePaymentRequestsList() {
   }, [fetchPaymentRequests]);
 
   // 筛选器处理函数
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: string | Date | null) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
@@ -195,7 +272,6 @@ export default function MobilePaymentRequestsList() {
   const handleRollbackApproval = async (requestId: string) => {
     try {
       setExportingId(requestId);
-      // @ts-ignore - 新的RPC函数
       const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
         p_request_id: requestId
       });
@@ -206,7 +282,8 @@ export default function MobilePaymentRequestsList() {
       fetchPaymentRequests();
     } catch (error) {
       console.error('审批回滚失败:', error);
-      toast({ title: "审批回滚失败", description: (error as any).message, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "审批回滚失败", description: errorMessage, variant: "destructive" });
     } finally {
       setExportingId(null);
     }
@@ -264,7 +341,7 @@ export default function MobilePaymentRequestsList() {
       console.error('导出失败:', error);
       toast({ 
         title: '导出失败', 
-        description: (error as any).message, 
+        description: error instanceof Error ? error.message : String(error), 
         variant: 'destructive' 
       });
     } finally {
@@ -277,22 +354,32 @@ export default function MobilePaymentRequestsList() {
       setExportingId(req.id);
       
       // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
-      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2' as any, {
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2', {
         p_record_ids: req.logistics_record_ids
       });
 
       if (error) throw error;
 
       // 生成PDF HTML内容 - 使用与Excel导出完全相同的逻辑
-      const generatePaymentRequestPDF = async (requestData: any): Promise<string> => {
+      const generatePaymentRequestPDF = async (requestData: PaymentRequestV2Response): Promise<string> => {
         if (!requestData) {
           throw new Error('付款申请单数据不能为空');
         }
 
-        const records: any[] = Array.isArray((requestData as any)?.records) ? (requestData as any).records : [];
+        const records: LogisticsRecordWithPartners[] = Array.isArray(requestData.records) 
+          ? requestData.records.map(rec => ({
+              ...rec,
+              auto_number: rec.auto_number || '',
+              unloading_date: rec.unloading_date || null,
+              partner_costs: rec.partner_costs?.map(cost => ({
+                ...cost,
+                level: cost.level ?? 0,
+              })),
+            }))
+          : [];
 
         // 使用与Excel导出完全相同的分组逻辑
-        const sheetMap = new Map<string, any>();
+        const sheetMap = new Map<string, PaymentSheet>();
         for (const rec of records) {
           const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
           for (const cost of costs) {
@@ -300,10 +387,10 @@ export default function MobilePaymentRequestsList() {
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
                 paying_partner_id: key,
-                paying_partner_full_name: cost.full_name || cost.partner_name,
-                paying_partner_bank_account: cost.bank_account || '',
-                paying_partner_bank_name: cost.bank_name || '',
-                paying_partner_branch_name: cost.branch_name || '',
+                paying_partner_full_name: (cost.full_name as string) || (cost.partner_name as string) || '',
+                paying_partner_bank_account: (cost.bank_account as string) || '',
+                paying_partner_bank_name: (cost.bank_name as string) || '',
+                paying_partner_branch_name: (cost.branch_name as string) || '',
                 record_count: 0,
                 total_payable: 0,
                 project_name: rec.project_name,
@@ -311,7 +398,7 @@ export default function MobilePaymentRequestsList() {
               });
             }
             const sheet = sheetMap.get(key);
-            if (!sheet.records.some((r: any) => r.record.id === rec.id)) {
+            if (!sheet.records.some((r) => r.record.id === rec.id)) {
               sheet.record_count += 1;
             }
             sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
@@ -337,6 +424,18 @@ export default function MobilePaymentRequestsList() {
           });
           return acc;
         }, new Map());
+        
+        // 为每个 sheet 设置 chain_name
+        for (const sheet of sheetMap.values()) {
+          const projectId = projectsByName.get(sheet.project_name);
+          if (projectId) {
+            const allPartnersInProject = projectPartnersByProjectId.get(projectId) || [];
+            const partnerInfo = allPartnersInProject.find((p) => p.partner_id === sheet.paying_partner_id);
+            if (partnerInfo && partnerInfo.chain_name) {
+              sheet.chain_name = partnerInfo.chain_name as string;
+            }
+          }
+        }
         
         // 过滤掉最高级别的合作方，并按级别排序 - 与Excel导出逻辑一致
         const filteredSheets = Array.from(sheetMap.values()).filter((sheet) => {
@@ -380,12 +479,12 @@ export default function MobilePaymentRequestsList() {
         const sheetData = { sheets: sortedSheets };
 
         // 生成单个合作方的表格 - 完全按照Excel导出逻辑
-        const generatePartnerTable = (sheet: any, index: number) => {
-          const sorted = (sheet.records || []).slice().sort((a: any, b: any) => 
+        const generatePartnerTable = (sheet: PaymentSheet, index: number) => {
+          const sorted = (sheet.records || []).slice().sort((a, b) => 
             String(a.record.auto_number || "").localeCompare(String(b.record.auto_number || ""))
           );
           
-          const payingPartnerName = sheet.paying_partner_full_name || sheet.paying_partner_name || "";
+          const payingPartnerName = sheet.paying_partner_full_name || "";
           const bankAccount = sheet.paying_partner_bank_account || "";
           const bankName = sheet.paying_partner_bank_name || "";
           const branchName = sheet.paying_partner_branch_name || "";
@@ -393,7 +492,7 @@ export default function MobilePaymentRequestsList() {
           console.log(`生成第 ${index + 1} 个表格，合作方: ${payingPartnerName}`);
           
           // 获取上一级合作方信息，与Excel导出逻辑一致
-          let parentTitle = "中科智运(云南)供应链科技有限公司";
+          const parentTitle = "中科智运(云南)供应链科技有限公司";
           
           // 简化逻辑：暂时使用默认标题，后续可以优化
           // TODO: 实现完整的上一级合作方查找逻辑
@@ -435,24 +534,25 @@ export default function MobilePaymentRequestsList() {
                   </tr>
                 </thead>
                 <tbody>
-                  ${sorted.map((item: any, index: number) => {
+                  ${sorted.map((item, index: number) => {
                     const rec = item.record;
-                    let finalUnloadingDate = rec.unloading_date;
+                    const loadingDate = (rec.loading_date as string) || '';
+                    let finalUnloadingDate = rec.unloading_date as string | null;
                     if (!finalUnloadingDate) {
-                      finalUnloadingDate = rec.loading_date;
+                      finalUnloadingDate = loadingDate;
                     }
                     return `
                       <tr class="data-row">
                         <td class="serial-number">${index + 1}</td>
-                        <td>${rec.loading_date || ''}</td>
+                        <td>${loadingDate}</td>
                         <td>${finalUnloadingDate || ''}</td>
-                        <td>${rec.loading_location || ''}</td>
-                        <td>${rec.unloading_location || ''}</td>
-                        <td>${rec.cargo_type || '普货'}</td>
-                        <td>${rec.driver_name || ''}</td>
-                        <td>${rec.driver_phone || ''}</td>
-                        <td>${rec.license_plate || ''}</td>
-                        <td>${rec.loading_weight || ''}</td>
+                        <td>${(rec.loading_location as string) || ''}</td>
+                        <td>${(rec.unloading_location as string) || ''}</td>
+                        <td>${(rec.cargo_type as string) || '普货'}</td>
+                        <td>${(rec.driver_name as string) || ''}</td>
+                        <td>${(rec.driver_phone as string) || ''}</td>
+                        <td>${(rec.license_plate as string) || ''}</td>
+                        <td>${(rec.loading_weight as number | null) || ''}</td>
                         <td class="amount-cell">${(item.payable_amount || 0).toFixed(2)}</td>
                         <td>${payingPartnerName}</td>
                         <td>${bankAccount}</td>
@@ -497,7 +597,7 @@ export default function MobilePaymentRequestsList() {
         };
 
         // 计算总金额
-        const totalAmount = sheetData.sheets.reduce((sum: number, sheet: any) => sum + (sheet.total_payable || 0), 0);
+        const totalAmount = sheetData.sheets.reduce((sum: number, sheet) => sum + (sheet.total_payable || 0), 0);
 
         return `
           <!DOCTYPE html>
@@ -566,7 +666,7 @@ export default function MobilePaymentRequestsList() {
             <button class="print-button" onclick="window.print()">🖨️ 打印申请表</button>
             
 
-            ${sheetData.sheets.map((sheet: any, index: number) => 
+            ${sheetData.sheets.map((sheet, index: number) => 
               generatePartnerTable(sheet, index)
             ).join('')}
 
@@ -594,7 +694,7 @@ export default function MobilePaymentRequestsList() {
       });
     } catch (error) {
       console.error('生成PDF失败:', error);
-      toast({ title: '生成PDF失败', description: (error as any).message, variant: 'destructive' });
+      toast({ title: '生成PDF失败', description: error instanceof Error ? error.message : String(error), variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -605,7 +705,7 @@ export default function MobilePaymentRequestsList() {
       setExportingId(req.id);
       
       // 更新付款状态
-      const { data, error } = await supabase.rpc('set_payment_status_for_waybills' as any, {
+      const { data, error } = await supabase.rpc('set_payment_status_for_waybills', {
         p_record_ids: req.logistics_record_ids,
         p_payment_status: 'Paid'
       });
@@ -614,14 +714,15 @@ export default function MobilePaymentRequestsList() {
 
       toast({ 
         title: '付款成功', 
-        description: `已更新 ${(data as any)?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as any)?.updated_partner_costs || 0} 条合作方成本记录。` 
+        description: `已更新 ${(data as RPCResponse)?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as RPCResponse)?.updated_partner_costs || 0} 条合作方成本记录。` 
       });
       
       // 刷新数据
       fetchPaymentRequests();
     } catch (error) {
       console.error('付款操作失败:', error);
-      toast({ title: '付款操作失败', description: (error as any).message, variant: 'destructive' });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: '付款操作失败', description: errorMessage, variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -632,7 +733,7 @@ export default function MobilePaymentRequestsList() {
       setExportingId(req.id);
       
       // 取消付款状态
-      const { data, error } = await supabase.rpc('void_payment_for_request' as any, {
+      const { data, error } = await supabase.rpc('void_payment_for_request', {
         p_request_id: req.request_id,
         p_cancel_reason: '手动取消付款'
       });
@@ -641,14 +742,15 @@ export default function MobilePaymentRequestsList() {
 
       toast({ 
         title: '取消付款成功', 
-        description: `已取消 ${(data as any).waybill_count} 条运单的付款状态，运单状态回退到"未付款"。` 
+        description: `已取消 ${(data as RPCResponse)?.waybill_count || 0} 条运单的付款状态，运单状态回退到"未付款"。` 
       });
       
       // 刷新数据
       fetchPaymentRequests();
     } catch (error) {
       console.error('取消付款操作失败:', error);
-      toast({ title: '取消付款失败', description: (error as any).message, variant: 'destructive' });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: '取消付款失败', description: errorMessage, variant: 'destructive' });
     } finally {
       setExportingId(null);
     }
@@ -668,13 +770,13 @@ export default function MobilePaymentRequestsList() {
 
       if (error) throw error;
 
-      const rawRecords = (rpcData as any)?.records || [];
+      const rawRecords = (rpcData as PaymentRequestV2Response)?.records || [];
       
       const totalsMap = new Map<string, PartnerTotal>();
       let maxLevel = -1;
       
-      rawRecords.forEach((rec: any) => {
-        (rec.partner_costs || []).forEach((cost: any) => {
+      rawRecords.forEach((rec) => {
+        (rec.partner_costs || []).forEach((cost) => {
           const level = cost.level ?? 0; 
           if (level > maxLevel) {
             maxLevel = level;
@@ -699,7 +801,7 @@ export default function MobilePaymentRequestsList() {
       
       setPartnerTotals(filteredTotals);
 
-      const detailedRecords = rawRecords.map((rec: any) => {
+      const detailedRecords = rawRecords.map((rec) => {
         return {
           id: rec.id,
           auto_number: rec.auto_number,
@@ -719,7 +821,7 @@ export default function MobilePaymentRequestsList() {
       console.error('获取运单详情失败:', error);
       toast({
         title: '获取详情失败',
-        description: (error as any).message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
       setIsModalOpen(false);

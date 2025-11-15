@@ -144,6 +144,31 @@ export default function PaymentAudit() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Array<{id: string, name: string}>>([]); // ✅ 当前货主对应的项目列表
+  
+  // 筛选器处理函数
+  const handleFilterChange = useCallback((key: string, value: string | Date | null) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  }, []);
+  
+  // ✅ 当项目列表加载完成且选择了货主时，自动设置 projectId
+  useEffect(() => {
+    // 如果选择了货主（非"全部货主"）且项目列表已加载，自动设置 projectId
+    if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
+      // 如果当前选择的是"所有项目"，需要特殊处理
+      // 注意：这些页面使用 projectId，对于"所有项目"的情况，我们保持空字符串
+      // 但需要确保 filters.projectId 与 selectedProjectId 同步
+      if (selectedProjectId === 'all' && filters.projectId !== '') {
+        // 保持空字符串，表示该货主的所有项目（后端会处理）
+        handleFilterChange('projectId', '');
+      }
+    } else if (selectedShipperId === 'all' || availableProjects.length === 0) {
+      // 如果选择的是"全部货主"或没有项目，清空 projectId
+      if (filters.projectId !== '') {
+        handleFilterChange('projectId', '');
+      }
+    }
+  }, [availableProjects, selectedShipperId, selectedProjectId, filters.projectId, handleFilterChange]);
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
@@ -162,13 +187,25 @@ export default function PaymentAudit() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1113', {
+      // ✅ 修改：支持多个 project_id（逗号分隔）
+      let projectIdParam: string | null = null;
+      if (selectedShipperId && selectedShipperId !== 'all') {
+        if (selectedProjectId === 'all' && availableProjects.length > 0) {
+          // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
+          projectIdParam = availableProjects.map(p => p.id).join(',');
+        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          // 选择具体项目时，传递该项目ID
+          projectIdParam = selectedProjectId;
+        }
+      }
+      
+      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1116', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
         p_status: filters.status || null,
-        p_project_id: filters.projectId || null,
+        p_project_id: projectIdParam,
         p_limit: pageSize,
         p_offset: (currentPage - 1) * pageSize
       });
@@ -259,7 +296,7 @@ export default function PaymentAudit() {
     } finally {
       setLoading(false);
     }
-  }, [toast, filters, currentPage, pageSize]);
+  }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
   useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
 
@@ -302,13 +339,6 @@ export default function PaymentAudit() {
   }, [toast]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
-  // 筛选器处理函数
-  const handleFilterChange = (key: string, value: string | Date | null) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    // 筛选条件变化时重置到第一页，但不自动搜索
-    setCurrentPage(1);
-  };
 
   const clearFilters = () => {
     setFilters({
@@ -930,8 +960,17 @@ export default function PaymentAudit() {
                   }).join('')}
                   <tr class="total-row">
                     <td colspan="10" class="remarks-label">备注：共${sorted.length}条运单</td>
-                    <td class="total-amount">${sorted.reduce((sum: number, item: unknown) => sum + Number((item as { record: { payable_cost?: number } }).record.payable_cost || 0), 0).toFixed(2)}</td>
-                    <td class="total-amount">${(sheetData as { total_payable?: number }).total_payable?.toFixed(2) || '0.00'}</td>
+                    <td class="total-amount">${(() => {
+                      const total = sorted.reduce((sum: number, item: { record: { payable_cost?: number } }) => {
+                        const cost = item.record.payable_cost;
+                        return sum + (typeof cost === 'number' ? cost : 0);
+                      }, 0);
+                      return typeof total === 'number' ? total.toFixed(2) : '0.00';
+                    })()}</td>
+                    <td class="total-amount">${(() => {
+                      const total = (sheetData as { total_payable?: number }).total_payable;
+                      return typeof total === 'number' ? total.toFixed(2) : '0.00';
+                    })()}</td>
                     <td colspan="4"></td>
                   </tr>
                 </tbody>
@@ -1576,10 +1615,16 @@ export default function PaymentAudit() {
                 onShipperChange={(id) => {
                   setSelectedShipperId(id);
                   setSelectedProjectId('all');
+                  // ✅ 货主变化时，先清空 projectId，等待项目列表加载完成后再设置
+                  handleFilterChange('projectId', '');
                 }}
                 onProjectChange={(id) => {
                   setSelectedProjectId(id);
                   handleFilterChange('projectId', id === 'all' ? '' : id);
+                }}
+                onProjectsChange={(projects) => {
+                  // ✅ 当项目列表更新时，保存到状态
+                  setAvailableProjects(projects);
                 }}
               />
             </div>
