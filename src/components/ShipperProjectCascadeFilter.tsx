@@ -137,8 +137,8 @@ export function ShipperProjectCascadeFilter({
   // 根据选中的货主加载项目列表（包含本级和所有下级货主的项目）
   useEffect(() => {
     const loadProjects = async () => {
+      // ✅ 如果选择了"全部"或未选择，加载所有项目
       if (!selectedShipperId || selectedShipperId === 'all') {
-        // 加载所有项目
         const { data } = await supabase
           .from('projects')
           .select('id, name')
@@ -148,11 +148,17 @@ export function ShipperProjectCascadeFilter({
         return;
       }
 
+      // ✅ 如果 allShippers 还未加载完成，等待
+      if (allShippers.length === 0) {
+        console.log('等待货主数据加载完成...');
+        return;
+      }
+
       try {
         console.log('开始加载货主的项目（包含下级），货主ID:', selectedShipperId);
         
         // ✅ 第一步：使用递归查询获取所有下级货主ID（包括本级）
-        const getAllSubordinateIds = async (shipperId: string): Promise<string[]> => {
+        const getAllSubordinateIds = (shipperId: string): string[] => {
           // 递归查找所有下级货主
           const findSubordinates = (parentId: string, visited: Set<string> = new Set()): string[] => {
             if (visited.has(parentId)) {
@@ -162,7 +168,7 @@ export function ShipperProjectCascadeFilter({
             
             const result = [parentId]; // 包含本级
             
-            // 查找直接下级
+            // 查找直接下级（从 allShippers 扁平列表中查找）
             const children = allShippers.filter(s => s.parent_partner_id === parentId);
             for (const child of children) {
               result.push(...findSubordinates(child.id, visited));
@@ -175,10 +181,18 @@ export function ShipperProjectCascadeFilter({
         };
         
         // 获取所有相关货主ID（本级 + 所有下级）
-        const allShipperIds = await getAllSubordinateIds(selectedShipperId);
+        const allShipperIds = getAllSubordinateIds(selectedShipperId);
         console.log('相关货主ID列表（本级+下级）:', allShipperIds);
         
-        // ✅ 第二步：查询这些货主关联的所有项目
+        // ✅ 如果没有找到任何相关货主，返回空列表
+        if (allShipperIds.length === 0) {
+          console.warn('未找到相关货主，返回空项目列表');
+          setProjects([]);
+          onProjectChange('all');
+          return;
+        }
+        
+        // ✅ 第二步：查询这些货主关联的所有项目（只查询这些货主的项目）
         const { data, error } = await supabase
           .from('project_partners')
           .select(`
@@ -188,7 +202,7 @@ export function ShipperProjectCascadeFilter({
               name
             )
           `)
-          .in('partner_id', allShipperIds);
+          .in('partner_id', allShipperIds); // ✅ 只查询这些货主的项目
 
         console.log('project_partners 查询结果:', data, error);
 
@@ -209,16 +223,14 @@ export function ShipperProjectCascadeFilter({
           new Map(projectList.map(p => [p.id, p])).values()
         );
 
-        console.log('去重后的项目列表:', uniqueProjects);
+        console.log('去重后的项目列表（仅包含该货主及其下级）:', uniqueProjects);
 
+        // ✅ 只设置这些项目，不包含其他货主的项目
         setProjects(uniqueProjects || []);
 
-        // 自动选择第一个项目（如果有项目的话）
-        if (uniqueProjects.length > 0) {
-          onProjectChange(uniqueProjects[0].id);
-        } else {
-          onProjectChange('all');
-        }
+        // ✅ 默认选择"所有项目"（表示该货主及其下级的所有项目）
+        // 不自动选择第一个项目，让用户看到"所有项目"选项
+        onProjectChange('all');
 
       } catch (error) {
         console.error('加载项目失败:', error);
@@ -227,10 +239,7 @@ export function ShipperProjectCascadeFilter({
       }
     };
 
-    // 等待 allShippers 加载完成后再加载项目
-    if (allShippers.length > 0 || !selectedShipperId || selectedShipperId === 'all') {
-      loadProjects();
-    }
+    loadProjects();
   }, [selectedShipperId, allShippers]);
 
   // 扁平化货主列表（用于下拉框，支持展开/折叠）
@@ -361,7 +370,7 @@ export function ShipperProjectCascadeFilter({
             <div className="relative cursor-pointer">
               <Input
                 value={(!selectedShipperId || selectedShipperId === 'all')
-                  ? '' 
+                  ? '全部货主'  // ✅ 选择"全部货主"时显示"全部货主"
                   : allShippers.find(s => s.id === selectedShipperId)?.name || ''}
                 placeholder="选择货主..."
                 readOnly
@@ -372,7 +381,14 @@ export function ShipperProjectCascadeFilter({
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-[400px] p-0">
-            <Command shouldFilter={true}>
+            <Command shouldFilter={true} filter={(value, search) => {
+              // 自定义过滤逻辑：确保"全部货主"总是显示
+              if (value === '全部货主') {
+                return !search || '全部货主'.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+              }
+              // 其他项使用默认过滤
+              return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+            }}>
               <CommandInput 
                 placeholder="输入货主名称搜索..." 
                 className="h-10"
@@ -381,6 +397,36 @@ export function ShipperProjectCascadeFilter({
               />
               <CommandEmpty>未找到匹配的货主</CommandEmpty>
               <CommandGroup className="max-h-96 overflow-y-auto p-2">
+                {/* ✅ 添加"全部货主"选项（始终显示在顶部） */}
+                <CommandItem
+                  value="全部货主"
+                  onSelect={() => {
+                    onShipperChange('all');
+                    setShipperOpen(false);
+                    setSearchValue('');
+                  }}
+                  className={cn(
+                    "flex items-center cursor-pointer",
+                    (!selectedShipperId || selectedShipperId === 'all') && "bg-blue-50"
+                  )}
+                >
+                  <div className="flex items-center gap-1 flex-1">
+                    <div className="w-5" />
+                    <Check
+                      className={cn(
+                        "h-4 w-4 text-blue-600",
+                        (!selectedShipperId || selectedShipperId === 'all') ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span className="flex-1 text-sm font-medium">全部货主</span>
+                  </div>
+                </CommandItem>
+                
+                {/* 分隔线（只在有货主列表时显示） */}
+                {((searchValue ? getSearchableShippers() : flattenShippers(shippers)).length > 0) && (
+                  <div className="h-px bg-gray-200 my-1" />
+                )}
+                
                 {/* ✅ 有搜索时显示所有匹配的货主，无搜索时显示折叠的树（默认折叠） */}
                 {(searchValue ? getSearchableShippers() : flattenShippers(shippers)).map((shipper) => {
                   const hasChildren = shipper.children && shipper.children.length > 0;
