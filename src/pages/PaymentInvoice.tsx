@@ -267,23 +267,29 @@ export default function InvoiceAudit() {
       if (selectedShipperId && selectedShipperId !== 'all') {
         if (selectedProjectId === 'all' && availableProjects.length > 0) {
           // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
-          projectIdParam = availableProjects.map(p => p.id).join(',');
-        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          const projectIds = availableProjects.map(p => p.id).join(',');
+          projectIdParam = projectIds || null; // 确保空字符串转换为 null
+        } else if (selectedProjectId && selectedProjectId !== 'all' && selectedProjectId.trim() !== '') {
           // 选择具体项目时，传递该项目ID
-          projectIdParam = selectedProjectId;
+          projectIdParam = selectedProjectId.trim() || null; // 确保空字符串转换为 null
         }
       }
       
+      // ✅ 辅助函数：将空字符串转换为 null
+      const toNullIfEmpty = (value: string | null | undefined): string | null => {
+        return (value && value.trim() !== '') ? value.trim() : null;
+      };
+      
       const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1116', {
-        p_request_number: filters.requestNumber || null,
-        p_waybill_number: filters.waybillNumber || null,
-        p_driver_name: filters.driverName || null,
+        p_request_number: toNullIfEmpty(filters.requestNumber),
+        p_waybill_number: toNullIfEmpty(filters.waybillNumber),
+        p_driver_name: toNullIfEmpty(filters.driverName),
         p_loading_date: filters.loadingDate ? format(filters.loadingDate, 'yyyy-MM-dd') : null,
-        p_status: filters.status || null,
-        p_project_id: projectIdParam,
-        p_license_plate: filters.licensePlate || null,      // ✅ 添加车牌号筛选
-        p_phone_number: filters.phoneNumber || null,        // ✅ 添加电话筛选
-        p_platform_name: filters.platformName || null,      // ✅ 添加平台筛选
+        p_status: toNullIfEmpty(filters.status),
+        p_project_id: projectIdParam, // 已经确保不会是空字符串
+        p_license_plate: toNullIfEmpty(filters.licensePlate),      // ✅ 添加车牌号筛选
+        p_phone_number: toNullIfEmpty(filters.phoneNumber),        // ✅ 添加电话筛选
+        p_platform_name: toNullIfEmpty(filters.platformName),      // ✅ 添加平台筛选
         p_invoicing_partner_id: null,  // 财务收款页面不需要按开票方筛选
         p_page_number: currentPage,
         p_page_size: pageSize
