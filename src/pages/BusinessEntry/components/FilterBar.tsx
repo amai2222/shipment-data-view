@@ -50,6 +50,7 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
   // 货主和项目级联筛选
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Project[]>([]); // ✅ 当前货主对应的项目列表
   
   // 合作商加载状态
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -316,12 +317,27 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
               onProjectChange={(id) => {
                 setSelectedProjectId(id);
                 if (id === 'all') {
-                  handleInputChange('projectName', '');
+                  // ✅ 选择"所有项目"时，如果选择了货主，使用该货主的所有项目名称（逗号分隔）
+                  if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
+                    const projectNames = availableProjects.map(p => p.name).join(',');
+                    handleInputChange('projectName', projectNames);
+                  } else {
+                    handleInputChange('projectName', '');
+                  }
                 } else {
-                  const project = projects.find(p => p.id === id);
+                  const project = availableProjects.find(p => p.id === id);
                   if (project) {
                     handleInputChange('projectName', project.name);
                   }
+                }
+              }}
+              onProjectsChange={(projects) => {
+                // ✅ 当项目列表更新时，保存到状态
+                setAvailableProjects(projects);
+                // ✅ 如果当前选择的是"所有项目"，更新 projectName
+                if (selectedProjectId === 'all' && selectedShipperId && selectedShipperId !== 'all' && projects.length > 0) {
+                  const projectNames = projects.map(p => p.name).join(',');
+                  handleInputChange('projectName', projectNames);
                 }
               }}
             />

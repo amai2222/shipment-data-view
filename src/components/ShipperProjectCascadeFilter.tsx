@@ -46,6 +46,7 @@ interface ShipperProjectCascadeFilterProps {
   onShipperChange: (shipperId: string) => void;
   onProjectChange: (projectId: string) => void;
   className?: string;
+  onProjectsChange?: (projects: Project[]) => void; // ✅ 新增：当项目列表变化时回调
 }
 
 export function ShipperProjectCascadeFilter({
@@ -53,7 +54,8 @@ export function ShipperProjectCascadeFilter({
   selectedProjectId,
   onShipperChange,
   onProjectChange,
-  className = ''
+  className = '',
+  onProjectsChange // ✅ 新增：项目列表变化回调
 }: ShipperProjectCascadeFilterProps) {
   const [shippers, setShippers] = useState<Shipper[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -145,6 +147,11 @@ export function ShipperProjectCascadeFilter({
           .order('name');
         
         setProjects(data || []);
+        
+        // ✅ 通知父组件项目列表已更新
+        if (onProjectsChange) {
+          onProjectsChange(data || []);
+        }
         return;
       }
 
@@ -227,6 +234,11 @@ export function ShipperProjectCascadeFilter({
 
         // ✅ 只设置这些项目，不包含其他货主的项目
         setProjects(uniqueProjects || []);
+        
+        // ✅ 通知父组件项目列表已更新
+        if (onProjectsChange) {
+          onProjectsChange(uniqueProjects || []);
+        }
 
         // ✅ 默认选择"所有项目"（表示该货主及其下级的所有项目）
         // 不自动选择第一个项目，让用户看到"所有项目"选项
