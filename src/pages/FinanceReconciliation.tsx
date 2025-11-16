@@ -1339,7 +1339,7 @@ export default function FinanceReconciliation() {
                         <div className="text-right">
                           <div className="text-[10px] text-muted-foreground">总运单数</div>
                           <div className="text-sm font-semibold">
-                            {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
+                          {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
                           </div>
                         </div>
                         <div className="text-right">
