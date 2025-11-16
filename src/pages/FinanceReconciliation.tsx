@@ -97,8 +97,8 @@ const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded
 
 export default function FinanceReconciliation() {
   // --- 权限管理 ---
-  const { hasFunctionAccess, isAdmin } = useUnifiedPermissions();
-  const canReconcile = isAdmin || hasFunctionAccess('finance.reconcile');
+  const { hasButtonAccess, isAdmin } = useUnifiedPermissions();
+  const canReconcile = isAdmin || hasButtonAccess('finance.reconcile');
   
   // --- State 管理 ---
   const [reportData, setReportData] = useState<FinanceReconciliationResponse | null>(null);
@@ -776,6 +776,27 @@ export default function FinanceReconciliation() {
             <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`} onConfirm={handleBatchRecalculate}>
               <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}一键重算已选运单 ({selectionCount})</Button>
             </ConfirmDialog>
+            {/* 自动对账按钮（新增） */}
+            {canReconcile && (
+            <Button
+              variant="default"
+              disabled={isReconciling}
+              onClick={() => handleAutoReconcile(activeFilters.partnerId === 'all' ? undefined : activeFilters.partnerId)}
+              className="h-10 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isReconciling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  自动对账中...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  自动对账
+                </>
+              )}
+            </Button>
+            )}
             {/* 批量对账按钮（新增） */}
             {canReconcile && (
             <Button
@@ -866,27 +887,6 @@ export default function FinanceReconciliation() {
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               批量对账 ({selectionCount})
-            </Button>
-            )}
-            {/* 自动对账按钮（新增） */}
-            {canReconcile && (
-            <Button
-              variant="default"
-              disabled={isReconciling}
-              onClick={() => handleAutoReconcile(activeFilters.partnerId === 'all' ? undefined : activeFilters.partnerId)}
-              className="h-10 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isReconciling ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  自动对账中...
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-2 h-4 w-4" />
-                  自动对账
-                </>
-              )}
             </Button>
             )}
           </div>
