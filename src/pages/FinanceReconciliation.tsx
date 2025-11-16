@@ -725,7 +725,128 @@ export default function FinanceReconciliation() {
         description="运费收入与合作方应付金额统计"
         icon={Calculator}
         iconColor="text-blue-600"
-      />
+      >
+        {/* 一键重算已选运单按钮 */}
+        <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`} onConfirm={handleBatchRecalculate}>
+          <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating} className="h-10">
+            {isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            一键重算已选运单 ({selectionCount})
+          </Button>
+        </ConfirmDialog>
+        {/* 自动对账按钮 */}
+        {canReconcile && (
+          <Button
+            variant="default"
+            disabled={isReconciling}
+            onClick={() => handleAutoReconcile(activeFilters.partnerId === 'all' ? undefined : activeFilters.partnerId)}
+            className="h-10 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isReconciling ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                自动对账中...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-4 w-4" />
+                自动对账
+              </>
+            )}
+          </Button>
+        )}
+        {/* 批量对账按钮 */}
+        {canReconcile && (
+          <Button
+            variant="default"
+            disabled={selectionCount === 0}
+            onClick={async () => {
+              try {
+                const allCostIds: string[] = [];
+                
+                if (selection.mode === 'all_filtered') {
+                  // 跨页选择：需要获取所有筛选条件下的运单
+                  let projectIdParam: string | null = null;
+                  if (selectedShipperId && selectedShipperId !== 'all') {
+                    if (selectedProjectId === 'all' && availableProjects.length > 0) {
+                      projectIdParam = availableProjects.map(p => p.id).join(',');
+                    } else if (selectedProjectId && selectedProjectId !== 'all') {
+                      projectIdParam = selectedProjectId;
+                    }
+                  }
+                  
+                  const utcStartDate = activeFilters.startDate ? (() => {
+                    const [year, month, day] = activeFilters.startDate.split('-').map(Number);
+                    const chinaDate = new Date(year, month - 1, day);
+                    return convertChinaDateToUTCDate(chinaDate);
+                  })() : null;
+                  const utcEndDate = activeFilters.endDate ? (() => {
+                    const [year, month, day] = activeFilters.endDate.split('-').map(Number);
+                    const chinaDate = new Date(year, month - 1, day);
+                    return convertChinaEndDateToUTCDate(chinaDate);
+                  })() : null;
+                  
+                  // 获取所有筛选条件下的运单（不分页）
+                  const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1116', {
+                    p_project_id: projectIdParam,
+                    p_start_date: utcStartDate,
+                    p_end_date: utcEndDate,
+                    p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+                    p_page_number: 1,
+                    p_page_size: 10000, // 获取所有数据
+                    p_driver_name: activeFilters.driverName || null,
+                    p_license_plate: activeFilters.licensePlate || null,
+                    p_driver_phone: activeFilters.driverPhone || null,
+                    p_waybill_numbers: activeFilters.waybillNumbers || null,
+                    p_other_platform_name: activeFilters.otherPlatformName || null,
+                    p_reconciliation_status: activeFilters.reconciliationStatus === 'all' ? null : activeFilters.reconciliationStatus || null,
+                  });
+                  
+                  if (error) throw error;
+                  
+                  const allRecords = (allData as FinanceReconciliationResponse)?.records || [];
+                  allRecords.forEach((r) => {
+                    displayedPartners.forEach(p => {
+                      const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id);
+                      if (cost?.cost_id) {
+                        allCostIds.push(cost.cost_id);
+                      }
+                    });
+                  });
+                } else {
+                  // 单页选择：只收集当前页选中的运单
+                  (reportData?.records || []).forEach((r) => {
+                    if (selection.selectedIds.has(r.id)) {
+                      displayedPartners.forEach(p => {
+                        const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id);
+                        if (cost?.cost_id) {
+                          allCostIds.push(cost.cost_id);
+                        }
+                      });
+                    }
+                  });
+                }
+                
+                if (allCostIds.length > 0) {
+                  openReconciliationDialog(allCostIds);
+                } else {
+                  toast({ title: "提示", description: "没有可对账的记录", variant: "destructive" });
+                }
+              } catch (error) {
+                console.error('获取对账记录失败:', error);
+                toast({
+                  title: "错误",
+                  description: error instanceof Error ? error.message : '获取对账记录失败',
+                  variant: "destructive"
+                });
+              }
+            }}
+            className="h-10 bg-green-600 hover:bg-green-700 text-white"
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            批量对账 ({selectionCount})
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="space-y-6">
 
@@ -773,122 +894,6 @@ export default function FinanceReconciliation() {
                 </>
               )}
             </Button>
-            <ConfirmDialog title="确认批量重算" description={`您确定要为选中的 ${selectionCount} 条运单重新计算所有合作方的应付金额吗？此操作会根据最新的项目合作链路配置覆盖现有数据。`} onConfirm={handleBatchRecalculate}>
-              <Button variant="destructive" disabled={selectionCount === 0 || isRecalculating}>{isRecalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}一键重算已选运单 ({selectionCount})</Button>
-            </ConfirmDialog>
-            {/* 自动对账按钮（新增） */}
-            {canReconcile && (
-            <Button
-              variant="default"
-              disabled={isReconciling}
-              onClick={() => handleAutoReconcile(activeFilters.partnerId === 'all' ? undefined : activeFilters.partnerId)}
-              className="h-10 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isReconciling ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  自动对账中...
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-2 h-4 w-4" />
-                  自动对账
-                </>
-              )}
-            </Button>
-            )}
-            {/* 批量对账按钮（新增） */}
-            {canReconcile && (
-            <Button
-              variant="default"
-              disabled={selectionCount === 0}
-              onClick={async () => {
-                try {
-                  const allCostIds: string[] = [];
-                  
-                  if (selection.mode === 'all_filtered') {
-                    // 跨页选择：需要获取所有筛选条件下的运单
-                    let projectIdParam: string | null = null;
-                    if (selectedShipperId && selectedShipperId !== 'all') {
-                      if (selectedProjectId === 'all' && availableProjects.length > 0) {
-                        projectIdParam = availableProjects.map(p => p.id).join(',');
-                      } else if (selectedProjectId && selectedProjectId !== 'all') {
-                        projectIdParam = selectedProjectId;
-                      }
-                    }
-                    
-                    const utcStartDate = activeFilters.startDate ? (() => {
-                      const [year, month, day] = activeFilters.startDate.split('-').map(Number);
-                      const chinaDate = new Date(year, month - 1, day);
-                      return convertChinaDateToUTCDate(chinaDate);
-                    })() : null;
-                    const utcEndDate = activeFilters.endDate ? (() => {
-                      const [year, month, day] = activeFilters.endDate.split('-').map(Number);
-                      const chinaDate = new Date(year, month - 1, day);
-                      return convertChinaEndDateToUTCDate(chinaDate);
-                    })() : null;
-                    
-                    // 获取所有筛选条件下的运单（不分页）
-                    const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1116', {
-                      p_project_id: projectIdParam,
-                      p_start_date: utcStartDate,
-                      p_end_date: utcEndDate,
-                      p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
-                      p_page_number: 1,
-                      p_page_size: 10000, // 获取所有数据
-                      p_driver_name: activeFilters.driverName || null,
-                      p_license_plate: activeFilters.licensePlate || null,
-                      p_driver_phone: activeFilters.driverPhone || null,
-                      p_waybill_numbers: activeFilters.waybillNumbers || null,
-                      p_other_platform_name: activeFilters.otherPlatformName || null,
-                      p_reconciliation_status: activeFilters.reconciliationStatus === 'all' ? null : activeFilters.reconciliationStatus || null,
-                    });
-                    
-                    if (error) throw error;
-                    
-                    const allRecords = (allData as FinanceReconciliationResponse)?.records || [];
-                    allRecords.forEach((r) => {
-                      displayedPartners.forEach(p => {
-                        const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id);
-                        if (cost?.cost_id) {
-                          allCostIds.push(cost.cost_id);
-                        }
-                      });
-                    });
-                  } else {
-                    // 单页选择：只收集当前页选中的运单
-                    (reportData?.records || []).forEach((r) => {
-                      if (selection.selectedIds.has(r.id)) {
-                        displayedPartners.forEach(p => {
-                          const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id);
-                          if (cost?.cost_id) {
-                            allCostIds.push(cost.cost_id);
-                          }
-                        });
-                      }
-                    });
-                  }
-                  
-                  if (allCostIds.length > 0) {
-                    openReconciliationDialog(allCostIds);
-                  } else {
-                    toast({ title: "提示", description: "没有可对账的记录", variant: "destructive" });
-                  }
-                } catch (error) {
-                  console.error('获取对账记录失败:', error);
-                  toast({
-                    title: "错误",
-                    description: error instanceof Error ? error.message : '获取对账记录失败',
-                    variant: "destructive"
-                  });
-                }
-              }}
-              className="h-10 bg-green-600 hover:bg-green-700 text-white"
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              批量对账 ({selectionCount})
-            </Button>
-            )}
           </div>
 
           {/* 高级筛选器 - 可折叠 */}
