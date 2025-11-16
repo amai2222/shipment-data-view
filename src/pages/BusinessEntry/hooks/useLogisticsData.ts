@@ -23,6 +23,9 @@ export interface LogisticsFilters {
   otherPlatformName: string; // 其他平台名称筛选
   waybillNumbers: string; // 运单编号筛选（支持多个，逗号分隔）
   hasScaleRecord: string; // 是否有磅单筛选：'yes'有磅单, 'no'无磅单, ''不筛选
+  invoiceStatus: string; // 开票状态筛选
+  paymentStatus: string; // 付款状态筛选
+  receiptStatus: string; // 收款状态筛选
 }
 
 export const INITIAL_FILTERS: LogisticsFilters = {
@@ -35,6 +38,9 @@ export const INITIAL_FILTERS: LogisticsFilters = {
   otherPlatformName: "",
   waybillNumbers: "",
   hasScaleRecord: "",
+  invoiceStatus: "",
+  paymentStatus: "",
+  receiptStatus: "",
 };
 
 const PAGE_SIZE = 20; // 默认每页显示20条记录
@@ -104,6 +110,9 @@ export function useLogisticsData() {
         p_other_platform_name: filters.otherPlatformName || null,
         p_waybill_numbers: filters.waybillNumbers || null,
         p_has_scale_record: filters.hasScaleRecord || null,
+        p_invoice_status: filters.invoiceStatus || null,
+        p_payment_status: filters.paymentStatus || null,
+        p_receipt_status: filters.receiptStatus || null,
         p_page_number: page,
         p_page_size: pageSize,
         p_sort_field: currentSortField,

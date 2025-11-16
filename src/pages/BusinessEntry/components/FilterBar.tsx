@@ -334,30 +334,26 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
 
   return (
     <div className="space-y-4">
-      {/* 基础筛选器 */}
+      {/* 基础筛选器 - 单行布局 */}
       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* 货主-项目级联筛选器（占2列） */}
-          <div className="lg:col-span-2">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* 货主-项目级联筛选器 */}
+          <div className="flex-1 min-w-[200px]">
             <ShipperProjectCascadeFilter
               selectedShipperId={selectedShipperId}
               selectedProjectId={selectedProjectId}
               onShipperChange={(id) => {
                 setSelectedShipperId(id);
-                // ✅ 更新 ref 的值
                 selectedShipperIdRef.current = id;
-                // ✅ 货主变化时，先清空项目名称，等待项目列表加载完成后再设置
                 handleInputChange('projectName', '');
                 setSelectedProjectId('all');
                 selectedProjectIdRef.current = 'all';
               }}
               onProjectChange={(id) => {
                 setSelectedProjectId(id);
-                // ✅ 更新 ref 的值
                 selectedProjectIdRef.current = id;
                 
                 if (id === 'all') {
-                  // ✅ 选择"所有项目"时，如果选择了货主，使用该货主的所有项目名称（逗号分隔）
                   if (selectedShipperId && selectedShipperId !== 'all' && availableProjects.length > 0) {
                     const projectNames = availableProjects.map(p => p.name).join(',');
                     handleInputChange('projectName', projectNames);
@@ -372,17 +368,13 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                 }
               }}
               onProjectsChange={useCallback((projects: Project[]) => {
-                // ✅ 使用 ref 获取最新的状态值，避免闭包问题
                 const currentShipperId = selectedShipperIdRef.current;
                 const currentProjectId = selectedProjectIdRef.current;
                 
-                // ✅ 当项目列表更新时，保存到状态
-                const projectsChanged = setAvailableProjects(prevProjects => {
-                  // ✅ 优化：只在项目列表真正变化时才更新，避免不必要的重新渲染
+                setAvailableProjects(prevProjects => {
                   const prevIds = new Set(prevProjects.map(p => p.id));
                   const newIds = new Set(projects.map(p => p.id));
                   
-                  // 如果项目列表没有变化，返回旧值
                   if (prevIds.size === newIds.size && 
                       Array.from(prevIds).every(id => newIds.has(id))) {
                     return prevProjects;
@@ -391,37 +383,28 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
                   return projects;
                 });
                 
-                // ✅ 关键修复：如果选择了货主（非"全部货主"）且项目列表已加载，自动设置项目名称
-                // 确保项目名称正确设置为该货主及其下级的所有项目
-                // 注意：无论项目列表是否变化，只要选择了货主，都应该设置项目名称
                 if (currentShipperId && currentShipperId !== 'all' && projects.length > 0) {
-                  // 如果当前选择的是"所有项目"，使用所有项目名称（逗号分隔）
                   if (currentProjectId === 'all') {
-                    // ✅ 确保使用最新的项目列表，按名称排序并去重
                     const projectNames = projects
                       .map(p => p.name)
-                      .filter((name, index, self) => self.indexOf(name) === index) // 去重
+                      .filter((name, index, self) => self.indexOf(name) === index)
                       .sort()
                       .join(',');
-                    // ✅ 立即设置项目名称，确保筛选时能正确使用
                     handleInputChange('projectName', projectNames);
                   } else {
-                    // 如果选择了具体项目，使用该项目的名称
                     const project = projects.find(p => p.id === currentProjectId);
                     if (project) {
                       handleInputChange('projectName', project.name);
                     } else {
-                      // 如果选择的项目不在列表中，使用所有项目名称（表示该货主的所有项目）
                       const projectNames = projects
                         .map(p => p.name)
-                        .filter((name, index, self) => self.indexOf(name) === index) // 去重
+                        .filter((name, index, self) => self.indexOf(name) === index)
                         .sort()
                         .join(',');
                       handleInputChange('projectName', projectNames);
                     }
                   }
                 } else if (currentShipperId === 'all' || projects.length === 0) {
-                  // 如果选择的是"全部货主"或没有项目，清空项目名称
                   handleInputChange('projectName', '');
                 }
               }, [handleInputChange])}
@@ -429,9 +412,70 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
           </div>
 
           {/* 日期范围 */}
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-[240px]">
             <Label className="text-sm font-medium text-blue-800">日期范围</Label>
             <DateRangePicker date={dateRangeValue} setDate={handleDateChange} disabled={loading} />
+          </div>
+
+          {/* 开票状态筛选 */}
+          <div className="space-y-2 min-w-[120px]">
+            <Label className="text-sm font-medium text-blue-800">开票状态</Label>
+            <Select
+              value={filters.invoiceStatus || 'all'}
+              onValueChange={(value) => handleInputChange('invoiceStatus', value === 'all' ? '' : value)}
+              disabled={loading}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="全部" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="Uninvoiced">未开票</SelectItem>
+                <SelectItem value="Processing">处理中</SelectItem>
+                <SelectItem value="Approved">已审批</SelectItem>
+                <SelectItem value="Invoiced">已开票</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 付款状态筛选 */}
+          <div className="space-y-2 min-w-[120px]">
+            <Label className="text-sm font-medium text-blue-800">付款状态</Label>
+            <Select
+              value={filters.paymentStatus || 'all'}
+              onValueChange={(value) => handleInputChange('paymentStatus', value === 'all' ? '' : value)}
+              disabled={loading}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="全部" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="Unpaid">未付款</SelectItem>
+                <SelectItem value="Processing">处理中</SelectItem>
+                <SelectItem value="Approved">已审批</SelectItem>
+                <SelectItem value="Paid">已付款</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 收款状态筛选 */}
+          <div className="space-y-2 min-w-[120px]">
+            <Label className="text-sm font-medium text-blue-800">收款状态</Label>
+            <Select
+              value={filters.receiptStatus || 'all'}
+              onValueChange={(value) => handleInputChange('receiptStatus', value === 'all' ? '' : value)}
+              disabled={loading}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="全部" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="Unreceived">未收款</SelectItem>
+                <SelectItem value="Received">已收款</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 操作按钮 */}

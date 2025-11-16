@@ -14,7 +14,6 @@ import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
-import { StatusBadge } from "@/components/common/StatusBadge";
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -395,35 +394,53 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                       <CurrencyDisplay value={driverPayable} className="text-blue-600" />
                     </TableCell>
                     <TableCell className="text-center py-1.5 px-2">
-                      <StatusBadge 
-                        status={record.invoice_status || 'Uninvoiced'} 
-                        customConfig={{
-                          'Uninvoiced': { label: '未开票', variant: 'secondary' },
-                          'Processing': { label: '处理中', variant: 'default' },
-                          'Approved': { label: '已审批', variant: 'default' },
-                          'Invoiced': { label: '已开票', variant: 'outline', className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
-                        }}
-                      />
+                      {(() => {
+                        const status = record.invoice_status || 'Uninvoiced';
+                        const configs: Record<string, { label: string; className: string }> = {
+                          'Uninvoiced': { label: '未开票', className: 'bg-gray-100 text-gray-700 border-gray-300' },
+                          'Processing': { label: '处理中', className: 'bg-blue-50 text-blue-700 border-blue-300' },
+                          'Approved': { label: '已审批', className: 'bg-amber-50 text-amber-700 border-amber-300' },
+                          'Invoiced': { label: '已开票', className: 'bg-green-50 text-green-700 border-green-300 font-medium' },
+                        };
+                        const config = configs[status] || configs['Uninvoiced'];
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${config.className}`}>
+                            {config.label}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-center py-1.5 px-2">
-                      <StatusBadge 
-                        status={record.payment_status || 'Unpaid'} 
-                        customConfig={{
-                          'Unpaid': { label: '未付款', variant: 'secondary' },
-                          'Processing': { label: '处理中', variant: 'default' },
-                          'Approved': { label: '已审批', variant: 'default' },
-                          'Paid': { label: '已付款', variant: 'outline', className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
-                        }}
-                      />
+                      {(() => {
+                        const status = record.payment_status || 'Unpaid';
+                        const configs: Record<string, { label: string; className: string }> = {
+                          'Unpaid': { label: '未付款', className: 'bg-gray-100 text-gray-700 border-gray-300' },
+                          'Processing': { label: '处理中', className: 'bg-blue-50 text-blue-700 border-blue-300' },
+                          'Approved': { label: '已审批', className: 'bg-amber-50 text-amber-700 border-amber-300' },
+                          'Paid': { label: '已付款', className: 'bg-green-50 text-green-700 border-green-300 font-medium' },
+                        };
+                        const config = configs[status] || configs['Unpaid'];
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${config.className}`}>
+                            {config.label}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-center py-1.5 px-2">
-                      <StatusBadge 
-                        status={record.receipt_status || 'Unreceived'} 
-                        customConfig={{
-                          'Unreceived': { label: '未收款', variant: 'secondary' },
-                          'Received': { label: '已收款', variant: 'outline', className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
-                        }}
-                      />
+                      {(() => {
+                        const status = record.receipt_status || 'Unreceived';
+                        const configs: Record<string, { label: string; className: string }> = {
+                          'Unreceived': { label: '未收款', className: 'bg-gray-100 text-gray-700 border-gray-300' },
+                          'Received': { label: '已收款', className: 'bg-green-50 text-green-700 border-green-300 font-medium' },
+                        };
+                        const config = configs[status] || configs['Unreceived'];
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${config.className}`}>
+                            {config.label}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right py-1.5 px-2">
                       <DropdownMenu>
