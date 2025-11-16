@@ -156,7 +156,11 @@ export default function DriverManagement() {
         if (error) throw error;
         
         // 处理 RPC 返回的数据，需要补充车队队长和车辆信息
-        const driverIds = (data || []).map((d: any) => d.id);
+        interface DriverData {
+          id: string;
+        }
+
+        const driverIds = (data || []).map((d: DriverData) => d.id);
         if (driverIds.length > 0) {
           const { data: fullData } = await supabase
             .from('internal_drivers')
@@ -194,7 +198,24 @@ export default function DriverManagement() {
   };
 
   // 处理司机数据，添加车队队长和车辆信息
-  const processDriverData = async (drivers: any[]): Promise<Driver[]> => {
+  interface RawDriver {
+    id: string;
+    name: string;
+    phone: string;
+    hire_date: string;
+    employment_status: string;
+    base_salary?: number;
+    salary_calculation_type: string;
+    commission_rate?: number;
+    driver_license_expire_date?: string;
+    id_card_number?: string;
+    fleet_manager_id?: string;
+    fleet_manager?: {
+      full_name?: string;
+    };
+  }
+
+  const processDriverData = async (drivers: RawDriver[]): Promise<Driver[]> => {
     if (!drivers || drivers.length === 0) return [];
 
     // 获取所有司机的车辆关联
@@ -211,14 +232,22 @@ export default function DriverManagement() {
 
     // 构建司机ID到车牌号的映射
     const driverVehicleMap = new Map<string, string>();
-    (vehicleRelations || []).forEach((rel: any) => {
+    interface VehicleRelation {
+      driver_id: string;
+      vehicle?: {
+        license_plate?: string;
+      };
+      is_primary?: boolean;
+    }
+
+    (vehicleRelations || []).forEach((rel: VehicleRelation) => {
       if (rel.vehicle?.license_plate) {
         driverVehicleMap.set(rel.driver_id, rel.vehicle.license_plate);
       }
     });
 
     // 处理数据
-    return drivers.map((d: any) => ({
+    return drivers.map((d: RawDriver) => ({
       id: d.id,
       name: d.name,
       phone: d.phone,
@@ -273,10 +302,10 @@ export default function DriverManagement() {
       setShowAddDialog(false);
       resetForm();
       loadDrivers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '新增失败',
-        description: error.message || '无法添加司机',
+        description: error instanceof Error ? error.message : '无法添加司机',
         variant: 'destructive'
       });
     }
@@ -291,7 +320,20 @@ export default function DriverManagement() {
       const isResigning = formData.employment_status === 'resigned' && selectedDriver.employment_status !== 'resigned';
       
       // 准备更新数据
-      const updateData: any = {
+      interface UpdateDriverData {
+        name: string;
+        phone: string;
+        id_card_number: string | null;
+        hire_date: string;
+        employment_status: string;
+        base_salary?: number;
+        salary_calculation_type?: string;
+        commission_rate?: number;
+        driver_license_expire_date?: string;
+        fleet_manager_id?: string;
+      }
+
+      const updateData: UpdateDriverData = {
         name: formData.name,
         phone: formData.phone,
         id_card_number: formData.id_card_number || null,
@@ -338,10 +380,10 @@ export default function DriverManagement() {
       setShowEditDialog(false);
       setSelectedDriver(null);
       loadDrivers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '更新失败',
-        description: error.message || '无法更新司机',
+        description: error instanceof Error ? error.message : '无法更新司机',
         variant: 'destructive'
       });
     }

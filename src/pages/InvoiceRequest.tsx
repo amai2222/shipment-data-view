@@ -37,6 +37,7 @@ interface PartnerCost {
   tax_number?: string;
   company_address?: string;
   id?: string;
+  logistics_record_id?: string;
 }
 
 // 开票申请筛选器类型
@@ -126,7 +127,8 @@ interface InvoicePreviewSheet {
   invoicing_partner_branch_name: string; 
   record_count: number; 
   total_invoiceable: number; 
-  records: Array<LogisticsRecord & { total_invoiceable_for_partner?: number }>; 
+  records: Array<LogisticsRecord & { total_invoiceable_for_partner?: number }>;
+  partner_costs?: PartnerCost[];
 }
 
 interface InvoicePreviewData { 
@@ -703,9 +705,9 @@ export default function InvoiceRequest() {
       // ✅ 准备传递给后端的数据结构
       // 需要将 sheets 中的 partner_cost IDs 提取出来
       const allPartnerCostIds: string[] = [];
-      finalInvoiceData.sheets.forEach((sheet: any) => {
+      finalInvoiceData.sheets.forEach((sheet: InvoicePreviewSheet) => {
         if (Array.isArray(sheet.partner_costs)) {
-          sheet.partner_costs.forEach((cost: any) => {
+          sheet.partner_costs.forEach((cost: PartnerCost) => {
             if (cost.id) {
               allPartnerCostIds.push(cost.id);
             }
@@ -715,7 +717,7 @@ export default function InvoiceRequest() {
 
       // ✅ 调试日志：查看传给后端的数据
       console.log('传给后端的sheets数量:', finalInvoiceData.sheets.length);
-      console.log('传给后端的sheets:', finalInvoiceData.sheets.map((s: any) => ({
+      console.log('传给后端的sheets:', finalInvoiceData.sheets.map((s: InvoicePreviewSheet) => ({
         partner: s.invoicing_partner_full_name,
         count: s.record_count,
         amount: s.total_invoiceable,
@@ -1052,7 +1054,7 @@ export default function InvoiceRequest() {
                               <CurrencyDisplay 
                                 value={
                                   r.payable_cost || 
-                                  (Array.isArray(r.partner_costs) && r.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
+                                  (Array.isArray(r.partner_costs) && r.partner_costs.find((c: PartnerCost) => c.level === 0)?.payable_amount) ||
                                   r.current_cost ||
                                   null
                                 }
@@ -1273,7 +1275,7 @@ export default function InvoiceRequest() {
                 <p className="font-bold text-primary"><CurrencyDisplay 
                   value={
                     viewingRecord.payable_cost || 
-                    (Array.isArray(viewingRecord.partner_costs) && viewingRecord.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
+                    (Array.isArray(viewingRecord.partner_costs) && viewingRecord.partner_costs.find((c: PartnerCost) => c.level === 0)?.payable_amount) ||
                     viewingRecord.current_cost ||
                     null
                   }

@@ -34,6 +34,19 @@ interface ContractStats {
   departments: Record<string, number>;
 }
 
+interface Contract {
+  id: string;
+  contract_number?: string;
+  counterparty_company: string;
+  end_date: string;
+  status?: string;
+  contract_amount?: number | string;
+  category?: string;
+  priority?: string;
+  department?: string;
+  responsible_person?: string;
+}
+
 interface ExpiringContract {
   id: string;
   contract_number: string;
@@ -76,7 +89,7 @@ export function ContractDashboard() {
       if (error) throw error;
       
       // 类型断言
-      const typedContracts = contracts as any[];
+      const typedContracts = (contracts || []) as Contract[];
 
       const now = new Date();
       const thirtyDaysFromNow = addDays(now, 30);
@@ -142,11 +155,11 @@ export function ContractDashboard() {
 
       setStats(contractStats);
       setExpiringContracts(expiring.slice(0, 10)); // 只显示最近10个即将到期的合同
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载仪表盘数据失败:', error);
       toast({
         title: "加载失败",
-        description: "无法加载仪表盘数据",
+        description: error instanceof Error ? error.message : "无法加载仪表盘数据",
         variant: "destructive"
       });
     } finally {

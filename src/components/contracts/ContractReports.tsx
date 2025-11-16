@@ -117,7 +117,18 @@ export function ContractReports({ contractId }: ContractReportsProps) {
 
       const monthlyData: Record<string, { contracts: number; amount: number }> = {};
 
-      contracts?.forEach((contract: any) => {
+      interface Contract {
+        id: string;
+        end_date: string;
+        created_at: string;
+        status?: string;
+        contract_amount?: number | string;
+        category?: string;
+        department?: string;
+        priority?: string;
+      }
+
+      contracts?.forEach((contract: Contract) => {
         const endDate = new Date(contract.end_date);
         const createdDate = new Date(contract.created_at);
         const monthKey = format(createdDate, 'yyyy-MM');
@@ -170,11 +181,11 @@ export function ContractReports({ contractId }: ContractReportsProps) {
         .sort((a, b) => a.month.localeCompare(b.month));
 
       setReportData(stats);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载报表数据失败:', error);
       toast({
         title: "加载失败",
-        description: "无法加载报表数据",
+        description: error instanceof Error ? error.message : "无法加载报表数据",
         variant: "destructive"
       });
     } finally {
@@ -251,10 +262,10 @@ export function ContractReports({ contractId }: ContractReportsProps) {
         title: "导出成功",
         description: "报表已成功导出"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "导出失败",
-        description: error.message,
+        description: error instanceof Error ? error.message : "导出失败",
         variant: "destructive"
       });
     }

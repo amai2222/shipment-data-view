@@ -29,7 +29,14 @@ export default function VehicleStatus() {
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(false);
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  interface Vehicle {
+    license_plate: string;
+    vehicle_status: string;
+    current_mileage: number | null;
+    updated_at: string;
+  }
+
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 

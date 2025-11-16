@@ -55,10 +55,14 @@ export default function SystemBackup() {
     invoice_requests: true,
     payment_records: true,
     invoice_records: true,
+    partner_balance: true,                    // 货主余额表（新增）
+    partner_balance_transactions: true,       // 货主余额流水表（新增）
+    invoice_receipt_records: true,             // 收款记录表（新增）
     
     // 基础数据
     drivers: true,
     locations: true,
+    scale_records: true,                       // 磅单记录表（新增）
     
     // 用户和权限
     profiles: true,
@@ -78,7 +82,16 @@ export default function SystemBackup() {
       setBacking(true);
       setBackupProgress('准备备份...');
 
-      const backupData: any = {
+      interface BackupData {
+        version: string;
+        timestamp: string;
+        tables: Record<string, {
+          count: number;
+          data: unknown[];
+        }>;
+      }
+
+      const backupData: BackupData = {
         version: '1.0',
         timestamp: new Date().toISOString(),
         tables: {}
@@ -137,11 +150,11 @@ export default function SystemBackup() {
         description: `已备份 ${total} 个表，文件已下载到本地`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('备份失败:', error);
       toast({
         title: '备份失败',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
       setBackupProgress('');
@@ -242,11 +255,11 @@ BEGIN;
         description: `已生成 ${total} 个表的SQL脚本`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('SQL备份失败:', error);
       toast({
         title: 'SQL备份失败',
-        description: error.message,
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
       setBackupProgress('');
@@ -292,14 +305,18 @@ BEGIN;
         { key: 'payment_requests', label: '付款申请', description: '付款申请记录' },
         { key: 'invoice_requests', label: '开票申请', description: '开票申请记录' },
         { key: 'payment_records', label: '付款记录', description: '实际付款记录' },
-        { key: 'invoice_records', label: '开票记录', description: '实际开票记录' }
+        { key: 'invoice_records', label: '开票记录', description: '实际开票记录' },
+        { key: 'partner_balance', label: '货主余额', description: '货主账户余额' },
+        { key: 'partner_balance_transactions', label: '余额流水', description: '货主余额交易流水' },
+        { key: 'invoice_receipt_records', label: '收款记录', description: '财务收款记录' }
       ]
     },
     {
       title: '基础数据',
       tables: [
         { key: 'drivers', label: '司机信息', description: '司机基础数据' },
-        { key: 'locations', label: '地点信息', description: '地点基础数据' }
+        { key: 'locations', label: '地点信息', description: '地点基础数据' },
+        { key: 'scale_records', label: '磅单记录', description: '磅单管理数据' }
       ]
     },
     {
@@ -430,9 +447,9 @@ BEGIN;
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      const updates: any = {};
+                      const updates: Partial<typeof selectedTables> = {};
                       group.tables.forEach(t => {
-                        updates[t.key] = true;
+                        updates[t.key as keyof typeof selectedTables] = true;
                       });
                       setSelectedTables(prev => ({ ...prev, ...updates }));
                     }}
@@ -443,9 +460,9 @@ BEGIN;
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      const updates: any = {};
+                      const updates: Partial<typeof selectedTables> = {};
                       group.tables.forEach(t => {
-                        updates[t.key] = false;
+                        updates[t.key as keyof typeof selectedTables] = false;
                       });
                       setSelectedTables(prev => ({ ...prev, ...updates }));
                     }}
@@ -511,13 +528,27 @@ BEGIN;
                       invoice_requests: true,
                       payment_records: true,
                       invoice_records: true,
+                      partner_balance: true,
+                      partner_balance_transactions: true,
+                      invoice_receipt_records: true,
                       drivers: true,
                       locations: true,
+                      scale_records: true,
                       profiles: false,
                       user_permissions: false,
                       role_permission_templates: false,
                       menu_config: false,
-                      contracts: false
+                      contracts: false,
+                      // 内部车辆管理系统
+                      internal_drivers: false,
+                      internal_vehicles: false,
+                      internal_driver_vehicle_relations: false,
+                      fleet_manager_projects: false,
+                      fleet_manager_favorite_routes: false,
+                      fleet_manager_favorite_route_drivers: false,
+                      dispatch_orders: false,
+                      internal_driver_expense_applications: false,
+                      internal_vehicle_change_applications: false
                     });
                   }}
                 >
@@ -537,13 +568,27 @@ BEGIN;
                       invoice_requests: false,
                       payment_records: false,
                       invoice_records: false,
+                      partner_balance: false,
+                      partner_balance_transactions: false,
+                      invoice_receipt_records: false,
                       drivers: true,
                       locations: true,
+                      scale_records: false,
                       profiles: true,
                       user_permissions: true,
                       role_permission_templates: true,
                       menu_config: true,
-                      contracts: false
+                      contracts: false,
+                      // 内部车辆管理系统
+                      internal_drivers: false,
+                      internal_vehicles: false,
+                      internal_driver_vehicle_relations: false,
+                      fleet_manager_projects: false,
+                      fleet_manager_favorite_routes: false,
+                      fleet_manager_favorite_route_drivers: false,
+                      dispatch_orders: false,
+                      internal_driver_expense_applications: false,
+                      internal_vehicle_change_applications: false
                     });
                   }}
                 >
@@ -552,11 +597,11 @@ BEGIN;
                 <Button
                   variant="outline"
                   onClick={() => {
-                    const updates: any = {};
+                    const updates: Partial<typeof selectedTables> = {};
                     Object.keys(selectedTables).forEach(key => {
-                      updates[key] = true;
+                      updates[key as keyof typeof selectedTables] = true;
                     });
-                    setSelectedTables(updates as any);
+                    setSelectedTables(prev => ({ ...prev, ...updates }));
                   }}
                 >
                   全部数据

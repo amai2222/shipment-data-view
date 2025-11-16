@@ -182,10 +182,10 @@ export default function CertificateManagement() {
       setSelectedCert(null);
       setUpdateFormData({ expire_date: '', certificate_number: '', photo_file: null });
       loadCertificates();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '更新失败',
-        description: error.message || '无法更新证件',
+        description: error instanceof Error ? error.message : '无法更新证件',
         variant: 'destructive'
       });
     }

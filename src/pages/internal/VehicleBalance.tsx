@@ -59,8 +59,12 @@ export default function VehicleBalance() {
         .order('license_plate');
 
       // ✅ 为每个车辆查询真实的收支数据
+      interface Vehicle {
+        license_plate: string;
+      }
+
       const balanceData: VehicleBalance[] = await Promise.all(
-        (vehicles || []).map(async (v: any) => {
+        (vehicles || []).map(async (v: Vehicle) => {
           // 查询该车辆的运费收入
           const { data: incomeData } = await supabase
             .from('logistics_records')

@@ -94,9 +94,9 @@ export default function FinancialOverview() {
         
         setProjectContribution([]);
       }
-    } catch (err: any) { 
+    } catch (err: unknown) { 
       console.error("获取财务概览数据失败:", err); 
-      setError(err.message || "发生未知错误，请检查浏览器控制台。"); 
+      setError(err instanceof Error ? err.message : "发生未知错误，请检查浏览器控制台。"); 
     } finally { 
       setLoading(false); 
     } 
@@ -174,7 +174,7 @@ export default function FinancialOverview() {
         totalCount: count || 0, 
         totalPages: Math.ceil((count || 0) / PAGE_SIZE) || 1 
       })); 
-    } catch (err: any) { 
+    } catch (err: unknown) { 
       console.error("获取明细数据失败:", err); 
     } finally { 
       setIsDialogLoading(false); 
@@ -205,14 +205,50 @@ export default function FinancialOverview() {
   useEffect(() => { if (isDetailDialogOpen && detailFilter) { fetchDialogRecords(); } }, [isDetailDialogOpen, detailFilter, dialogPagination.currentPage, fetchDialogRecords]);
 
   // --- 事件处理器 ---
-  const handleChartClick = (type: string, payload: any) => { let value = payload?.activePayload?.[0]?.payload?.name ?? payload?.activePayload?.[0]?.payload?.partner_name ?? payload?.activePayload?.[0]?.payload?.project_name ?? payload?.activePayload?.[0]?.payload?.month_start; if (!value && payload.value) { value = payload.value; } if (value && value !== '其它') { setDetailFilter({ type, value: String(value) }); setDialogPagination({ currentPage: 1, totalPages: 1, totalCount: 0 }); setIsDetailDialogOpen(true); } };
+  interface ChartPayload {
+    activePayload?: Array<{
+      payload?: {
+        name?: string;
+        partner_name?: string;
+        project_name?: string;
+        month_start?: string;
+      };
+    }>;
+    value?: string;
+  }
+
+  const handleChartClick = (type: string, payload: ChartPayload) => { 
+    let value = payload?.activePayload?.[0]?.payload?.name ?? payload?.activePayload?.[0]?.payload?.partner_name ?? payload?.activePayload?.[0]?.payload?.project_name ?? payload?.activePayload?.[0]?.payload?.month_start; 
+    if (!value && payload.value) { 
+      value = payload.value; 
+    } 
+    if (value && value !== '其它') { 
+      setDetailFilter({ type, value: String(value) }); 
+      setDialogPagination({ currentPage: 1, totalPages: 1, totalCount: 0 }); 
+      setIsDetailDialogOpen(true); 
+    } 
+  };
 
   // --- 辅助函数 ---
   const formatCurrency = (value: number | null | undefined) => `¥${(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const formatCompact = (value: number) => { if (value >= 10000) return `¥${(value/10000).toFixed(1)}万`; if (value >= 1000) return `¥${(value/1000).toFixed(1)}千`; return `¥${value.toFixed(0)}`; }
 
   // --- 派生数据 ---
-  const aggregatePieData = (data: any[], nameKey: string, dataKey: string) => { const total = data.reduce((sum, item) => sum + item[dataKey], 0); if (total === 0) return []; const mainItems = data.filter(item => (item[dataKey] / total) >= PIE_CHART_AGGREGATION_THRESHOLD); const otherItems = data.filter(item => (item[dataKey] / total) < PIE_CHART_AGGREGATION_THRESHOLD); if (otherItems.length > 1) { const otherSum = otherItems.reduce((sum, item) => sum + item[dataKey], 0); return [...mainItems, { [nameKey]: '其它', [dataKey]: otherSum }]; } return data; };
+  interface PieDataItem {
+    [key: string]: string | number;
+  }
+
+  const aggregatePieData = (data: PieDataItem[], nameKey: string, dataKey: string): PieDataItem[] => { 
+    const total = data.reduce((sum, item) => sum + (Number(item[dataKey]) || 0), 0); 
+    if (total === 0) return []; 
+    const mainItems = data.filter(item => (Number(item[dataKey]) || 0) / total >= PIE_CHART_AGGREGATION_THRESHOLD); 
+    const otherItems = data.filter(item => (Number(item[dataKey]) || 0) / total < PIE_CHART_AGGREGATION_THRESHOLD); 
+    if (otherItems.length > 1) { 
+      const otherSum = otherItems.reduce((sum, item) => sum + (Number(item[dataKey]) || 0), 0); 
+      return [...mainItems, { [nameKey]: '其它', [dataKey]: otherSum }]; 
+    } 
+    return data; 
+  };
   const financialStatusData = useMemo(() => stats ? aggregatePieData([ { name: '待开票', value: stats.pendingInvoice }, { name: '待付款', value: stats.pendingPayment }, { name: '已支付', value: Math.max(0, stats.totalReceivables - stats.pendingInvoice - stats.pendingPayment) } ].filter(item => item.value > 0), 'name', 'value') : [], [stats]);
   const aggregatedProjectData = useMemo(() => aggregatePieData(projectContribution, 'project_name', 'total_receivables'), [projectContribution]);
 

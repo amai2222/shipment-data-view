@@ -138,12 +138,16 @@ export default function ExpenseWriteoff() {
       
       if (error) throw error;
       
+      interface DriverData {
+        driver_name: string;
+      }
+
       const uniqueDrivers = Array.from(
-        new Set((data || []).map((d: any) => d.driver_name))
+        new Set((data || []).map((d: DriverData) => d.driver_name))
       ).map(name => ({ name }));
       
       setDrivers(uniqueDrivers);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载司机列表失败:', error);
     }
   };
@@ -186,11 +190,11 @@ export default function ExpenseWriteoff() {
         totalSurplus,
         totalDeficit
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载费用申请',
+        description: error instanceof Error ? error.message : '无法加载费用申请',
         variant: 'destructive'
       });
     } finally {
@@ -270,11 +274,11 @@ export default function ExpenseWriteoff() {
       });
       
       setFleetManagerGroups(groups);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载司机余额失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载司机余额',
+        description: error instanceof Error ? error.message : '无法加载司机余额',
         variant: 'destructive'
       });
     } finally {

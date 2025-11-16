@@ -103,10 +103,10 @@ export default function Home() {
         p_project_id: filterInputs.projectId === 'all' ? null : filterInputs.projectId,
       });
       if (error) throw error;
-      setDashboardData(data as any);
-    } catch (err: any) {
+      setDashboardData(data);
+    } catch (err: unknown) {
       console.error('获取看板数据失败:', err);
-      toast({ title: "数据加载失败", description: err.message, variant: "destructive" });
+      toast({ title: "数据加载失败", description: err instanceof Error ? err.message : "数据加载失败", variant: "destructive" });
     } finally {
       if (isInitialLoad) setIsLoading(false);
       else setIsSearching(false);
@@ -184,7 +184,15 @@ export default function Home() {
   }, [isDetailDialogOpen, dialogFilter]);
 
   // --- 事件处理 ---
-  const handleTypeChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: any) => {
+  interface ChartClickData {
+    activePayload?: Array<{
+      payload?: {
+        date?: string;
+      };
+    }>;
+  }
+
+  const handleTypeChartClick = useCallback((billingTypeId: keyof typeof BILLING_TYPE_MAP, data: ChartClickData) => {
     if (data?.activePayload?.[0]) {
       const clickedDate = data.activePayload[0].payload.date;
       setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate, billingTypeId });
@@ -197,7 +205,7 @@ export default function Home() {
     setIsDetailDialogOpen(true);
   }, [filterInputs.projectId]);
 
-  const handleOverviewChartClick = useCallback((data: any) => {
+  const handleOverviewChartClick = useCallback((data: ChartClickData) => {
     if (data?.activePayload?.[0]) {
       const clickedDate = data.activePayload[0].payload.date;
       setDialogFilter({ projectId: filterInputs.projectId, date: clickedDate, billingTypeId: null });
