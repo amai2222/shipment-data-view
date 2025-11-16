@@ -67,8 +67,8 @@ export default function FinancialReports() {
         .from('internal_driver_expense_applications')
         .select('amount, actual_amount')
         .eq('status', 'approved')
-        .gte('expense_date', startDate)
-        .lt('expense_date', endDate);
+        .gte('expense_date', utcStartDate)
+        .lt('expense_date', utcEndDate);
       
       const totalExpense = (expenseData || []).reduce((sum, r) => {
         // 如果已冲销，使用实际金额；否则使用申请金额

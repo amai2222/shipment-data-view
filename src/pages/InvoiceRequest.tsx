@@ -218,20 +218,25 @@ export default function InvoiceRequest() {
       }
       // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
+      // ✅ 辅助函数：将空字符串转换为 null
+      const toNullIfEmpty = (value: string | null | undefined): string | null => {
+        return (value && value.trim() !== '' && value !== 'all') ? value.trim() : null;
+      };
+      
       const { data, error } = await supabase.rpc('get_invoice_request_data_1113', {
-        p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
-        p_start_date: activeFilters.startDate || null,
-        p_end_date: activeFilters.endDate || null,
-        p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
+        p_project_id: toNullIfEmpty(activeFilters.projectId),
+        p_start_date: toNullIfEmpty(activeFilters.startDate),
+        p_end_date: toNullIfEmpty(activeFilters.endDate),
+        p_partner_id: toNullIfEmpty(activeFilters.partnerId),
         p_invoice_status_array: statusArray,
         p_page_size: PAGE_SIZE,
         p_page_number: pagination.currentPage,
         // 新增高级筛选参数
-        p_waybill_numbers: activeFilters.waybillNumbers || null,
-        p_driver_name: activeFilters.driverName || null,
-        p_license_plate: activeFilters.licensePlate || null,
-        p_driver_phone: activeFilters.driverPhone || null,
-        p_driver_receivable: activeFilters.driverReceivable || null,
+        p_waybill_numbers: toNullIfEmpty(activeFilters.waybillNumbers),
+        p_driver_name: toNullIfEmpty(activeFilters.driverName),
+        p_license_plate: toNullIfEmpty(activeFilters.licensePlate),
+        p_driver_phone: toNullIfEmpty(activeFilters.driverPhone),
+        p_driver_receivable: toNullIfEmpty(activeFilters.driverReceivable),
       });
       if (error) throw error;
       setReportData(data);
