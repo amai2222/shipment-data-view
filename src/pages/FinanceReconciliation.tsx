@@ -137,7 +137,10 @@ export default function FinanceReconciliation() {
     platform_name: string;
     usage_count: number;
   }[]>([]);
-  const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
+  // 合作方显示状态：'hidden' -> 'maxLevel' -> 'all' -> 'maxLevel' -> 'hidden' (循环)
+  const [partnerDisplayState, setPartnerDisplayState] = useState<'hidden' | 'maxLevel' | 'all'>('hidden');
+  // 记录是否曾经展开过全部（用于区分 maxLevel 状态下的按钮文字）
+  const [hasExpandedAll, setHasExpandedAll] = useState(false);
 
   // 加载平台选项
   const loadPlatformOptions = useCallback(async () => {
@@ -646,6 +649,11 @@ export default function FinanceReconciliation() {
   } : undefined;
   
   const displayedPartners = useMemo(() => {
+    // 如果状态为 hidden，不显示合作方列
+    if (partnerDisplayState === 'hidden') {
+      return [];
+    }
+    
     // 如果筛选了特定合作方，只显示该合作方
     if (uiFilters.partnerId !== "all") {
       const selected = allPartners.find(p => p.id === uiFilters.partnerId);
@@ -672,12 +680,48 @@ export default function FinanceReconciliation() {
       .filter(partner => relevantPartnerIds.has(partner.id))
       .sort((a, b) => a.level - b.level);
     
-    // ✅ 根据 showAllLevels 决定是否只显示最高级
-    if (!showAllLevels && maxLevel > 0) {
+    // 根据 partnerDisplayState 决定显示哪些合作方
+    if (partnerDisplayState === 'maxLevel' && maxLevel > 0) {
       return filteredPartners.filter(p => p.level === maxLevel);
     }
+    // partnerDisplayState === 'all' 时显示所有合作方
     return filteredPartners;
-  }, [reportData, allPartners, uiFilters.partnerId, showAllLevels]);
+  }, [reportData, allPartners, uiFilters.partnerId, partnerDisplayState]);
+  
+  // 处理合作方显示状态切换
+  // 状态循环：hidden -> maxLevel -> all -> maxLevel -> hidden
+  const handlePartnerDisplayToggle = () => {
+    setPartnerDisplayState(prev => {
+      if (prev === 'hidden') {
+        setHasExpandedAll(false);  // 从隐藏开始，还未展开过全部
+        return 'maxLevel';         // 隐藏 -> 最高级
+      }
+      if (prev === 'maxLevel') {
+        if (!hasExpandedAll) {
+          setHasExpandedAll(true);  // 标记已展开过全部
+          return 'all';             // 最高级 -> 全部（第一次）
+        } else {
+          setHasExpandedAll(false); // 重置标志
+          return 'hidden';          // 最高级 -> 隐藏（第二次）
+        }
+      }
+      if (prev === 'all') {
+        return 'maxLevel';          // 全部 -> 最高级
+      }
+      return 'hidden';
+    });
+  };
+  
+  // 获取按钮文字
+  // 根据当前状态显示下一步操作的按钮文字
+  const getPartnerDisplayButtonText = () => {
+    if (partnerDisplayState === 'hidden') return '展开合作方';      // 下一步：展开最高级
+    if (partnerDisplayState === 'maxLevel') {
+      return hasExpandedAll ? '隐藏合作方' : '展开全部';  // 如果已展开过全部，显示"隐藏合作方"；否则显示"展开全部"
+    }
+    if (partnerDisplayState === 'all') return '仅显示最高级';  // 下一步：回到最高级
+    return '展开合作方';
+  };
 
   const exportDetailsToExcel = () => {
     if (!reportData?.records || reportData.records.length === 0) {
@@ -1154,14 +1198,14 @@ export default function FinanceReconciliation() {
               <CardTitle className="text-base">合作方应付汇总</CardTitle>
             </CardHeader>
             <CardContent>
-              {loading && !(reportData?.partner_summary?.length > 0) ? (
+                  {loading && !(reportData?.partner_summary?.length > 0) ? (
                 <div className="flex justify-center items-center h-24">
                   <Loader2 className="h-5 w-5 animate-spin"/>
                 </div>
-              ) : (!reportData?.partner_summary || reportData.partner_summary.length === 0) ? (
+                  ) : (!reportData?.partner_summary || reportData.partner_summary.length === 0) ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">没有找到匹配的数据</div>
-              ) : (
-                <>
+                  ) : (
+                    <>
                   {/* 按级别分行的卡片布局 */}
                   <div className="space-y-3 mb-4">
                     {/* 第一行：全部卡片 + 一级合作方（level 1） */}
@@ -1265,7 +1309,7 @@ export default function FinanceReconciliation() {
                                   <div className="flex items-baseline justify-between gap-1">
                                     <span className="text-[10px] text-muted-foreground">金额</span>
                                     <span className="text-xs font-semibold font-mono text-red-600 truncate">
-                                      {formatCurrency(partner.total_payable)}
+                            {formatCurrency(partner.total_payable)}
                                     </span>
                                   </div>
                                 </div>
@@ -1298,8 +1342,8 @@ export default function FinanceReconciliation() {
                       </div>
                     </div>
                   </div>
-                </>
-              )}
+                    </>
+                  )}
             </CardContent>
           </Card>
           {/* --- 优化设计结束 --- */}
@@ -1309,17 +1353,19 @@ export default function FinanceReconciliation() {
                 <div>
                   <CardTitle className="text-lg">运单财务明细</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {showAllLevels ? '显示所有层级的合作方' : '仅显示最高级合作方'}
+                    {partnerDisplayState === 'hidden' ? '合作方列已隐藏' : 
+                     partnerDisplayState === 'maxLevel' ? '仅显示最高级合作方' : 
+                     '显示所有层级的合作方'}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setShowAllLevels(!showAllLevels)} 
+                    onClick={handlePartnerDisplayToggle} 
                     className="whitespace-nowrap hover:bg-primary/10 transition-colors"
                   >
-                    {showAllLevels ? '仅显示最高级' : '展示全部级别'}
+                    {getPartnerDisplayButtonText()}
                   </Button>
                   <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}>
                     <Download className="mr-2 h-4 w-4" />导出明细
@@ -1341,8 +1387,7 @@ export default function FinanceReconciliation() {
                       <TableHead>路线</TableHead>
                       <TableHead>日期</TableHead>
                       <TableHead>装货数量</TableHead>
-                      <TableHead>运费</TableHead>
-                      <TableHead className="text-orange-600">额外费</TableHead>
+                      <TableHead className="text-red-600">运费+额外费</TableHead>
                       <TableHead className="text-green-600">司机应收</TableHead>
                       {displayedPartners.map(p => (
                         <TableHead key={p.id} className="text-center">
@@ -1391,10 +1436,10 @@ export default function FinanceReconciliation() {
                             {getQuantityDisplay(r)}
                           </TableCell>
                           <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            <CurrencyDisplay value={r.current_cost} />
-                          </TableCell>
-                          <TableCell className="text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            <CurrencyDisplay value={r.extra_cost} className="text-orange-600" />
+                            <div className="flex flex-col gap-1">
+                              <CurrencyDisplay value={r.current_cost} className="text-red-600" />
+                              <CurrencyDisplay value={r.extra_cost} className="text-black" />
+                            </div>
                           </TableCell>
                           <TableCell className="text-green-600 cursor-pointer" onClick={() => setViewingRecord(r)}>
                             <CurrencyDisplay value={r.payable_cost} className="text-green-600" />
@@ -1439,12 +1484,11 @@ export default function FinanceReconciliation() {
                     <TableRow className="bg-muted/30 font-semibold border-t-2">
                       <TableCell colSpan={7} className="text-right font-bold">合计</TableCell>
                       <TableCell className="font-bold text-center">
-                        <div><CurrencyDisplay value={reportData?.overview?.total_freight} /></div>
-                        <div className="text-xs text-muted-foreground font-normal">(运费)</div>
-                      </TableCell>
-                      <TableCell className="font-bold text-orange-600 text-center">
-                        <div><CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-orange-600" /></div>
-                        <div className="text-xs text-muted-foreground font-normal">(额外费)</div>
+                        <div className="flex flex-col gap-1">
+                          <CurrencyDisplay value={reportData?.overview?.total_freight} className="text-red-600" />
+                          <CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-black" />
+                        </div>
+                        <div className="text-xs text-muted-foreground font-normal mt-1">(运费/额外费)</div>
                       </TableCell>
                       <TableCell className="text-center font-bold text-green-600">
                         <div><CurrencyDisplay value={reportData?.overview?.total_driver_receivable} className="text-green-600" /></div>
