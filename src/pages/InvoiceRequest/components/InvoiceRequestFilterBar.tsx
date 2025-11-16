@@ -28,6 +28,7 @@ import { formatChinaDateString } from '@/utils/dateUtils';
 
 interface InvoiceFilters {
   projectId: string;
+  partnerId: string;
   invoiceStatus: string;
   startDate: string;
   endDate: string;

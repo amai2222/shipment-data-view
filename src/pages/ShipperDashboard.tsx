@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageHeader } from '@/components/PageHeader';
+import { CurrencyDisplay } from '@/components/CurrencyDisplay';
 import { 
   Package, 
   Weight, 
@@ -446,8 +447,8 @@ export default function ShipperDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{formatCurrency(stats.summary.totalAmount)}</div>
-                <p className="text-xs text-muted-foreground mt-1">本级: {formatCurrency(stats.summary.selfAmount)} | 下级: {formatCurrency(stats.summary.subordinatesAmount)}</p>
+                <div className="text-2xl font-bold text-orange-600"><CurrencyDisplay value={stats.summary.totalAmount} className="text-orange-600" /></div>
+                <p className="text-xs text-muted-foreground mt-1">本级: <CurrencyDisplay value={stats.summary.selfAmount} className="text-xs" /> | 下级: <CurrencyDisplay value={stats.summary.subordinatesAmount} className="text-xs" /></p>
                 <div className="flex items-center mt-2">
                   <DollarSign className="h-3 w-3 text-orange-500 mr-1" />
                   <span className="text-xs text-orange-600">应收总额</span>
@@ -681,7 +682,7 @@ export default function ShipperDashboard() {
                           </TableCell>
                           <TableCell className="font-semibold text-blue-600">{formatNumber(shipper.record_count)}</TableCell>
                           <TableCell className="font-semibold text-green-600">{formatWeight(shipper.total_weight)}</TableCell>
-                          <TableCell className="font-semibold text-orange-600">{formatCurrency(shipper.total_amount)}</TableCell>
+                          <TableCell className="font-semibold text-orange-600"><CurrencyDisplay value={shipper.total_amount} className="text-orange-600" /></TableCell>
                           <TableCell>
                             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                               {shipper.active_projects}

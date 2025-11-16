@@ -21,6 +21,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
 import { InvoiceRequestFilterBar } from "@/pages/InvoiceRequest/components/InvoiceRequestFilterBar";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -32,21 +33,24 @@ interface PartnerCost {
   full_name?: string; 
   bank_account?: string; 
   bank_name?: string; 
-  branch_name?: string; 
+  branch_name?: string;
+  tax_number?: string;
+  company_address?: string;
+  id?: string;
 }
 
 // 开票申请筛选器类型
 interface InvoiceFilters {
-  waybillNumbers: string;
-  driverName: string;
-  licensePlate: string;
-  driverPhone: string;
+  waybillNumbers?: string;
+  driverName?: string;
+  licensePlate?: string;
+  driverPhone?: string;
   projectId: string;
   partnerId: string;
   startDate: string;
   endDate: string;
   invoiceStatus: string;
-  driverReceivable: string;
+  driverReceivable?: string;
 }
 
 interface LogisticsRecord { 
@@ -74,7 +78,31 @@ interface LogisticsRecord {
 interface LogisticsRecordWithPartners extends LogisticsRecord { 
   current_cost?: number; 
   extra_cost?: number; 
-  chain_name?: string | null; 
+  chain_name?: string | null;
+  total_invoiceable_for_partner?: number;
+}
+
+// RPC 返回的数据类型
+interface InvoiceRequestResponse {
+  records?: LogisticsRecord[];
+  partners?: Array<{
+    partner_id: string;
+    partner_name: string;
+    total_payable: number;
+  }>;
+  overview?: {
+    total_invoiceable_cost: number;
+  };
+  count?: number;
+}
+
+// project_partners 查询返回的类型
+interface ProjectPartnerData {
+  partner_id: string;
+  level: number;
+  partners: {
+    name: string;
+  };
 }
 
 
@@ -91,12 +119,14 @@ interface SelectionState {
 interface InvoicePreviewSheet { 
   invoicing_partner_id: string; 
   invoicing_partner_full_name: string; 
+  invoicing_partner_tax_number?: string;
+  invoicing_partner_company_address?: string;
   invoicing_partner_bank_account: string; 
   invoicing_partner_bank_name: string; 
   invoicing_partner_branch_name: string; 
   record_count: number; 
   total_invoiceable: number; 
-  records: LogisticsRecord[]; 
+  records: Array<LogisticsRecord & { total_invoiceable_for_partner?: number }>; 
 }
 
 interface InvoicePreviewData { 
@@ -160,11 +190,11 @@ const StaleDataPrompt = () => (
 
 export default function InvoiceRequest() {
   // --- State 管理 ---
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<InvoiceRequestResponse | null>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewingRecord, setViewingRecord] = useState<LogisticsRecordWithPartners | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<(LogisticsRecordWithPartners & { total_invoiceable_for_partner?: number }) | null>(null);
   const { toast} = useToast();
   
   // 排序状态
@@ -186,11 +216,18 @@ export default function InvoiceRequest() {
     try {
       const { data: projectsData } = await supabase.from('projects').select('id, name').order('name');
       setProjects(projectsData || []);
-      const { data: partnersData } = await supabase.from('project_partners').select(`partner_id, level, partners!inner(name)`);
-      const uniquePartners = Array.from(new Map(partnersData?.map(p => [ 
-        p.partner_id, 
-        { id: p.partner_id, name: (p.partners as any).name, level: p.level } 
-      ]) || []).values()).sort((a, b) => a.level - b.level);
+      const { data: partnersData } = await supabase
+        .from('project_partners')
+        .select(`partner_id, level, partners!inner(name)`)
+        .returns<ProjectPartnerData[]>();
+      const uniquePartners = Array.from(
+        new Map(
+          (partnersData || []).map((p: ProjectPartnerData) => [ 
+            p.partner_id, 
+            { id: p.partner_id, name: p.partners.name, level: p.level } 
+          ])
+        ).values()
+      ).sort((a, b) => a.level - b.level);
       setAllPartners(uniquePartners);
     } catch (error) {
       toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
@@ -242,13 +279,13 @@ export default function InvoiceRequest() {
       setReportData(data);
       setPagination(prev => ({ 
         ...prev, 
-        totalPages: Math.ceil(((data as any)?.count || 0) / PAGE_SIZE) || 1 
+        totalPages: Math.ceil(((data as InvoiceRequestResponse)?.count || 0) / PAGE_SIZE) || 1 
       }));
     } catch (error) {
       console.error("加载开票申请数据失败:", error);
       toast({ 
         title: "错误", 
-        description: `加载开票申请数据失败: ${(error as any).message}`, 
+        description: `加载开票申请数据失败: ${error instanceof Error ? error.message : String(error)}`, 
         variant: "destructive" 
       });
       setReportData(null);
@@ -305,7 +342,7 @@ export default function InvoiceRequest() {
   };
   
   // 排序后的数据
-  const sortedRecords = useMemo(() => {
+  const sortedRecords = useMemo<LogisticsRecord[]>(() => {
     if (!reportData?.records || !Array.isArray(reportData.records)) return [];
     
     const records = [...reportData.records];
@@ -457,8 +494,8 @@ export default function InvoiceRequest() {
         if (allError) throw allError;
         
         // 后端已经处理了高级筛选，直接使用结果
-        const allFilteredRecords = allData?.records || [];
-        idsToProcess = allFilteredRecords.map(record => record.id);
+        const allFilteredRecords = (allData as InvoiceRequestResponse)?.records || [];
+        idsToProcess = allFilteredRecords.map((record) => record.id);
         allSelectedIds = idsToProcess; // 全选模式下，所有筛选的ID都是要处理的
       } else {
         allSelectedIds = Array.from(selection.selectedIds);
@@ -469,7 +506,8 @@ export default function InvoiceRequest() {
       const { data: statusData, error: statusError } = await supabase
         .from('logistics_records')
         .select('id, auto_number, invoice_status')
-        .in('id', allSelectedIds);
+        .in('id', allSelectedIds)
+        .returns<Array<{ id: string; auto_number: string | null; invoice_status: string | null }>>();
 
       if (statusError) throw statusError;
 
@@ -543,7 +581,8 @@ export default function InvoiceRequest() {
       // ✅ 调试：查看每个运单的最高级别
       console.log('运单级别分析:');
       records.forEach(rec => {
-        const recMaxLevel = Math.max(...(rec.partner_costs || []).map((c: any) => c.level));
+        const levels = (rec.partner_costs || []).map((c: PartnerCost) => c.level);
+        const recMaxLevel = levels.length > 0 ? Math.max(...levels) : 0;
         console.log(`${rec.auto_number}: maxLevel=${recMaxLevel}, costs=${rec.partner_costs?.length || 0}`);
       });
 
@@ -559,7 +598,13 @@ export default function InvoiceRequest() {
       
       console.log('全局maxLevel:', maxLevel);
 
-      const sheetMap = new Map<string, any>();
+      const sheetMap = new Map<string, InvoicePreviewSheet & { partner_costs: Array<{
+        id?: string;
+        logistics_record_id: string;
+        partner_id: string;
+        payable_amount: number;
+        invoice_status?: string;
+      }> }>();
 
       for (const rec of records) {
         const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
@@ -597,7 +642,7 @@ export default function InvoiceRequest() {
             });
             
             // 检查是否已经添加了这个运单
-            const existingRecord = sheet.records.find((r: any) => r.id === rec.id);
+            const existingRecord = sheet.records.find((r: LogisticsRecord) => r.id === rec.id);
             if (!existingRecord) {
               // 计算该运单对当前合作方的开票金额（允许0金额）
               const totalInvoiceableForPartner = costs
@@ -620,13 +665,13 @@ export default function InvoiceRequest() {
 
       // ✅ 调试：检查每个sheet的partner_costs
       console.log('生成的sheets详情:');
-      sheets.forEach((sheet: any, idx) => {
+      sheets.forEach((sheet, idx) => {
         console.log(`Sheet ${idx + 1} - ${sheet.invoicing_partner_full_name}:`);
         console.log(`  运单数: ${sheet.record_count}`);
         console.log(`  partner_costs数量: ${sheet.partner_costs?.length || 0}`);
-        console.log(`  运单列表:`, sheet.records.map((r: any) => r.auto_number));
+        console.log(`  运单列表:`, sheet.records.map((r: LogisticsRecord) => r.auto_number));
         if (sheet.partner_costs) {
-          console.log(`  partner_costs详情:`, sheet.partner_costs.map((c: any) => ({
+          console.log(`  partner_costs详情:`, sheet.partner_costs.map((c) => ({
             id: c.id ? '有' : '❌无',
             logistics_record_id: c.logistics_record_id,
             amount: c.payable_amount
@@ -642,7 +687,7 @@ export default function InvoiceRequest() {
       console.error("生成开票申请预览失败:", error);
       toast({
         title: "错误",
-        description: `生成开票申请预览失败: ${(error as any).message}`,
+        description: `生成开票申请预览失败: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive"
       });
     } finally {
@@ -730,7 +775,7 @@ export default function InvoiceRequest() {
       console.error("保存开票申请失败:", error);
       toast({
         title: "错误",
-        description: `保存开票申请失败: ${(error as any).message}`,
+        description: `保存开票申请失败: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive"
       });
     } finally {
@@ -739,7 +784,7 @@ export default function InvoiceRequest() {
   };
 
   // --- 计算派生状态 ---
-  const displayedPartners = useMemo(() => {
+  const displayedPartners = useMemo<Array<{id: string, name: string, level: number}>>(() => {
     if (uiFilters.partnerId !== "all") {
       const selected = allPartners.find(p => p.id === uiFilters.partnerId);
       return selected ? [selected] : [];
@@ -749,9 +794,9 @@ export default function InvoiceRequest() {
     // 获取相关合作方和最高级别（包括0金额的记录，因为可能是手动修改）
     const relevantPartnerIds = new Set<string>();
     let maxLevel = 0;
-    reportData.records.forEach((record: any) => {
+    reportData.records.forEach((record: LogisticsRecord) => {
       if (record && Array.isArray(record.partner_costs)) {
-        record.partner_costs.forEach((cost: any) => {
+        record.partner_costs.forEach((cost: PartnerCost) => {
           // ✅ 移除金额检查，允许显示0金额的合作方（支持手动修改为0的情况）
           relevantPartnerIds.add(cost.partner_id);
           if (cost.level > maxLevel) {
@@ -815,7 +860,7 @@ export default function InvoiceRequest() {
         return;
       }
 
-      const uninvoicedCount = statusData?.filter(record => record.invoice_status === 'Uninvoiced').length || 0;
+      const uninvoicedCount = (statusData || []).filter((record: { id: string; invoice_status: string | null }) => record.invoice_status === 'Uninvoiced').length;
       setProcessableCount(uninvoicedCount);
     } catch (error) {
       console.error('计算可处理运单数量失败:', error);
@@ -849,7 +894,7 @@ export default function InvoiceRequest() {
         {/* 筛选条件 */}
         <InvoiceRequestFilterBar 
           filters={uiFilters} 
-          onFiltersChange={setUiFilters} 
+          onFiltersChange={(filters) => setUiFilters(filters)} 
           onSearch={handleSearch} 
           onClear={handleClear} 
           loading={loading} 
@@ -913,7 +958,14 @@ export default function InvoiceRequest() {
                                 >
                                   <Checkbox 
                                     checked={allOnCurrentPageSelected}
-                                    ref={(el) => el && (el.indeterminate = someOnCurrentPageSelected)}
+                                    ref={(el) => {
+                                      if (el) {
+                                        const input = el.querySelector('input');
+                                        if (input && input instanceof HTMLInputElement) {
+                                          input.indeterminate = someOnCurrentPageSelected;
+                                        }
+                                      }
+                                    }}
                                     className="h-3.5 w-3.5"
                                   />
                                 </Button>
@@ -996,19 +1048,22 @@ export default function InvoiceRequest() {
                             <TableCell className="cursor-pointer whitespace-nowrap hidden md:table-cell" onClick={() => setViewingRecord(r)}>
                               {formatChineseDate(r.loading_date)}
                             </TableCell>
-                            <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>
-                              {formatCurrency(
-                                r.payable_cost || 
-                                (Array.isArray(r.partner_costs) && r.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
-                                r.current_cost ||
-                                null
-                              )}
+                            <TableCell className="cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>
+                              <CurrencyDisplay 
+                                value={
+                                  r.payable_cost || 
+                                  (Array.isArray(r.partner_costs) && r.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
+                                  r.current_cost ||
+                                  null
+                                }
+                                className="text-primary"
+                              />
                             </TableCell>
                             {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
-                              const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c:any) => c.partner_id === p.id)); 
+                              const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c: PartnerCost) => c.partner_id === p.id)); 
                               return (
-                                <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
-                                  {formatCurrency(cost?.payable_amount)}
+                                <TableCell key={p.id} className="text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>
+                                  <CurrencyDisplay value={cost?.payable_amount} />
                                 </TableCell>
                               ); 
                             })}
@@ -1019,15 +1074,18 @@ export default function InvoiceRequest() {
                         ))}
                         <TableRow className="bg-muted/30 font-semibold border-t-2">
                           <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
-                          <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap">
-                            <div>{formatCurrency(reportData?.overview?.total_invoiceable_cost)}</div>
+                          <TableCell className="font-bold text-primary text-center whitespace-nowrap">
+                            <div><CurrencyDisplay value={reportData?.overview?.total_invoiceable_cost} className="text-primary" /></div>
                             <div className="text-xs text-muted-foreground font-normal">(司机应收)</div>
                           </TableCell>
                           {Array.isArray(displayedPartners) && displayedPartners.map(p => { 
-                            const total = (Array.isArray(reportData?.partners) && reportData.partners.find((pp: any) => pp.partner_id === p.id)?.total_payable) || 0; 
+                            const partnerData = Array.isArray(reportData?.partners) 
+                              ? reportData.partners.find((pp: { partner_id: string; partner_name: string; total_payable: number }) => pp.partner_id === p.id)
+                              : undefined;
+                            const total = partnerData?.total_payable || 0; 
                             return (
-                              <TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap">
-                                <div>{formatCurrency(total)}</div>
+                              <TableCell key={p.id} className="text-center font-bold whitespace-nowrap">
+                                <div><CurrencyDisplay value={total} /></div>
                                 <div className="text-xs text-muted-foreground font-normal">({p.name})</div>
                               </TableCell>
                             );
@@ -1099,7 +1157,7 @@ export default function InvoiceRequest() {
                     </CardTitle>
                     <div className="text-sm text-muted-foreground space-y-1">
                       <div>运单数量: {sheet.record_count} 条</div>
-                      <div>开票金额: {formatCurrency(sheet.total_invoiceable)}</div>
+                      <div>开票金额: <CurrencyDisplay value={sheet.total_invoiceable} /></div>
                     </div>
                   </CardHeader>
                   
@@ -1138,11 +1196,11 @@ export default function InvoiceRequest() {
                                 <TableCell className="text-sm">
                                   {formatChineseDate(record.loading_date)}
                                 </TableCell>
-                                <TableCell className="text-sm font-mono text-right">
-                                  {formatCurrency(record.payable_cost || 0)}
+                                <TableCell className="text-sm text-right">
+                                  <CurrencyDisplay value={record.payable_cost || 0} />
                                 </TableCell>
-                                <TableCell className="text-sm font-mono text-right">
-                                  {formatCurrency(record.total_invoiceable_for_partner || 0)}
+                                <TableCell className="text-sm text-right">
+                                  <CurrencyDisplay value={record.total_invoiceable_for_partner || 0} />
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -1156,7 +1214,7 @@ export default function InvoiceRequest() {
               
               <div className="text-sm text-muted-foreground">
                 总计: {invoicePreviewData.processed_record_ids.length} 条运单，
-                金额合计: {formatCurrency(invoicePreviewData.sheets.reduce((sum, sheet) => sum + sheet.total_invoiceable, 0))}
+                金额合计: <CurrencyDisplay value={invoicePreviewData.sheets.reduce((sum, sheet) => sum + sheet.total_invoiceable, 0)} />
               </div>
             </div>
           )}
@@ -1212,12 +1270,15 @@ export default function InvoiceRequest() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground">应收金额（司机）</Label>
-                <p className="font-mono font-bold text-primary">{formatCurrency(
-                  viewingRecord.payable_cost || 
-                  (Array.isArray(viewingRecord.partner_costs) && viewingRecord.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
-                  viewingRecord.current_cost ||
-                  null
-                )}</p>
+                <p className="font-bold text-primary"><CurrencyDisplay 
+                  value={
+                    viewingRecord.payable_cost || 
+                    (Array.isArray(viewingRecord.partner_costs) && viewingRecord.partner_costs.find((c: any) => c.level === 0)?.payable_amount) ||
+                    viewingRecord.current_cost ||
+                    null
+                  }
+                  className="text-primary"
+                /></p>
               </div>
               
               {viewingRecord.loading_weight && (
@@ -1235,13 +1296,13 @@ export default function InvoiceRequest() {
               {viewingRecord.current_cost && (
                 <div className="space-y-1">
                   <Label className="text-muted-foreground">运费金额</Label>
-                  <p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p>
+                  <p><CurrencyDisplay value={viewingRecord.current_cost} /></p>
                 </div>
               )}
               {viewingRecord.extra_cost && (
                 <div className="space-y-1">
                   <Label className="text-muted-foreground">额外费用</Label>
-                  <p className="font-mono">{formatCurrency(viewingRecord.extra_cost)}</p>
+                  <p><CurrencyDisplay value={viewingRecord.extra_cost} /></p>
                 </div>
               )}
             </div>

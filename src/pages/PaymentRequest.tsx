@@ -40,6 +40,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PaginationControl } from "@/components/common";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
@@ -294,6 +295,7 @@ export default function PaymentRequest() {
   // getBillingUnit: 获取计费单位
   // formatQuantity: 格式化数量显示
   // ==========================================================================
+  // formatCurrency 已替换为 CurrencyDisplay 组件，保留此函数用于向后兼容（如需要）
   const formatCurrency = (value: number | null | undefined): string => { if (value == null) return '-'; return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value); };
   const simplifyRoute = (loading?: string, unloading?: string): string => { const start = (loading || '').substring(0, 2); const end = (unloading || '').substring(0, 2); return `${start}→${end}`; };
   const formatDate = (dateString: string | null | undefined): string => { if (!dateString) return '-'; return format(new Date(dateString), 'yyyy/MM/dd'); };
@@ -1842,8 +1844,8 @@ export default function PaymentRequest() {
                               <TableCell className="text-sm cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{simplifyRoute(r.loading_location, r.unloading_location)}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatQuantity(r)}</TableCell>
                               <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatDate(r.loading_date)}</TableCell>
-                              <TableCell className="font-mono cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>
-                              {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c) => c.partner_id === p.id)); return <TableCell key={p.id} className="font-mono text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}
+                              <TableCell className="cursor-pointer whitespace-nowrap font-bold text-primary" onClick={() => setViewingRecord(r)}><CurrencyDisplay value={r.payable_cost} className="text-primary" /></TableCell>
+                              {Array.isArray(displayedPartners) && displayedPartners.map(p => { const cost = (Array.isArray(r.partner_costs) && r.partner_costs.find((c) => c.partner_id === p.id)); return <TableCell key={p.id} className="text-center cursor-pointer whitespace-nowrap" onClick={() => setViewingRecord(r)}><CurrencyDisplay value={cost?.payable_amount} /></TableCell>; })}
                                <TableCell className="whitespace-nowrap">
                                  <span className="text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">{r.chain_name || '默认链路'}</span>
                                </TableCell>
@@ -1888,8 +1890,8 @@ export default function PaymentRequest() {
                       ))}
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
                         <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
-                        <TableCell className="font-mono font-bold text-primary text-center whitespace-nowrap"><div>{formatCurrency(reportData?.overview?.total_driver_receivable || 0)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
-                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_summary) && reportData.partner_summary.find((pp) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono whitespace-nowrap"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        <TableCell className="font-bold text-primary text-center whitespace-nowrap"><div><CurrencyDisplay value={reportData?.overview?.total_driver_receivable || 0} className="text-primary" /></div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
+                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_summary) && reportData.partner_summary.find((pp) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold whitespace-nowrap"><div><CurrencyDisplay value={total} /></div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
@@ -1938,9 +1940,9 @@ export default function PaymentRequest() {
               <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
               <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{formatCurrency(viewingRecord.extra_cost)}</p></div>
-              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_cost)}</p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p><CurrencyDisplay value={viewingRecord.current_cost} /></p></div>
+              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p><CurrencyDisplay value={viewingRecord.extra_cost} /></p></div>
+              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-bold text-primary"><CurrencyDisplay value={viewingRecord.payable_cost} /></p></div>
               <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
             </div>
           )}
@@ -1976,7 +1978,7 @@ export default function PaymentRequest() {
                       <TableCell>{sheet.paying_partner_bank_name}</TableCell>
                       <TableCell>{sheet.paying_partner_branch_name}</TableCell>
                       <TableCell className="text-right">{sheet.record_count}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(sheet.total_payable)}</TableCell>
+                      <TableCell className="text-right"><CurrencyDisplay value={sheet.total_payable} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

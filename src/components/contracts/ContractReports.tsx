@@ -39,6 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, startOfYear, endOfYear, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
+import { CurrencyDisplay } from '@/components/CurrencyDisplay';
 
 interface ReportData {
   period: string;
@@ -373,7 +374,7 @@ export function ContractReports({ contractId }: ContractReportsProps) {
             <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(reportData.total_amount)}</div>
+            <div className="text-2xl font-bold"><CurrencyDisplay value={reportData.total_amount} /></div>
             <p className="text-xs text-muted-foreground">
               所有合同的总金额
             </p>

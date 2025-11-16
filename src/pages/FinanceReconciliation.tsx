@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { VirtualizedTable } from "@/components/VirtualizedTable";
 import { PageHeader } from "@/components/PageHeader";
 import { PaginationControl } from "@/components/common";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 // --- 类型定义 ---
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
@@ -865,7 +866,9 @@ export default function FinanceReconciliation() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">总运费</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex items-center">
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(reportData?.overview?.total_freight)}</div>
+                <div className="text-2xl font-bold text-green-600">
+                  <CurrencyDisplay value={reportData?.overview?.total_freight} />
+                </div>
               </CardContent>
             </Card>
             
@@ -874,7 +877,9 @@ export default function FinanceReconciliation() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">总额外费用</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex items-center">
-                <div className="text-2xl font-bold text-orange-600">{formatCurrency(reportData?.overview?.total_extra_cost)}</div>
+                <div className="text-2xl font-bold text-orange-600">
+                  <CurrencyDisplay value={reportData?.overview?.total_extra_cost} />
+                </div>
               </CardContent>
             </Card>
             
@@ -883,7 +888,9 @@ export default function FinanceReconciliation() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">司机应收汇总</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex items-center">
-                <div className="text-2xl font-bold text-purple-600">{formatCurrency(reportData?.overview?.total_driver_receivable)}</div>
+                <div className="text-2xl font-bold text-purple-600">
+                  <CurrencyDisplay value={reportData?.overview?.total_driver_receivable} />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -927,8 +934,11 @@ export default function FinanceReconciliation() {
                             </div>
                             <div className="flex items-baseline justify-between gap-1">
                               <span className="text-[10px] text-muted-foreground">金额</span>
-                              <span className="text-xs font-semibold font-mono text-red-600 truncate">
-                                {formatCurrency(reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0)}
+                              <span className="text-xs font-semibold text-red-600 truncate">
+                                <CurrencyDisplay 
+                                  value={reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0}
+                                  className="text-red-600"
+                                />
                               </span>
                             </div>
                           </div>
@@ -960,8 +970,11 @@ export default function FinanceReconciliation() {
                                 </div>
                                 <div className="flex items-baseline justify-between gap-1">
                                   <span className="text-[10px] text-muted-foreground">金额</span>
-                                  <span className="text-xs font-semibold font-mono text-red-600 truncate">
-                                    {formatCurrency(partner.total_payable)}
+                                  <span className="text-xs font-semibold text-red-600 truncate">
+                                    <CurrencyDisplay 
+                                      value={partner.total_payable}
+                                      className="text-red-600"
+                                    />
                                   </span>
                                 </div>
                               </div>
@@ -1023,8 +1036,11 @@ export default function FinanceReconciliation() {
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-muted-foreground">应付总金额</div>
-                        <div className="text-sm font-semibold font-mono text-red-600">
-                          {formatCurrency(reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0)}
+                        <div className="text-sm font-semibold text-red-600">
+                          <CurrencyDisplay 
+                            value={reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0}
+                            className="text-red-600"
+                          />
                         </div>
                       </div>
                     </div>
@@ -1064,7 +1080,7 @@ export default function FinanceReconciliation() {
                   <TableHeader><TableRow><TableHead className="w-12"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage}/></TableHead><TableHead>运单编号</TableHead><TableHead>项目</TableHead><TableHead>司机</TableHead><TableHead>路线</TableHead><TableHead>日期</TableHead><TableHead>装货数量</TableHead><TableHead>运费</TableHead><TableHead className="text-orange-600">额外费</TableHead><TableHead className="text-green-600">司机应收</TableHead>{displayedPartners.map(p => <TableHead key={p.id} className="text-center">{p.name}<div className="text-xs text-muted-foreground">({p.level}级)</div></TableHead>)}<TableHead>状态</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {(reportData?.records || []).map((r) => (<TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"} className="whitespace-nowrap"><TableCell><Checkbox checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} onCheckedChange={() => handleRecordSelect(r.id)}/></TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{r.auto_number}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.project_name}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.driver_name}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{`${r.loading_location?.substring(0, 2) || ''}→${r.unloading_location?.substring(0, 2) || ''}`}</TableCell><TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>{r.loading_date}</TableCell><TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>{getQuantityDisplay(r)}</TableCell><TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.current_cost)}</TableCell><TableCell className="font-mono text-orange-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.extra_cost)}</TableCell><TableCell className="font-mono text-green-600 cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(r.payable_cost)}</TableCell>{displayedPartners.map(p => { const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id); return <TableCell key={p.id} className="font-mono text-center cursor-pointer" onClick={() => setViewingRecord(r)}>{formatCurrency(cost?.payable_amount)}</TableCell>; })}<TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}><Badge variant={r.current_cost ? "default" : "secondary"}>{r.current_cost ? "已计费" : "待计费"}</Badge></TableCell></TableRow>))}
-                    <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={7} className="text-right font-bold">合计</TableCell><TableCell className="font-mono font-bold text-center"><div>{formatCurrency(reportData?.overview?.total_freight)}</div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-mono font-bold text-orange-600 text-center"><div>{formatCurrency(reportData?.overview?.total_extra_cost)}</div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell><TableCell className="text-center font-bold font-mono text-green-600"><div>{formatCurrency(reportData?.overview?.total_driver_receivable)}</div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>{displayedPartners.map(p => { const total = (reportData?.partner_summary || []).find((pp) => pp.partner_id === p.id)?.total_payable || 0; return (<TableCell key={p.id} className="text-center font-bold font-mono"><div>{formatCurrency(total)}</div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}<TableCell></TableCell></TableRow>
+                    <TableRow className="bg-muted/30 font-semibold border-t-2"><TableCell colSpan={7} className="text-right font-bold">合计</TableCell><TableCell className="font-bold text-center"><div><CurrencyDisplay value={reportData?.overview?.total_freight} /></div><div className="text-xs text-muted-foreground font-normal">(运费)</div></TableCell><TableCell className="font-bold text-orange-600 text-center"><div><CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-orange-600" /></div><div className="text-xs text-muted-foreground font-normal">(额外费)</div></TableCell><TableCell className="text-center font-bold text-green-600"><div><CurrencyDisplay value={reportData?.overview?.total_driver_receivable} className="text-green-600" /></div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>{displayedPartners.map(p => { const total = (reportData?.partner_summary || []).find((pp) => pp.partner_id === p.id)?.total_payable || 0; return (<TableCell key={p.id} className="text-center font-bold"><div><CurrencyDisplay value={total} /></div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}<TableCell></TableCell></TableRow>
                   </TableBody>
                 </Table>
                 )}

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye } from 'lucide-react';
 import { LogisticsRecord } from '@/types';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { CurrencyDisplay } from '@/components/CurrencyDisplay';
 
 interface WaybillDetailDialogProps {
   isOpen: boolean;
@@ -367,16 +368,16 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white p-3 rounded-lg border border-emerald-100">
                 <Label className="text-xs text-emerald-600 font-medium">运费金额</Label>
-                <p className="font-mono text-sm text-gray-700 mt-1">{formatCurrency(record.current_cost)}</p>
+                <p className="text-sm text-gray-700 mt-1"><CurrencyDisplay value={record.current_cost} /></p>
               </div>
               <div className="bg-white p-3 rounded-lg border border-emerald-100">
                 <Label className="text-xs text-emerald-600 font-medium">额外费用</Label>
-                <p className="font-mono text-sm text-gray-700 mt-1">{formatCurrency(record.extra_cost)}</p>
+                <p className="text-sm text-gray-700 mt-1"><CurrencyDisplay value={record.extra_cost} /></p>
               </div>
               <div className="bg-white p-3 rounded-lg border border-emerald-100">
                 <Label className="text-xs text-emerald-600 font-medium">司机应收</Label>
-                <p className="font-mono font-bold text-emerald-600 text-sm mt-1">
-                  {formatCurrency(record.payable_cost)}
+                <p className="font-bold text-emerald-600 text-sm mt-1">
+                  <CurrencyDisplay value={record.payable_cost} className="text-emerald-600" />
                 </p>
               </div>
             </div>

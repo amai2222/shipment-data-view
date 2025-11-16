@@ -28,6 +28,7 @@ import { BatchPDFGenerator } from '@/components/BatchPDFGenerator';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LogisticsTable } from './components/LogisticsTable';
 import { PageHeader } from "@/components/PageHeader";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
@@ -55,9 +56,9 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
     <div className="flex items-center justify-start gap-x-6 rounded-lg border p-4 text-sm font-medium flex-nowrap overflow-x-auto scrollbar-thin">
       <span className="font-bold whitespace-nowrap">{summaryTitle}:</span>
       <span className="whitespace-nowrap">{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
-      <span className="whitespace-nowrap">司机运费: <span className="font-bold text-primary">{formatCurrency(totalSummary.totalCurrentCost)}</span></span>
-      <span className="whitespace-nowrap">额外费用: <span className="font-bold text-orange-600">{formatCurrency(totalSummary.totalExtraCost)}</span></span>
-      <span className="whitespace-nowrap">司机应收: <span className="font-bold text-green-600">{formatCurrency(totalSummary.totalDriverPayableCost)}</span></span>
+      <span className="whitespace-nowrap">司机运费: <span className="font-bold text-primary"><CurrencyDisplay value={totalSummary.totalCurrentCost} className="text-primary" /></span></span>
+      <span className="whitespace-nowrap">额外费用: <span className="font-bold text-orange-600"><CurrencyDisplay value={totalSummary.totalExtraCost} className="text-orange-600" /></span></span>
+      <span className="whitespace-nowrap">司机应收: <span className="font-bold text-green-600"><CurrencyDisplay value={totalSummary.totalDriverPayableCost} className="text-green-600" /></span></span>
       {totalSummary.totalWeightLoading > 0 && (
         <span className="whitespace-nowrap">计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
       )}
@@ -84,9 +85,9 @@ const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {
   return (
     <div className="text-sm text-muted-foreground whitespace-nowrap">
       <span className="font-bold">本页合计:</span>
-      <span className="ml-2">运费 {formatCurrency(pageSummary.currentCost)}</span>
-      <span className="ml-2">额外 {formatCurrency(pageSummary.extraCost)}</span>
-      <span className="ml-2">应付款司机 <span className="font-semibold text-primary">{formatCurrency(pageSummary.payableCost)}</span></span>
+      <span className="ml-2">运费 <CurrencyDisplay value={pageSummary.currentCost} /></span>
+      <span className="ml-2">额外 <CurrencyDisplay value={pageSummary.extraCost} /></span>
+      <span className="ml-2">应付款司机 <span className="font-semibold text-primary"><CurrencyDisplay value={pageSummary.payableCost} className="text-primary" /></span></span>
     </div>
   );
 };

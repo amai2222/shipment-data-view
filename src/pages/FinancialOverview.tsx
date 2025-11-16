@@ -10,6 +10,7 @@ import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Loader2, Banknote, TrendingUp, DollarSign, FileText, AlertCircle, CheckCircle, Clock, ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 // --- 类型定义 ---
 interface FinancialStats { totalReceivables: number; monthlyReceivables: number; pendingPayment: number; pendingInvoice: number; }
@@ -250,7 +251,7 @@ export default function FinancialOverview() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{formatCurrency(stats?.totalReceivables || 0)}</div>
+              <div className="text-2xl font-bold text-blue-600"><CurrencyDisplay value={stats?.totalReceivables || 0} className="text-blue-600" /></div>
               <p className="text-xs text-muted-foreground mt-1">我司应收总额</p>
               <div className="flex items-center mt-2">
                 <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
@@ -270,7 +271,7 @@ export default function FinancialOverview() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.monthlyReceivables || 0)}</div>
+              <div className="text-2xl font-bold text-green-600"><CurrencyDisplay value={stats?.monthlyReceivables || 0} className="text-green-600" /></div>
               <p className="text-xs text-muted-foreground mt-1">我司本月应收</p>
               <div className="flex items-center mt-2">
                 <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
@@ -290,7 +291,7 @@ export default function FinancialOverview() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{formatCurrency(stats?.pendingPayment || 0)}</div>
+              <div className="text-2xl font-bold text-orange-600"><CurrencyDisplay value={stats?.pendingPayment || 0} className="text-orange-600" /></div>
               <p className="text-xs text-muted-foreground mt-1">甲方待付总额</p>
               <div className="flex items-center mt-2">
                 <AlertCircle className="h-3 w-3 text-orange-500 mr-1" />
@@ -310,7 +311,7 @@ export default function FinancialOverview() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats?.pendingInvoice || 0)}</div>
+              <div className="text-2xl font-bold text-purple-600"><CurrencyDisplay value={stats?.pendingInvoice || 0} className="text-purple-600" /></div>
               <p className="text-xs text-muted-foreground mt-1">我司待开票总额</p>
               <div className="flex items-center mt-2">
                 <FileText className="h-3 w-3 text-purple-500 mr-1" />
@@ -331,7 +332,7 @@ export default function FinancialOverview() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(stats?.totalReceivables ? stats.totalReceivables - (stats.pendingPayment + stats.pendingInvoice) : 0)}</div>
+                <div className="text-2xl font-bold text-green-600"><CurrencyDisplay value={stats?.totalReceivables ? stats.totalReceivables - (stats.pendingPayment + stats.pendingInvoice) : 0} className="text-green-600" /></div>
                 <p className="text-sm text-muted-foreground">已收款项</p>
                 <Badge variant="outline" className="mt-2 bg-green-50 text-green-700 border-green-200">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -339,7 +340,7 @@ export default function FinancialOverview() {
                 </Badge>
               </div>
               <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                <div className="text-2xl font-bold text-orange-600">{formatCurrency(stats?.pendingPayment || 0)}</div>
+                <div className="text-2xl font-bold text-orange-600"><CurrencyDisplay value={stats?.pendingPayment || 0} className="text-orange-600" /></div>
                 <p className="text-sm text-muted-foreground">待收款项</p>
                 <Badge variant="outline" className="mt-2 bg-orange-50 text-orange-700 border-orange-200">
                   <Clock className="h-3 w-3 mr-1" />
@@ -347,7 +348,7 @@ export default function FinancialOverview() {
                 </Badge>
               </div>
               <div className="text-center p-4 bg-white rounded-lg shadow-sm">
-                <div className="text-2xl font-bold text-purple-600">{formatCurrency(stats?.pendingInvoice || 0)}</div>
+                <div className="text-2xl font-bold text-purple-600"><CurrencyDisplay value={stats?.pendingInvoice || 0} className="text-purple-600" /></div>
                 <p className="text-sm text-muted-foreground">待开票金额</p>
                 <Badge variant="outline" className="mt-2 bg-purple-50 text-purple-700 border-purple-200">
                   <FileText className="h-3 w-3 mr-1" />
@@ -643,7 +644,7 @@ export default function FinancialOverview() {
                           <TableCell>{r.loading_weight || '-'}</TableCell>
                           <TableCell>{r.unloading_weight || '-'}</TableCell>
                           <TableCell>{r.transport_type || '-'}</TableCell>
-                          <TableCell className="text-right font-semibold text-green-600">{formatCurrency(r.payable_cost)}</TableCell>
+                          <TableCell className="text-right font-semibold text-green-600"><CurrencyDisplay value={r.payable_cost} className="text-green-600" /></TableCell>
                           <TableCell className="text-muted-foreground">{r.remarks || '-'}</TableCell>
                         </TableRow>
                       )) : (

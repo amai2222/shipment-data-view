@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ResponsiveNumber, ResponsiveCurrency, ResponsiveNumberWithUnit } from "@/components/ResponsiveNumber";
 import { WaybillDetailDialog } from "@/components/WaybillDetailDialog";
 import { PageHeader } from "@/components/PageHeader";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 // --- 类型定义 ---
 
@@ -58,6 +59,7 @@ const getDefaultDateRange = () => {
   return { startDate: formatISODate(startDate), endDate: formatISODate(today) };
 };
 
+// formatCurrency 用于图表等需要字符串的场景
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
   return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
@@ -638,7 +640,7 @@ export default function Home() {
                         {record.unloadingWeight != null ? `${record.unloadingWeight.toFixed(2)} ${unit}`.trim() : '-'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap"><span className={`px-2 py-1 rounded-full text-xs ${record.transportType === "实际运输" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{record.transportType}</span></TableCell>
-                      <TableCell className="whitespace-nowrap">{formatCurrency(record.payableFee)}</TableCell>
+                      <TableCell className="whitespace-nowrap"><CurrencyDisplay value={record.payableFee} /></TableCell>
                       <TableCell className="whitespace-nowrap max-w-[150px] truncate" title={record.remarks}>{record.remarks || '-'}</TableCell>
                     </TableRow>
                   );

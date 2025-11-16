@@ -13,6 +13,7 @@ import { TransportDocumentGenerator, generatePrintVersion } from '@/components/T
 import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Checkbox } from "@/components/ui/checkbox";
+import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -387,11 +388,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                     </TableCell>
                     {/* [修改] 使用统一的显示函数 */}
                     <TableCell className="font-mono text-sm text-slate-700 py-2">{getQuantityDisplay(record)}</TableCell>
-                    <TableCell className="font-mono text-sm text-slate-700 py-2">
-                      {formatCurrency(record.current_cost)} / {formatCurrency(record.extra_cost)}
+                    <TableCell className="text-sm text-slate-700 py-2">
+                      <CurrencyDisplay value={record.current_cost} /> / <CurrencyDisplay value={record.extra_cost} />
                     </TableCell>
-                    <TableCell className="font-mono text-sm text-blue-600 py-2">
-                      {formatCurrency(driverPayable)}
+                    <TableCell className="text-sm text-blue-600 py-2">
+                      <CurrencyDisplay value={driverPayable} className="text-blue-600" />
                     </TableCell>
                     {/* 隐藏状态列 */}
                     {/* <TableCell>
@@ -489,11 +490,11 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   {summaryTotals.trips.count > 0 && <div>计车: {summaryTotals.trips.count} 车</div>}
                   {summaryTotals.volume.loading > 0 && <div>计体积: {summaryTotals.volume.loading.toFixed(2)} / {summaryTotals.volume.unloading.toFixed(2)} 立方</div>}
                 </TableCell>
-                <TableCell className="font-mono text-slate-500 py-3">
-                  {formatCurrency(summaryTotals.currentCost)} / {formatCurrency(summaryTotals.extraCost)}
+                <TableCell className="text-slate-500 py-3">
+                  <CurrencyDisplay value={summaryTotals.currentCost} /> / <CurrencyDisplay value={summaryTotals.extraCost} />
                 </TableCell>
-                <TableCell className="font-mono text-slate-600 py-3">
-                  {formatCurrency(summaryTotals.driverPayable)}
+                <TableCell className="text-slate-600 py-3">
+                  <CurrencyDisplay value={summaryTotals.driverPayable} />
                 </TableCell>
                 {/* 隐藏状态列 */}
                 {/* <TableCell></TableCell> */}
@@ -509,9 +510,9 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
         {/* 左侧：本页合计信息 */}
         <div className="flex-1 text-sm text-slate-600">
           <span className="text-slate-600">本页合计:</span>
-          <span className="ml-3 text-slate-700">运费 {formatCurrency(summaryTotals.currentCost)}</span>
-          <span className="ml-3 text-slate-700">额外 {formatCurrency(summaryTotals.extraCost)}</span>
-          <span className="ml-3 text-slate-700">应付款司机 {formatCurrency(summaryTotals.driverPayable)}</span>
+          <span className="ml-3 text-slate-700">运费 <CurrencyDisplay value={summaryTotals.currentCost} /></span>
+          <span className="ml-3 text-slate-700">额外 <CurrencyDisplay value={summaryTotals.extraCost} /></span>
+          <span className="ml-3 text-slate-700">应付款司机 <CurrencyDisplay value={summaryTotals.driverPayable} /></span>
           <span className="ml-3 text-slate-600">共{pagination.totalCount} 条记录</span>
         </div>
         

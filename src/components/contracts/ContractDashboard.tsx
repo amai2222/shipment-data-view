@@ -20,6 +20,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, isAfter, isBefore } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { CurrencyDisplay } from '@/components/CurrencyDisplay';
 
 interface ContractStats {
   total: number;
@@ -237,7 +238,7 @@ export function ContractDashboard() {
             <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.total_amount)}</div>
+            <div className="text-2xl font-bold"><CurrencyDisplay value={stats.total_amount} /></div>
             <p className="text-xs text-muted-foreground">
               所有合同金额
             </p>
