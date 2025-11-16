@@ -107,12 +107,21 @@ const FIELD_TYPES = [
   { value: 'boolean', label: '布尔值' }
 ];
 
+// 数据库列信息接口
+interface DatabaseColumn {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  table_name: string;
+}
+
 export default function TemplateMappingManager() {
   const { toast } = useToast();
   const [templates, setTemplates] = useState<ImportTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<ImportTemplate | null>(null);
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [fixedMappings, setFixedMappings] = useState<FixedMapping[]>([]);
+  const [databaseColumns, setDatabaseColumns] = useState<Record<string, DatabaseColumn>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -151,6 +160,26 @@ export default function TemplateMappingManager() {
     is_case_sensitive: false,
     description: ''
   });
+
+  // 加载数据库列信息
+  const loadDatabaseColumns = async () => {
+    try {
+      const { data, error } = await relaxedSupabase.rpc('get_logistics_records_columns');
+      
+      if (error) throw error;
+      
+      // 将列信息转换为以列名为key的对象，方便查找
+      const columnsMap: Record<string, DatabaseColumn> = {};
+      (data || []).forEach((col: DatabaseColumn) => {
+        columnsMap[col.column_name] = col;
+      });
+      
+      setDatabaseColumns(columnsMap);
+    } catch (error: any) {
+      console.error('加载数据库列信息失败:', error);
+      // 不显示错误提示，避免影响用户体验
+    }
+  };
 
   // 加载模板列表
   const loadTemplates = async () => {
@@ -523,6 +552,7 @@ export default function TemplateMappingManager() {
   };
 
   useEffect(() => {
+    loadDatabaseColumns();
     loadTemplates();
   }, []);
 
@@ -619,50 +649,64 @@ export default function TemplateMappingManager() {
                   <TableRow>
                     <TableHead>目标字段</TableHead>
                     <TableHead>Excel字段</TableHead>
+                    <TableHead>数据库列</TableHead>
                     <TableHead>类型</TableHead>
                     <TableHead>必填</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fieldMappings.map((mapping) => (
-                    <TableRow key={mapping.id}>
-                      <TableCell className="font-medium">
-                        {SYSTEM_FIELDS.find(f => f.key === mapping.target_field)?.label || mapping.target_field}
-                      </TableCell>
-                      <TableCell>
-                        {mapping.source_field}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{mapping.field_type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {mapping.is_required ? (
-                          <Badge variant="destructive">必填</Badge>
-                        ) : (
-                          <Badge variant="secondary">可选</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditFieldMapping(mapping)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteFieldMapping(mapping.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {fieldMappings.map((mapping) => {
+                    // 从数据库列信息中获取对应的列名
+                    const dbColumn = databaseColumns[mapping.target_field];
+                    const dbColumnName = dbColumn 
+                      ? `${dbColumn.table_name}.${dbColumn.column_name}`
+                      : `logistics_records.${mapping.target_field}`;
+                    
+                    return (
+                      <TableRow key={mapping.id}>
+                        <TableCell className="font-medium">
+                          {SYSTEM_FIELDS.find(f => f.key === mapping.target_field)?.label || mapping.target_field}
+                        </TableCell>
+                        <TableCell>
+                          {mapping.source_field}
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+                            {dbColumnName}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{mapping.field_type}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {mapping.is_required ? (
+                            <Badge variant="destructive">必填</Badge>
+                          ) : (
+                            <Badge variant="secondary">可选</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditFieldMapping(mapping)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteFieldMapping(mapping.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -837,13 +881,42 @@ export default function TemplateMappingManager() {
                   <SelectValue placeholder="选择目标字段" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SYSTEM_FIELDS.map((field) => (
-                    <SelectItem key={field.key} value={field.key}>
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </SelectItem>
-                  ))}
+                  {SYSTEM_FIELDS.map((field) => {
+                    const dbColumn = databaseColumns[field.key];
+                    const dbColumnName = dbColumn 
+                      ? `${dbColumn.table_name}.${dbColumn.column_name}`
+                      : `logistics_records.${field.key}`;
+                    
+                    return (
+                      <SelectItem key={field.key} value={field.key}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>
+                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-2 font-mono">
+                            {dbColumnName}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              {fieldForm.database_field && (
+                <div className="mt-2 p-2 bg-muted rounded-md">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">数据库列：</span>
+                    <code className="text-xs font-mono">
+                      {(() => {
+                        const dbColumn = databaseColumns[fieldForm.database_field];
+                        return dbColumn 
+                          ? `${dbColumn.table_name}.${dbColumn.column_name}`
+                          : `logistics_records.${fieldForm.database_field}`;
+                      })()}
+                    </code>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="source_field">Excel字段</Label>
