@@ -21,6 +21,7 @@ import { ImageViewer } from './components/ImageViewer';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { PageHeader } from '@/components/PageHeader';
+import { PaginationControl } from '@/components/common';
 
 // 接口定义 (已更新)
 interface Project { id: string; name: string; }
@@ -53,7 +54,6 @@ interface BulkLinkResult {
 }
 
 const initialFilterState: FilterState = { projectId: '', startDate: '', endDate: '', licensePlate: '' };
-const PAGE_SIZE = 15;
 
 export default function ScaleRecords() {
   // 基础状态
@@ -84,6 +84,7 @@ export default function ScaleRecords() {
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // 自定义 Hooks
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState<FilterState>(initialFilterState);
@@ -120,7 +121,7 @@ export default function ScaleRecords() {
 
   useEffect(() => {
     loadRecords();
-  }, [activeFilters, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeFilters, currentPage, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (isStale) {
@@ -134,8 +135,8 @@ export default function ScaleRecords() {
   const loadRecords = async () => {
     setLoading(true);
     try {
-      const from = (currentPage - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
 
       // 将中国时区的日期转换为 UTC 日期（用于数据库查询）
       // activeFilters.startDate 和 activeFilters.endDate 存储的是中国时区的日期字符串（如 "2025-10-05"）
@@ -398,7 +399,12 @@ export default function ScaleRecords() {
     }
   };
 
-  const totalPages = Math.ceil(totalRecordsCount / PAGE_SIZE);
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
+
+  const totalPages = Math.ceil(totalRecordsCount / pageSize);
   const isAnyOnPageSelected = records.length > 0 && records.some(r => selectedRecordIds.has(r.id));
   const isAllOnPageSelected = records.length > 0 && records.every(r => selectedRecordIds.has(r.id));
   const headerCheckboxState = isAllOnPageSelected ? true : (isAnyOnPageSelected ? 'indeterminate' : false);
@@ -614,32 +620,14 @@ export default function ScaleRecords() {
                 ))}
               </div>
               
-              {totalPages > 1 && (
-                <div className="flex items-center justify-end space-x-2 pt-4">
-                  <span className="text-sm text-muted-foreground">
-                    共 {totalRecordsCount} 条记录
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    上一页
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    第 {currentPage} 页 / 共 {totalPages} 页
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage >= totalPages}
-                  >
-                    下一页
-                  </Button>
-                </div>
-              )}
+              <PaginationControl
+                currentPage={currentPage}
+                pageSize={pageSize}
+                totalPages={totalPages}
+                totalCount={totalRecordsCount}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
             </>
           )}
         </CardContent>

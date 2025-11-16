@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PageHeader } from '@/components/PageHeader';
+import { PaginationControl } from '@/components/common';
 import {
   FileText,
   Calculator,
@@ -94,8 +95,8 @@ export default function ExpenseWriteoff() {
   const [statusFilter, setStatusFilter] = useState('all');  // ✅ 费用冲销列表的状态筛选：全部 / 待冲销 / 已冲销
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState<string>('all');
   const [drivers, setDrivers] = useState<{ name: string }[]>([]);
@@ -224,7 +225,7 @@ export default function ExpenseWriteoff() {
     }
 
     setFilteredApplications(filtered);
-    setPage(1);
+    setCurrentPage(1);
   };
 
   // 计算结余
@@ -283,10 +284,21 @@ export default function ExpenseWriteoff() {
 
   // 分页
   const paginatedApps = filteredApplications.slice(
-    (page - 1) * pageSize,
-    page * pageSize
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
   const totalPages = Math.ceil(filteredApplications.length / pageSize);
+  
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
 
   // ✅ 过滤车队长的司机余额
   const filteredFleetManagerGroups = selectedFleetManager === 'all'
@@ -543,30 +555,14 @@ export default function ExpenseWriteoff() {
 
           {/* 分页 */}
           {!loading && filteredApplications.length > 0 && (
-            <div className="flex items-center justify-between mt-4 p-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, filteredApplications.length)} 条，共 {filteredApplications.length} 条
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  上一页
-                </Button>
-                <span className="text-sm flex items-center">第 {page} / {totalPages} 页</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  下一页
-                </Button>
-              </div>
-            </div>
+            <PaginationControl
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPages}
+              totalCount={filteredApplications.length}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </CardContent>
       </Card>

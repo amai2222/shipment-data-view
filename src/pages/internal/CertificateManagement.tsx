@@ -25,6 +25,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PageHeader } from '@/components/PageHeader';
+import { PaginationControl } from '@/components/common';
 import {
   FileText,
   AlertTriangle,
@@ -62,8 +63,8 @@ export default function CertificateManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const [updateFormData, setUpdateFormData] = useState({
     expire_date: '',
@@ -217,8 +218,19 @@ export default function CertificateManagement() {
   const expiringSoonCount = certificates.filter(c => isExpiringSoon(c.expire_date)).length;
   const expiredCount = certificates.filter(c => isExpired(c.expire_date)).length;
 
-  const paginatedCerts = filteredCerts.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedCerts = filteredCerts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.ceil(filteredCerts.length / pageSize);
+  
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -391,20 +403,14 @@ export default function CertificateManagement() {
           </div>
 
           {!loading && filteredCerts.length > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, filteredCerts.length)} 条，共 {filteredCerts.length} 条
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-                  上一页
-                </Button>
-                <span className="text-sm flex items-center">第 {page} / {totalPages} 页</span>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                  下一页
-                </Button>
-              </div>
-            </div>
+            <PaginationControl
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPages}
+              totalCount={filteredCerts.length}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </CardContent>
       </Card>

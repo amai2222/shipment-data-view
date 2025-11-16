@@ -26,6 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PageHeader } from '@/components/PageHeader';
+import { PaginationControl } from '@/components/common';
 import {
   Truck,
   Plus,
@@ -102,8 +103,8 @@ export default function VehicleManagement() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const [formData, setFormData] = useState<VehicleFormData>({
     license_plate: '',
@@ -508,8 +509,19 @@ export default function VehicleManagement() {
     ).length
   };
 
-  const paginatedVehicles = filteredVehicles.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedVehicles = filteredVehicles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.ceil(filteredVehicles.length / pageSize);
+  
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
 
   // 车辆表单组件
   const VehicleForm = () => (
@@ -681,7 +693,7 @@ export default function VehicleManagement() {
     ).length
   };
 
-  const paginatedVehiclesData = filteredVehiclesData.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedVehiclesData = filteredVehiclesData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPagesData = Math.ceil(filteredVehiclesData.length / pageSize);
 
   return (
@@ -971,32 +983,14 @@ export default function VehicleManagement() {
 
           {/* 分页 */}
           {!loading && filteredVehiclesData.length > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, filteredVehiclesData.length)} 条，共 {filteredVehiclesData.length} 条
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  上一页
-                </Button>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">第 {page} / {totalPagesData} 页</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPagesData, p + 1))}
-                  disabled={page === totalPagesData}
-                >
-                  下一页
-                </Button>
-              </div>
-            </div>
+            <PaginationControl
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPagesData}
+              totalCount={filteredVehiclesData.length}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </CardContent>
       </Card>

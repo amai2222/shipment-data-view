@@ -23,10 +23,10 @@ import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from "@/utils/dateUtils";
 import { useFilterState } from "@/hooks/useFilterState";
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { VirtualizedTable } from "@/components/VirtualizedTable";
 import { PageHeader } from "@/components/PageHeader";
+import { PaginationControl } from "@/components/common";
 
 // --- 类型定义 ---
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
@@ -63,11 +63,9 @@ interface FinanceFilters {
   waybillNumbers?: string;
   otherPlatformName?: string;
 }
-interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 
 // --- 常量和初始状态 ---
-const PAGE_SIZE = 50;
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
   projectId: "all", 
   partnerId: "all", 
@@ -91,7 +89,9 @@ export default function FinanceReconciliation() {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const { toast } = useToast();
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
-  const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
@@ -208,8 +208,8 @@ export default function FinanceReconciliation() {
         p_start_date: utcStartDate,
         p_end_date: utcEndDate,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
-        p_page_number: pagination.currentPage,
-        p_page_size: PAGE_SIZE,
+        p_page_number: currentPage,
+        p_page_size: pageSize,
         // 高级筛选参数
         p_driver_name: activeFilters.driverName || null,
         p_license_plate: activeFilters.licensePlate || null,
@@ -220,10 +220,7 @@ export default function FinanceReconciliation() {
       if (error) throw error;
       
       setReportData(data as FinanceReconciliationResponse);
-      setPagination(prev => ({ 
-        ...prev, 
-        totalPages: (data as FinanceReconciliationResponse)?.total_pages || 1 
-      }));
+      setTotalPages((data as FinanceReconciliationResponse)?.total_pages || 1);
       
       const loadTime = performance.now() - startTime;
       const recordCount = (data as FinanceReconciliationResponse)?.records?.length || 0;
@@ -236,13 +233,13 @@ export default function FinanceReconciliation() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, pagination.currentPage, toast, selectedShipperId, selectedProjectId, availableProjects]);
+  }, [activeFilters, currentPage, pageSize, toast, selectedShipperId, selectedProjectId, availableProjects]);
 
   // --- Effects ---
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); } }, [fetchReportData, isStale]);
   useEffect(() => {
-    setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 });
+    setCurrentPage(1);
     setSelection({ mode: 'none', selectedIds: new Set() });
   }, [activeFilters]);
 
@@ -952,15 +949,18 @@ export default function FinanceReconciliation() {
         </>
       )}
       
-      {!isStale && pagination.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.max(1, p.currentPage - 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === 1 })} /></PaginationItem>
-            <PaginationItem><PaginationLink isActive>{pagination.currentPage}</PaginationLink></PaginationItem>
-            <PaginationItem><span className="px-4 py-2 text-sm">/ {pagination.totalPages}</span></PaginationItem>
-            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.min(p.totalPages, p.currentPage + 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === pagination.totalPages })} /></PaginationItem>
-          </PaginationContent>
-        </Pagination>
+      {!isStale && (
+        <PaginationControl
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          totalCount={reportData?.count}
+          onPageChange={(page) => setCurrentPage(page)}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+        />
       )}
 
       <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>

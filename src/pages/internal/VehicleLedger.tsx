@@ -24,6 +24,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PageHeader } from '@/components/PageHeader';
+import { PaginationControl } from '@/components/common';
 import {
   DollarSign,
   TrendingUp,
@@ -58,8 +59,8 @@ export default function VehicleLedger() {
   const [fleetManagerFilter, setFleetManagerFilter] = useState('all');
   const [vehicles, setVehicles] = useState<{ id: string; license_plate: string }[]>([]);
   const [fleetManagers, setFleetManagers] = useState<{ id: string; full_name: string }[]>([]);
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     loadVehicles();
@@ -315,8 +316,19 @@ export default function VehicleLedger() {
   };
   stats.balance = stats.totalIncome - stats.totalExpense;
 
-  const paginatedRecords = filteredRecords.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.ceil(filteredRecords.length / pageSize);
+  
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -455,16 +467,14 @@ export default function VehicleLedger() {
           </div>
 
           {!loading && filteredRecords.length > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                共 {filteredRecords.length} 条流水
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>上一页</Button>
-                <span className="text-sm flex items-center">第 {page} / {totalPages} 页</span>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>下一页</Button>
-              </div>
-            </div>
+            <PaginationControl
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPages}
+              totalCount={filteredRecords.length}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </CardContent>
       </Card>

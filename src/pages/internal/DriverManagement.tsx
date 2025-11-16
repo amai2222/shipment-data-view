@@ -26,6 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { PageHeader } from '@/components/PageHeader';
+import { PaginationControl } from '@/components/common';
 import {
   Users,
   Plus,
@@ -93,8 +94,8 @@ export default function DriverManagement() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const [formData, setFormData] = useState<DriverFormData>({
     name: '',
@@ -418,8 +419,19 @@ export default function DriverManagement() {
     onLeave: drivers.filter(d => d.employment_status === 'on_leave').length
   };
 
-  const paginatedDrivers = filteredDrivers.slice((page - 1) * pageSize, page * pageSize);
+  const paginatedDrivers = filteredDrivers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const totalPages = Math.ceil(filteredDrivers.length / pageSize);
+  
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 重置到第一页
+  };
 
   // 司机表单组件 - 使用 useMemo 避免重新创建导致输入框失去焦点
   const DriverForm = useMemo(() => (
@@ -773,32 +785,14 @@ export default function DriverManagement() {
 
           {/* 分页 */}
           {!loading && filteredDrivers.length > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                显示 {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, filteredDrivers.length)} 条，共 {filteredDrivers.length} 条
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  上一页
-                </Button>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">第 {page} / {totalPages} 页</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  下一页
-                </Button>
-              </div>
-            </div>
+            <PaginationControl
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalPages={totalPages}
+              totalCount={filteredDrivers.length}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </CardContent>
       </Card>

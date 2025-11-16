@@ -33,11 +33,11 @@ import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { useFilterState } from "@/hooks/useFilterState";
 import { formatChinaDateString } from "@/utils/dateUtils";
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
+import { PaginationControl } from "@/components/common";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 
@@ -75,7 +75,6 @@ interface FinanceFilters {
   waybillNumbers: string; 
   otherPlatformName: string; 
 }
-interface PaginationState { currentPage: number; totalPages: number; }
 interface SelectionState { mode: 'none' | 'all_filtered'; selectedIds: Set<string>; }
 interface PaymentPreviewSheet { 
   paying_partner_id: string; 
@@ -126,7 +125,6 @@ interface PartnerPayable {
 // ============================================================================
 // 区域3: 常量定义和初始状态
 // ============================================================================
-const PAGE_SIZE = 50;
 const INITIAL_FINANCE_FILTERS: FinanceFilters = { 
   projectId: "all", 
   startDate: "", 
@@ -164,7 +162,9 @@ export default function PaymentRequest() {
   const [viewingRecord, setViewingRecord] = useState<LogisticsRecordWithPartners | null>(null);
   const { toast } = useToast();
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
-  const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
   const [showAdvanced, setShowAdvanced] = useState(false); // 控制高级筛选展开/收起
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
@@ -265,12 +265,12 @@ export default function PaymentRequest() {
         p_driver_phone: activeFilters.driverPhone || null,
         p_waybill_numbers: activeFilters.waybillNumbers || null,
         p_other_platform_name: activeFilters.otherPlatformName || null,
-        p_page_size: PAGE_SIZE,
-        p_page_number: pagination.currentPage,
+        p_page_size: pageSize,
+        p_page_number: currentPage,
       });
       if (error) throw error;
       setReportData(data as PaymentRequestResponse);
-      setPagination(prev => ({ ...prev, totalPages: Math.ceil(((data as PaymentRequestResponse)?.count || 0) / PAGE_SIZE) || 1 }));
+      setTotalPages(Math.ceil(((data as PaymentRequestResponse)?.count || 0) / pageSize) || 1);
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -278,11 +278,11 @@ export default function PaymentRequest() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, pagination.currentPage, toast, selectedShipperId, selectedProjectId, availableProjects]);
+  }, [activeFilters, currentPage, pageSize, toast, selectedShipperId, selectedProjectId, availableProjects]);
 
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); setReportData(null); } }, [fetchReportData, isStale]);
-  useEffect(() => { setPagination(p => p.currentPage === 1 ? p : { ...p, currentPage: 1 }); setSelection({ mode: 'none', selectedIds: new Set() }); }, [activeFilters]);
+  useEffect(() => { setCurrentPage(1); setSelection({ mode: 'none', selectedIds: new Set() }); }, [activeFilters]);
 
   // ==========================================================================
   // 区域6: 工具函数
@@ -1905,15 +1905,18 @@ export default function PaymentRequest() {
       )}
       
       {/* ===== 分页组件 ===== */}
-      {!isStale && pagination.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.max(1, p.currentPage - 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === 1 })} /></PaginationItem>
-            <PaginationItem><PaginationLink isActive>{pagination.currentPage}</PaginationLink></PaginationItem>
-            <PaginationItem><span className="px-4 py-2 text-sm">/ {pagination.totalPages}</span></PaginationItem>
-            <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPagination(p => ({...p, currentPage: Math.min(p.totalPages, p.currentPage + 1)})); }} className={cn({ "pointer-events-none opacity-50": pagination.currentPage === pagination.totalPages })} /></PaginationItem>
-          </PaginationContent>
-        </Pagination>
+      {!isStale && (
+        <PaginationControl
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          totalCount={reportData?.count}
+          onPageChange={(page) => setCurrentPage(page)}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+        />
       )}
 
       {/* ===== 对话框区域 ===== */}
