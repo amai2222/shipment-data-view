@@ -36,6 +36,9 @@ export interface LogisticsRecord {
   other_platform_names?: string[]; // 其他平台名称数组
   created_at?: string;
   created_by_user_id?: string; // 创建人ID（必需字段）
+  invoice_status?: 'Uninvoiced' | 'Processing' | 'Approved' | 'Invoiced' | string | null; // 开票状态
+  payment_status?: 'Unpaid' | 'Processing' | 'Approved' | 'Paid' | string | null; // 付款状态
+  receipt_status?: 'Unreceived' | 'Received' | string | null; // 收款状态
 }
 
 // [核心移除] - LogisticsFormData 类型已不再需要

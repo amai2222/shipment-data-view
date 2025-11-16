@@ -14,6 +14,7 @@ import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { StatusBadge } from "@/components/common/StatusBadge";
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -311,25 +312,24 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                   </DropdownMenu>
                 </TableHead>
               )}
-              <SortableHeader field="auto_number" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">运单编号</SortableHeader>
-              <SortableHeader field="project_name" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">项目</SortableHeader>
-              <SortableHeader field="loading_date" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">装货日期</SortableHeader>
-              <SortableHeader field="driver_name" className="min-w-[160px] font-semibold text-slate-800 text-sm py-4">司机信息</SortableHeader>
-              <SortableHeader field="loading_location" className="min-w-[140px] font-semibold text-slate-800 text-sm py-4">路线</SortableHeader>
-              <SortableHeader field="loading_weight" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">数量</SortableHeader>
-              <SortableHeader field="current_cost" className="min-w-[120px] font-semibold text-slate-800 text-sm py-4">运费/额外费</SortableHeader>
-              <SortableHeader field="payable_cost" className="min-w-[100px] font-semibold text-slate-800 text-sm py-4">司机应收</SortableHeader>
-              {/* 隐藏状态列 */}
-              {/* <SortableHeader field="transport_type" className="w-[100px]">状态</SortableHeader> */}
-              <TableHead className="min-w-[100px] text-center font-semibold text-slate-800 text-sm py-4">运输单据</TableHead>
-              <TableHead className="min-w-[60px] text-right font-semibold text-slate-800 text-sm py-4">操作</TableHead>
+              <SortableHeader field="auto_number" className="min-w-[120px] font-semibold text-slate-800 text-sm py-2">运单编号</SortableHeader>
+              <SortableHeader field="project_name" className="min-w-[100px] font-semibold text-slate-800 text-sm py-2">项目</SortableHeader>
+              <SortableHeader field="loading_date" className="min-w-[100px] font-semibold text-slate-800 text-sm py-2">装货日期</SortableHeader>
+              <SortableHeader field="driver_name" className="min-w-[160px] font-semibold text-slate-800 text-sm py-2">司机信息</SortableHeader>
+              <SortableHeader field="loading_location" className="min-w-[140px] font-semibold text-slate-800 text-sm py-2">路线</SortableHeader>
+              <SortableHeader field="loading_weight" className="min-w-[120px] font-semibold text-slate-800 text-sm py-2">数量</SortableHeader>
+              <SortableHeader field="current_cost" className="min-w-[120px] font-semibold text-slate-800 text-sm py-2">运费/额外费</SortableHeader>
+              <SortableHeader field="payable_cost" className="min-w-[100px] font-semibold text-slate-800 text-sm py-2">司机应收</SortableHeader>
+              <TableHead className="min-w-[90px] font-semibold text-slate-800 text-sm py-2 text-center">开票状态</TableHead>
+              <TableHead className="min-w-[90px] font-semibold text-slate-800 text-sm py-2 text-center">付款状态</TableHead>
+              <TableHead className="min-w-[90px] font-semibold text-slate-800 text-sm py-2 text-center">收款状态</TableHead>
+              <TableHead className="min-w-[60px] text-right font-semibold text-slate-800 text-sm py-2">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                {/* [修改] 更新 colSpan - 隐藏状态列后减少1 */}
-                <TableCell colSpan={isBatchMode ? 11 : 10} className="h-24 text-center">
+                <TableCell colSpan={isBatchMode ? 13 : 12} className="h-24 text-center">
                   <div className="flex justify-center items-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     正在加载数据...
@@ -361,12 +361,12 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         </Button>
                       </TableCell>
                     )}
-                    <TableCell className="font-mono text-sm text-slate-800 py-2">{record.auto_number}</TableCell>
-                    <TableCell className="text-sm text-slate-700 py-2">{record.project_name}</TableCell>
-                    <TableCell className="text-xs text-slate-600 py-2">
+                    <TableCell className="font-mono text-sm text-slate-800 py-1.5 px-2">{record.auto_number}</TableCell>
+                    <TableCell className="text-sm text-slate-700 py-1.5 px-2">{record.project_name}</TableCell>
+                    <TableCell className="text-xs text-slate-600 py-1.5 px-2">
                       {new Date(record.loading_date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                     </TableCell>
-                    <TableCell className="text-sm py-2">
+                    <TableCell className="text-sm py-1.5 px-2">
                       <div className="flex items-center space-x-1.5">
                         <span className="text-slate-800">{record.driver_name}</span>
                         <span className="text-slate-400">|</span>
@@ -379,7 +379,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap min-w-[140px] text-sm py-2">
+                    <TableCell className="whitespace-nowrap min-w-[140px] text-sm py-1.5 px-2">
                       <RouteDisplay 
                         loadingLocation={record.loading_location}
                         unloadingLocation={record.unloading_location}
@@ -387,48 +387,45 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                       />
                     </TableCell>
                     {/* [修改] 使用统一的显示函数 */}
-                    <TableCell className="font-mono text-sm text-slate-700 py-2">{getQuantityDisplay(record)}</TableCell>
-                    <TableCell className="text-sm text-slate-700 py-2">
+                    <TableCell className="font-mono text-sm text-slate-700 py-1.5 px-2">{getQuantityDisplay(record)}</TableCell>
+                    <TableCell className="text-sm text-slate-700 py-1.5 px-2">
                       <CurrencyDisplay value={record.current_cost} /> / <CurrencyDisplay value={record.extra_cost} />
                     </TableCell>
-                    <TableCell className="text-sm text-blue-600 py-2">
+                    <TableCell className="text-sm text-blue-600 py-1.5 px-2">
                       <CurrencyDisplay value={driverPayable} className="text-blue-600" />
                     </TableCell>
-                    {/* 隐藏状态列 */}
-                    {/* <TableCell>
-                      <span className={`px-2 py-1 text-xs rounded-full ${record.transport_type === '退货运输' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
-                        {record.transport_type}
-                      </span>
-                    </TableCell> */}
-                    <TableCell className="text-center py-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            // 生成运输单据PDF预览
-                            const printHTML = await generatePrintVersion(record);
-                            const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
-                            if (previewWindow) {
-                              previewWindow.document.write(printHTML);
-                              previewWindow.document.close();
-                            } else {
-                              alert('无法打开预览窗口，请检查浏览器弹窗设置');
-                            }
-                          } catch (error) {
-                            console.error('生成PDF失败:', error);
-                            const errorMessage = error instanceof Error ? error.message : '未知错误';
-                            alert(`生成PDF失败: ${errorMessage}，请重试`);
-                          }
+                    <TableCell className="text-center py-1.5 px-2">
+                      <StatusBadge 
+                        status={record.invoice_status || 'Uninvoiced'} 
+                        customConfig={{
+                          'Uninvoiced': { label: '未开票', variant: 'secondary' },
+                          'Processing': { label: '处理中', variant: 'default' },
+                          'Approved': { label: '已审批', variant: 'default' },
+                          'Invoiced': { label: '已开票', variant: 'outline', className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
                         }}
-                        className="text-blue-600 border-blue-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:border-blue-400 transition-all duration-200 font-medium px-3 py-1.5 rounded-lg shadow-sm"
-                      >
-                        <FileText className="h-3.5 w-3.5 mr-1.5" />
-                        单据
-                      </Button>
+                      />
                     </TableCell>
-                    <TableCell className="text-right py-2">
+                    <TableCell className="text-center py-1.5 px-2">
+                      <StatusBadge 
+                        status={record.payment_status || 'Unpaid'} 
+                        customConfig={{
+                          'Unpaid': { label: '未付款', variant: 'secondary' },
+                          'Processing': { label: '处理中', variant: 'default' },
+                          'Approved': { label: '已审批', variant: 'default' },
+                          'Paid': { label: '已付款', variant: 'outline', className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center py-1.5 px-2">
+                      <StatusBadge 
+                        status={record.receipt_status || 'Unreceived'} 
+                        customConfig={{
+                          'Unreceived': { label: '未收款', variant: 'secondary' },
+                          'Received': { label: '已收款', variant: 'outline', className: 'border-green-600 text-white bg-green-600 hover:bg-green-700' },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right py-1.5 px-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button 
@@ -441,6 +438,29 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                // 生成运输单据PDF预览
+                                const printHTML = await generatePrintVersion(record);
+                                const previewWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+                                if (previewWindow) {
+                                  previewWindow.document.write(printHTML);
+                                  previewWindow.document.close();
+                                } else {
+                                  alert('无法打开预览窗口，请检查浏览器弹窗设置');
+                                }
+                              } catch (error) {
+                                console.error('生成PDF失败:', error);
+                                const errorMessage = error instanceof Error ? error.message : '未知错误';
+                                alert(`生成PDF失败: ${errorMessage}，请重试`);
+                              }
+                            }}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>运输单据</span>
+                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -468,8 +488,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               })
             ) : (
               <TableRow>
-                {/* [修改] 更新 colSpan - 隐藏状态列后减少1 */}
-                <TableCell colSpan={isBatchMode ? 11 : 10} className="h-24 text-center">
+                <TableCell colSpan={isBatchMode ? 13 : 12} className="h-24 text-center">
                   没有找到匹配的记录。
                 </TableCell>
               </TableRow>
@@ -496,8 +515,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                 <TableCell className="text-slate-600 py-3">
                   <CurrencyDisplay value={summaryTotals.driverPayable} />
                 </TableCell>
-                {/* 隐藏状态列 */}
-                {/* <TableCell></TableCell> */}
+                <TableCell></TableCell>
+                <TableCell></TableCell>
                 <TableCell></TableCell>
                 <TableCell></TableCell>
               </TableRow>
