@@ -75,9 +75,19 @@ export function CurrencyDisplay({
   const defaultDecimalClass = 'text-[0.85em]'; // 比父元素小约 15%
 
   return (
-    <span className={cn('font-mono inline-flex items-baseline', className)}>
+    <span 
+      className={cn('font-mono inline-flex items-baseline', className)}
+      onCopy={(e) => {
+        // 始终复制完整的格式化数字（包括小数部分）
+        e.clipboardData.setData('text/plain', formatted);
+        e.preventDefault();
+      }}
+      style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+    >
       <span className={integerClassName || ''}>{integerPart}.</span>
-      <span className={cn(decimalClassName || defaultDecimalClass, 'tabular-nums')}>
+      <span 
+        className={cn(decimalClassName || defaultDecimalClass, 'tabular-nums')}
+      >
         {decimalPart}
       </span>
     </span>
