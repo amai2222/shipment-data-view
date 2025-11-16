@@ -12,7 +12,7 @@ import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeF
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Download, Loader2, RefreshCw, Search, Calculator, ChevronDown, ChevronUp, Users, Hash, Phone, FileText, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Download, Loader2, RefreshCw, Search, Calculator, ChevronDown, ChevronUp, Users, Hash, Phone, FileText, X, CheckCircle2, AlertCircle, Clock, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -500,6 +500,44 @@ export default function FinanceReconciliation() {
     }
   };
 
+  // 自动对账函数（新增）
+  const handleAutoReconcile = async (partnerId?: string) => {
+    setIsReconciling(true);
+    try {
+      const { data, error } = await supabase.rpc('auto_reconcile_by_waybill_1116', {
+        p_partner_id: partnerId && partnerId !== 'all' ? partnerId : null
+      });
+
+      if (error) throw error;
+
+      const result = data as { 
+        success: boolean; 
+        matched_count: number; 
+        unmatched_count: number; 
+        message: string;
+      };
+      
+      if (result.success) {
+        toast({
+          title: "自动对账成功",
+          description: result.message || `已自动对账 ${result.matched_count} 条记录，待处理 ${result.unmatched_count} 条记录`,
+        });
+        fetchReportData();
+      } else {
+        throw new Error(result.message || '自动对账操作失败');
+      }
+    } catch (error) {
+      console.error('自动对账失败:', error);
+      toast({
+        title: "自动对账失败",
+        description: error instanceof Error ? error.message : '操作失败，请重试',
+        variant: "destructive"
+      });
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
   // 打开对账对话框（批量）
   const openReconciliationDialog = (costIds: string[]) => {
     setReconciliationDialog({ isOpen: true, costIds });
@@ -745,7 +783,7 @@ export default function FinanceReconciliation() {
               disabled={selectionCount === 0}
               onClick={async () => {
                 try {
-                  let allCostIds: string[] = [];
+                  const allCostIds: string[] = [];
                   
                   if (selection.mode === 'all_filtered') {
                     // 跨页选择：需要获取所有筛选条件下的运单
@@ -758,8 +796,16 @@ export default function FinanceReconciliation() {
                       }
                     }
                     
-                    const utcStartDate = activeFilters.startDate ? convertChinaDateToUTCDate(activeFilters.startDate) : null;
-                    const utcEndDate = activeFilters.endDate ? convertChinaEndDateToUTCDate(activeFilters.endDate) : null;
+                    const utcStartDate = activeFilters.startDate ? (() => {
+                      const [year, month, day] = activeFilters.startDate.split('-').map(Number);
+                      const chinaDate = new Date(year, month - 1, day);
+                      return convertChinaDateToUTCDate(chinaDate);
+                    })() : null;
+                    const utcEndDate = activeFilters.endDate ? (() => {
+                      const [year, month, day] = activeFilters.endDate.split('-').map(Number);
+                      const chinaDate = new Date(year, month - 1, day);
+                      return convertChinaEndDateToUTCDate(chinaDate);
+                    })() : null;
                     
                     // 获取所有筛选条件下的运单（不分页）
                     const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1116', {
@@ -820,6 +866,27 @@ export default function FinanceReconciliation() {
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               批量对账 ({selectionCount})
+            </Button>
+            )}
+            {/* 自动对账按钮（新增） */}
+            {canReconcile && (
+            <Button
+              variant="default"
+              disabled={isReconciling}
+              onClick={() => handleAutoReconcile(activeFilters.partnerId === 'all' ? undefined : activeFilters.partnerId)}
+              className="h-10 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isReconciling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  自动对账中...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  自动对账
+                </>
+              )}
             </Button>
             )}
           </div>
