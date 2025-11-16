@@ -1,0 +1,6 @@
+# Cursor AI 当前日期配置
+# 此文件用于同步 AI 助手使用的当前日期
+# 此文件由 scripts/update-cursor-date.js 自动更新
+# 最后更新：2025-11-16 10:39:16
+
+CURRENT_DATE=2025-11-16

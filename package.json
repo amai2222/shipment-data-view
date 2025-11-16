@@ -11,7 +11,8 @@
     "verify-resources": "node scripts/verify-resource-paths.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "update-date": "node scripts/update-cursor-date.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
