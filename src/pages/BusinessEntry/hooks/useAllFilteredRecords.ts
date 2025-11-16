@@ -25,7 +25,7 @@ export function useAllFilteredRecords() {
     setLoading(true);
     try {
       // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
-      const { data, error } = await (supabase.rpc as any)('get_all_filtered_record_ids_1115', {
+      const { data, error } = await (supabase.rpc as any)('get_all_filtered_record_ids_1116', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
@@ -35,6 +35,9 @@ export function useAllFilteredRecords() {
         p_other_platform_name: filters.otherPlatformName || null,
         p_waybill_numbers: filters.waybillNumbers || null,
         p_has_scale_record: filters.hasScaleRecord || null,
+        p_invoice_status: filters.invoiceStatus || null,
+        p_payment_status: filters.paymentStatus || null,
+        p_receipt_status: filters.receiptStatus || null,
       });
 
       if (error) throw error;
