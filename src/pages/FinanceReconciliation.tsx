@@ -30,6 +30,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PaginationControl } from "@/components/common";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { useUnifiedPermissions } from "@/hooks/useUnifiedPermissions";
+import { WaybillDetailDialog } from "@/components/WaybillDetailDialog";
 
 // --- 类型定义 ---
 interface LogisticsRecord { id: string; auto_number: string; project_name: string; driver_name: string; loading_location: string; unloading_location: string; loading_date: string; unloading_date: string | null; loading_weight: number | null; unloading_weight: number | null; current_cost: number | null; payable_cost: number | null; extra_cost: number | null; license_plate: string | null; driver_phone: string | null; transport_type: string | null; remarks: string | null; chain_name: string | null; billing_type_id: number; }
@@ -141,6 +142,8 @@ export default function FinanceReconciliation() {
   const [partnerDisplayState, setPartnerDisplayState] = useState<'hidden' | 'maxLevel' | 'all'>('hidden');
   // 记录是否曾经展开过全部（用于区分 maxLevel 状态下的按钮文字）
   const [hasExpandedAll, setHasExpandedAll] = useState(false);
+  // 控制合作方应付汇总卡片是否展开全部
+  const [showAllPartnerCards, setShowAllPartnerCards] = useState(false);
 
   // 加载平台选项
   const loadPlatformOptions = useCallback(async () => {
@@ -1194,8 +1197,16 @@ export default function FinanceReconciliation() {
 
           {/* --- [优化设计] 合作方应付汇总 - 紧凑卡片布局 --- */}
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base">合作方应付汇总</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllPartnerCards(!showAllPartnerCards)}
+                className="h-8 text-xs"
+              >
+                {showAllPartnerCards ? '收起' : '展开全部'}
+              </Button>
             </CardHeader>
             <CardContent>
                   {loading && !(reportData?.partner_summary?.length > 0) ? (
@@ -1282,7 +1293,7 @@ export default function FinanceReconciliation() {
                     </div>
                     
                     {/* 后续级别：二级、三级等 */}
-                    {partnersByLevel.filter(g => g.level !== 1).map(({ level, partners }) => (
+                    {showAllPartnerCards && partnersByLevel.filter(g => g.level !== 1).map(({ level, partners }) => (
                       <div key={level} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5">
                         {partners.map((partner) => {
                           const isSelected = activeFilters.partnerId === partner.partner_id;
@@ -1321,27 +1332,28 @@ export default function FinanceReconciliation() {
                     ))}
                   </div>
                   
-                  {/* 合计信息 - 更紧凑的设计 */}
-                  <div className="flex items-center justify-between px-3 py-2 bg-muted/40 rounded-md border border-border/60">
-                    <div className="text-sm font-medium">合计</div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-[10px] text-muted-foreground">总运单数</div>
-                        <div className="text-sm font-semibold">
-                          {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
+                  {/* 合计信息 - 紧凑卡片设计 */}
+                  <Card className="mt-3 w-fit">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <div className="text-[10px] text-muted-foreground">总运单数</div>
+                          <div className="text-sm font-semibold">
+                            {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] text-muted-foreground">应付总金额</div>
+                          <div className="text-sm font-semibold text-red-600">
+                            <CurrencyDisplay 
+                              value={reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0}
+                              className="text-red-600"
+                            />
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-muted-foreground">应付总金额</div>
-                        <div className="text-sm font-semibold text-red-600">
-                          <CurrencyDisplay 
-                            value={reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0}
-                            className="text-red-600"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                     </>
                   )}
             </CardContent>
@@ -1402,11 +1414,9 @@ export default function FinanceReconciliation() {
                   <TableBody>
                     {(reportData?.records || []).map((r) => {
                       // 收集当前运单的所有合作方成本ID（用于批量对账）
-                      const costIds = displayedPartners
-                        .map(p => {
-                          const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id);
-                          return cost?.cost_id;
-                        })
+                      // 即使合作方列隐藏，也要能收集到所有 cost_id
+                      const costIds = (r.partner_costs || [])
+                        .map(cost => cost.cost_id)
                         .filter((id): id is string => !!id);
                       
                       return (
@@ -1436,8 +1446,9 @@ export default function FinanceReconciliation() {
                             {getQuantityDisplay(r)}
                           </TableCell>
                           <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
                               <CurrencyDisplay value={r.current_cost} className="text-red-600" />
+                              <span className="text-gray-400">/</span>
                               <CurrencyDisplay value={r.extra_cost} className="text-black" />
                             </div>
                           </TableCell>
@@ -1484,8 +1495,9 @@ export default function FinanceReconciliation() {
                     <TableRow className="bg-muted/30 font-semibold border-t-2">
                       <TableCell colSpan={7} className="text-right font-bold">合计</TableCell>
                       <TableCell className="font-bold text-center">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-center gap-2">
                           <CurrencyDisplay value={reportData?.overview?.total_freight} className="text-red-600" />
+                          <span className="text-gray-400">/</span>
                           <CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-black" />
                         </div>
                         <div className="text-xs text-muted-foreground font-normal mt-1">(运费/额外费)</div>
@@ -1529,52 +1541,44 @@ export default function FinanceReconciliation() {
         />
       )}
 
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
-          {viewingRecord && (
-            <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
-              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '默认'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{viewingRecord.loading_date}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货日期</Label><p>{viewingRecord.unloading_date || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div><div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div><div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{viewingRecord.transport_type}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div><div className="space-y-1"><Label className="text-muted-foreground">{getQuantityLabel(viewingRecord.billing_type_id || 1)}</Label><p>{getQuantityDisplay(viewingRecord)}</p></div><div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div><div className="space-y-1"></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p className="font-mono">{formatCurrency(viewingRecord.current_cost)}</p></div><div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p className="font-mono">{formatCurrency(viewingRecord.extra_cost)}</p></div><div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-mono font-bold text-primary">{formatCurrency(viewingRecord.payable_cost)}</p></div>
-              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
-              {/* 合作方成本和对账信息（新增） */}
-              {viewingRecord.partner_costs && viewingRecord.partner_costs.length > 0 && (
-                <div className="col-span-4 space-y-3 border-t pt-4">
-                  <Label className="text-muted-foreground font-semibold">合作方应付及对账信息</Label>
-                  <div className="space-y-2">
-                    {viewingRecord.partner_costs.map((cost, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
-                        <div className="flex-1">
-                          <div className="font-medium">{cost.partner_name} (级别 {cost.level})</div>
-                          <div className="text-sm text-muted-foreground">
-                            应付金额: <CurrencyDisplay value={cost.payable_amount} />
-                          </div>
-                          {cost.reconciliation_date && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              对账时间: {cost.reconciliation_date}
-                            </div>
-                          )}
-                          {cost.reconciliation_notes && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              对账备注: {cost.reconciliation_notes}
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          {getReconciliationBadge(cost.reconciliation_status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
-        </DialogContent>
-      </Dialog>
+      {/* 运单详情对话框 - 复用运单管理的运单详情组件 */}
+      <WaybillDetailDialog
+        isOpen={!!viewingRecord}
+        onClose={() => setViewingRecord(null)}
+        record={viewingRecord ? {
+          id: viewingRecord.id,
+          auto_number: viewingRecord.auto_number,
+          project_id: '',
+          project_name: viewingRecord.project_name,
+          chain_id: undefined,
+          loading_date: viewingRecord.loading_date,
+          loading_location: viewingRecord.loading_location,
+          unloading_location: viewingRecord.unloading_location || '',
+          driver_id: '',
+          driver_name: viewingRecord.driver_name,
+          license_plate: viewingRecord.license_plate || '',
+          driver_phone: viewingRecord.driver_phone || '',
+          loading_weight: viewingRecord.loading_weight || 0,
+          unloading_date: viewingRecord.unloading_date || undefined,
+          unloading_weight: viewingRecord.unloading_weight || undefined,
+          transport_type: (viewingRecord.transport_type === '实际运输' || viewingRecord.transport_type === '退货') 
+            ? viewingRecord.transport_type 
+            : '实际运输' as '实际运输' | '退货',
+          current_cost: viewingRecord.current_cost,
+          extra_cost: viewingRecord.extra_cost,
+          payable_cost: viewingRecord.payable_cost,
+          remarks: viewingRecord.remarks || undefined,
+          created_at: '',
+          created_by_user_id: '',
+          billing_type_id: viewingRecord.billing_type_id,
+          payment_status: undefined,
+          cargo_type: undefined,
+          loading_location_ids: undefined,
+          unloading_location_ids: undefined,
+          external_tracking_numbers: undefined,
+          other_platform_names: undefined,
+        } : null}
+      />
 
       {/* 对账对话框（新增） */}
       <Dialog open={reconciliationDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setReconciliationDialog({ isOpen: false, costIds: [] })}>
