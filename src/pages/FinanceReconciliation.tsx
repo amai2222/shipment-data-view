@@ -279,6 +279,31 @@ export default function FinanceReconciliation() {
     }
   };
 
+  // 按级别分组合作方数据
+  const partnersByLevel = useMemo(() => {
+    if (!reportData?.partner_summary || reportData.partner_summary.length === 0) {
+      return [];
+    }
+    
+    // 按级别排序
+    const sorted = [...reportData.partner_summary].sort((a, b) => a.level - b.level);
+    
+    // 按级别分组
+    const grouped = new Map<number, PartnerPayable[]>();
+    sorted.forEach(partner => {
+      const level = partner.level || 1;
+      if (!grouped.has(level)) {
+        grouped.set(level, []);
+      }
+      grouped.get(level)!.push(partner);
+    });
+    
+    // 转换为数组并按级别排序
+    return Array.from(grouped.entries())
+      .sort(([levelA], [levelB]) => levelA - levelB)
+      .map(([level, partners]) => ({ level, partners }));
+  }, [reportData?.partner_summary]);
+
   // --- 事件处理器 ---
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
   
@@ -863,90 +888,142 @@ export default function FinanceReconciliation() {
             </Card>
           </div>
 
-          {/* --- [重新设计] 合作方应付汇总 - 卡片布局 --- */}
+          {/* --- [优化设计] 合作方应付汇总 - 紧凑卡片布局 --- */}
           <Card>
-            <CardHeader>
-              <CardTitle>合作方应付汇总</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">合作方应付汇总</CardTitle>
             </CardHeader>
             <CardContent>
               {loading && !(reportData?.partner_summary?.length > 0) ? (
-                <div className="flex justify-center items-center h-32">
-                  <Loader2 className="h-6 w-6 animate-spin"/>
+                <div className="flex justify-center items-center h-24">
+                  <Loader2 className="h-5 w-5 animate-spin"/>
                 </div>
               ) : (!reportData?.partner_summary || reportData.partner_summary.length === 0) ? (
-                <div className="text-center py-10 text-muted-foreground">没有找到匹配的数据</div>
+                <div className="text-center py-8 text-sm text-muted-foreground">没有找到匹配的数据</div>
               ) : (
                 <>
-                  {/* 卡片网格布局 */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
-                    {/* 全部卡片 */}
-                    <Card 
-                      className={cn(
-                        "cursor-pointer transition-all hover:shadow-md border-2",
-                        activeFilters.partnerId === 'all' 
-                          ? "border-primary bg-primary/5 shadow-md" 
-                          : "border-border hover:border-primary/50"
-                      )}
-                      onClick={() => handlePartnerClick(null)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="text-sm font-medium text-muted-foreground mb-2">全部合作方</div>
-                        <div className="text-xs text-muted-foreground mb-1">相关运单数</div>
-                        <div className="text-lg font-bold text-center mb-2">
-                          {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
-                        </div>
-                        <div className="text-xs text-muted-foreground mb-1">应付总金额</div>
-                        <div className="text-lg font-bold font-mono text-red-600 text-center">
-                          {formatCurrency(reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0)}
-                        </div>
-                      </CardContent>
-                    </Card>
+                  {/* 按级别分行的卡片布局 */}
+                  <div className="space-y-3 mb-4">
+                    {/* 第一行：全部卡片 + 一级合作方（level 1） */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5">
+                      {/* 全部卡片 */}
+                      <Card 
+                        className={cn(
+                          "cursor-pointer transition-all hover:shadow-sm border",
+                          activeFilters.partnerId === 'all' 
+                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20" 
+                            : "border-border/60 hover:border-primary/40 hover:bg-accent/50"
+                        )}
+                        onClick={() => handlePartnerClick(null)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="text-xs font-medium text-muted-foreground mb-1.5 truncate">全部</div>
+                          <div className="space-y-1">
+                            <div className="flex items-baseline justify-between gap-1">
+                              <span className="text-[10px] text-muted-foreground">运单</span>
+                              <span className="text-sm font-semibold">
+                                {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
+                              </span>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-1">
+                              <span className="text-[10px] text-muted-foreground">金额</span>
+                              <span className="text-xs font-semibold font-mono text-red-600 truncate">
+                                {formatCurrency(reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0)}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      {/* 一级合作方（level 1） */}
+                      {partnersByLevel.find(g => g.level === 1)?.partners.map((partner) => {
+                        const isSelected = activeFilters.partnerId === partner.partner_id;
+                        return (
+                          <Card 
+                            key={partner.partner_id}
+                            className={cn(
+                              "cursor-pointer transition-all hover:shadow-sm border",
+                              isSelected
+                                ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20" 
+                                : "border-border/60 hover:border-primary/40 hover:bg-accent/50"
+                            )}
+                            onClick={() => handlePartnerClick(partner.partner_id)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="text-xs font-medium mb-1.5 truncate" title={partner.partner_name}>
+                                {partner.partner_name}
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-baseline justify-between gap-1">
+                                  <span className="text-[10px] text-muted-foreground">运单</span>
+                                  <span className="text-sm font-semibold">{partner.records_count}</span>
+                                </div>
+                                <div className="flex items-baseline justify-between gap-1">
+                                  <span className="text-[10px] text-muted-foreground">金额</span>
+                                  <span className="text-xs font-semibold font-mono text-red-600 truncate">
+                                    {formatCurrency(partner.total_payable)}
+                                  </span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
                     
-                    {/* 各合作方卡片 */}
-                    {(reportData.partner_summary).map((partner) => {
-                      const isSelected = activeFilters.partnerId === partner.partner_id;
-                      return (
-                        <Card 
-                          key={partner.partner_id}
-                          className={cn(
-                            "cursor-pointer transition-all hover:shadow-md border-2",
-                            isSelected
-                              ? "border-primary bg-primary/5 shadow-md" 
-                              : "border-border hover:border-primary/50"
-                          )}
-                          onClick={() => handlePartnerClick(partner.partner_id)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="text-sm font-medium mb-2 line-clamp-1" title={partner.partner_name}>
-                              {partner.partner_name}
-                            </div>
-                            <div className="text-xs text-muted-foreground mb-1">相关运单数</div>
-                            <div className="text-lg font-bold text-center mb-2">
-                              {partner.records_count}
-                            </div>
-                            <div className="text-xs text-muted-foreground mb-1">应付总金额</div>
-                            <div className="text-lg font-bold font-mono text-red-600 text-center">
-                              {formatCurrency(partner.total_payable)}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                    {/* 后续级别：二级、三级等 */}
+                    {partnersByLevel.filter(g => g.level !== 1).map(({ level, partners }) => (
+                      <div key={level} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2.5">
+                        {partners.map((partner) => {
+                          const isSelected = activeFilters.partnerId === partner.partner_id;
+                          return (
+                            <Card 
+                              key={partner.partner_id}
+                              className={cn(
+                                "cursor-pointer transition-all hover:shadow-sm border",
+                                isSelected
+                                  ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20" 
+                                  : "border-border/60 hover:border-primary/40 hover:bg-accent/50"
+                              )}
+                              onClick={() => handlePartnerClick(partner.partner_id)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="text-xs font-medium mb-1.5 truncate" title={partner.partner_name}>
+                                  {partner.partner_name}
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="flex items-baseline justify-between gap-1">
+                                    <span className="text-[10px] text-muted-foreground">运单</span>
+                                    <span className="text-sm font-semibold">{partner.records_count}</span>
+                                  </div>
+                                  <div className="flex items-baseline justify-between gap-1">
+                                    <span className="text-[10px] text-muted-foreground">金额</span>
+                                    <span className="text-xs font-semibold font-mono text-red-600 truncate">
+                                      {formatCurrency(partner.total_payable)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                   
-                  {/* 合计信息 */}
-                  <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border-t">
-                    <div className="font-semibold">合计</div>
-                    <div className="flex gap-6">
-                      <div className="text-center">
-                        <div className="text-xs text-muted-foreground">总运单数</div>
-                        <div className="text-lg font-bold">
+                  {/* 合计信息 - 更紧凑的设计 */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-muted/40 rounded-md border border-border/60">
+                    <div className="text-sm font-medium">合计</div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-[10px] text-muted-foreground">总运单数</div>
+                        <div className="text-sm font-semibold">
                           {reportData.partner_summary?.reduce((sum: number, p) => sum + (p.records_count || 0), 0) || 0}
                         </div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-xs text-muted-foreground">应付总金额</div>
-                        <div className="text-lg font-bold font-mono text-red-600">
+                      <div className="text-right">
+                        <div className="text-[10px] text-muted-foreground">应付总金额</div>
+                        <div className="text-sm font-semibold font-mono text-red-600">
                           {formatCurrency(reportData.partner_summary?.reduce((sum: number, p) => sum + (p.total_payable || 0), 0) || 0)}
                         </div>
                       </div>
@@ -956,7 +1033,7 @@ export default function FinanceReconciliation() {
               )}
             </CardContent>
           </Card>
-          {/* --- 重新设计结束 --- */}
+          {/* --- 优化设计结束 --- */}
 
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-background to-muted/10 border-b">
