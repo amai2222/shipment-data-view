@@ -55,6 +55,8 @@ interface PaymentRequest {
   max_amount?: number; // 申请金额（最高金额）
   total_driver_freight?: number; // 司机运费合计
   total_partner_amount?: number; // 货主金额合计
+  project_names?: string; // 项目列表（多个项目用逗号分隔，或显示"项目1等N个"）
+  loading_date_range?: string; // 装货日期范围（如"2025-11-01 至 2025-11-17"）
   is_merged_request?: boolean; // 是否为合并申请单
   merged_count?: number; // 合并的申请单数量
 }
@@ -245,10 +247,16 @@ export default function PaymentAudit() {
               let totalDriverFreight = 0;
               let totalPartnerAmount = 0;
               
+              // 收集项目名称和装货日期
+              const projectNamesSet = new Set<string>();
+              const loadingDates: Date[] = [];
+              
               records.forEach((rec: unknown) => {
                 const recData = rec as { 
                   payable_cost?: number;
                   partner_costs?: Array<{ level?: number; payable_amount?: number }>;
+                  project_name?: string;
+                  loading_date?: string;
                 };
                 
                 // 司机运费 = payable_cost
@@ -262,7 +270,50 @@ export default function PaymentAudit() {
                     totalPartnerAmount += Number(highestPartner.payable_amount || 0);
                   }
                 }
+                
+                // 收集项目名称
+                if (recData.project_name) {
+                  projectNamesSet.add(recData.project_name);
+                }
+                
+                // 收集装货日期
+                if (recData.loading_date) {
+                  const date = new Date(recData.loading_date);
+                  if (!isNaN(date.getTime())) {
+                    loadingDates.push(date);
+                  }
+                }
               });
+              
+              // 计算项目显示文本
+              const projectNames = Array.from(projectNamesSet);
+              let projectDisplay = '-';
+              if (projectNames.length > 0) {
+                if (projectNames.length === 1) {
+                  projectDisplay = projectNames[0];
+                } else {
+                  projectDisplay = `${projectNames[0]}等${projectNames.length}个`;
+                }
+              }
+              
+              // 计算装货日期范围
+              let dateRangeDisplay = '-';
+              if (loadingDates.length > 0) {
+                loadingDates.sort((a, b) => a.getTime() - b.getTime());
+                const earliest = loadingDates[0];
+                const latest = loadingDates[loadingDates.length - 1];
+                const formatDate = (date: Date) => {
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                };
+                if (earliest.getTime() === latest.getTime()) {
+                  dateRangeDisplay = formatDate(earliest);
+                } else {
+                  dateRangeDisplay = `${formatDate(earliest)} 至 ${formatDate(latest)}`;
+                }
+              }
               
               return {
                 id: item.id,
@@ -273,7 +324,9 @@ export default function PaymentAudit() {
                 logistics_record_ids: item.logistics_record_ids,
                 record_count: item.record_count,
                 total_driver_freight: totalDriverFreight,
-                total_partner_amount: totalPartnerAmount
+                total_partner_amount: totalPartnerAmount,
+                project_names: projectDisplay,
+                loading_date_range: dateRangeDisplay
               };
             }
           } catch (error) {
@@ -290,7 +343,9 @@ export default function PaymentAudit() {
             logistics_record_ids: item.logistics_record_ids,
             record_count: item.record_count,
             total_driver_freight: undefined,
-            total_partner_amount: undefined
+            total_partner_amount: undefined,
+            project_names: undefined,
+            loading_date_range: undefined
           };
         })
       );
@@ -1956,6 +2011,8 @@ export default function PaymentAudit() {
                     <TableHead>申请编号</TableHead>
                     <TableHead>申请时间</TableHead>
                     <TableHead>付款申请单状态</TableHead>
+                    <TableHead>项目</TableHead>
+                    <TableHead>装货日期范围</TableHead>
                     <TableHead className="text-right">运单数</TableHead>
                     <TableHead className="text-right">司机运费</TableHead>
                     <TableHead className="text-right">货主金额</TableHead>
@@ -1975,7 +2032,7 @@ export default function PaymentAudit() {
                           {/* 状态分组分割线 */}
                           {showDivider && (
                             <TableRow className="bg-gradient-to-r from-transparent via-muted to-transparent hover:bg-gradient-to-r hover:from-transparent hover:via-muted hover:to-transparent border-y border-border/50">
-                              <TableCell colSpan={isAdmin ? 9 : 8} className="h-3 p-0">
+                              <TableCell colSpan={isAdmin ? 11 : 10} className="h-3 p-0">
                                 <div className="w-full h-full flex items-center justify-center">
                                   <div className="w-full max-w-md h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
                                 </div>
@@ -2012,6 +2069,8 @@ export default function PaymentAudit() {
                         <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>
                           <StatusBadge status={req.status} customConfig={PAYMENT_REQUEST_STATUS_CONFIG} />
                         </TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{req.project_names || '-'}</TableCell>
+                        <TableCell className="cursor-pointer" onClick={() => handleViewDetails(req)}>{req.loading_date_range || '-'}</TableCell>
                         <TableCell className="text-right cursor-pointer" onClick={() => handleViewDetails(req)}>{req.record_count ?? 0}</TableCell>
                         <TableCell className="text-right cursor-pointer font-mono font-semibold text-green-700" onClick={() => handleViewDetails(req)}>
                           {req.total_driver_freight !== undefined ? `¥${req.total_driver_freight.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
