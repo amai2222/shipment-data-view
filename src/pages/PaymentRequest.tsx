@@ -1992,8 +1992,69 @@ export default function PaymentRequest() {
             <DialogTitle>付款申请预览</DialogTitle>
             <DialogDescription>将为以下合作方生成付款申请，并更新 {paymentPreviewData?.processed_record_ids.length || 0} 条运单状态为"已申请支付"。</DialogDescription>
           </DialogHeader>
-          {paymentPreviewData && (
-            <div className="max-h-[60vh] overflow-y-auto p-1">
+          {paymentPreviewData && (() => {
+            // 计算统计数据
+            const allRecordIds = new Set<string>();
+            let totalDriverPayable = 0;
+            let totalPartnerAmount = 0;
+            
+            paymentPreviewData.sheets.forEach(sheet => {
+              // 货主金额合计
+              totalPartnerAmount += sheet.total_payable;
+              
+              // 收集所有运单ID和司机应收
+              sheet.records.forEach(({ record }) => {
+                if (!allRecordIds.has(record.id)) {
+                  allRecordIds.add(record.id);
+                  totalDriverPayable += Number(record.payable_cost || 0);
+                }
+              });
+            });
+            
+            const totalWaybillCount = allRecordIds.size;
+            
+            return (
+              <>
+                {/* 统计信息卡片 */}
+                <Card className="border-blue-200 bg-blue-50/50">
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-foreground mb-3">金额汇总(按合作方)</h4>
+                      {paymentPreviewData.sheets.map(sheet => (
+                        <div key={sheet.paying_partner_id} className="flex justify-between items-baseline">
+                          <span className="text-sm text-muted-foreground truncate pr-2">
+                            {sheet.paying_partner_full_name}:
+                          </span>
+                          <span className="font-mono font-semibold text-primary text-right whitespace-nowrap">
+                            <CurrencyDisplay value={sheet.total_payable} />
+                          </span>
+                        </div>
+                      ))}
+                      <div className="border-t pt-3 mt-3 space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-sm font-semibold text-foreground">运单单数合计：</span>
+                          <span className="font-mono font-semibold text-primary text-right whitespace-nowrap">
+                            {totalWaybillCount} 条
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-sm font-semibold text-green-700">司机应收合计：</span>
+                          <span className="font-mono font-semibold text-green-700 text-right whitespace-nowrap">
+                            <CurrencyDisplay value={totalDriverPayable} />
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-sm font-semibold text-blue-700">货主金额合计：</span>
+                          <span className="font-mono font-semibold text-blue-700 text-right whitespace-nowrap">
+                            <CurrencyDisplay value={totalPartnerAmount} />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <div className="max-h-[60vh] overflow-y-auto p-1">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -2018,8 +2079,10 @@ export default function PaymentRequest() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
-          )}
+                </div>
+              </>
+            );
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)} disabled={isSaving}>取消</Button>
             <Button onClick={handleConfirmAndSave} disabled={isSaving}>
