@@ -203,11 +203,29 @@ export default function PaymentRequestsList() {
                   projectNamesSet.add(recData.project_name);
                 }
                 
-                // 收集装货日期
+                // 收集装货日期（数据库返回的是UTC时间，需要转换为中国时区）
                 if (recData.loading_date) {
-                  const date = new Date(recData.loading_date);
-                  if (!isNaN(date.getTime())) {
-                    loadingDates.push(date);
+                  try {
+                    // 数据库返回的是UTC时间字符串（timestamptz），需要转换为中国时区显示
+                    let utcDate: Date;
+                    if (typeof recData.loading_date === 'string') {
+                      // 如果包含时间信息，直接解析；否则添加UTC时间
+                      const dateStr = recData.loading_date.includes('T') 
+                        ? recData.loading_date 
+                        : recData.loading_date + 'T00:00:00Z';
+                      utcDate = new Date(dateStr);
+                    } else {
+                      utcDate = new Date(recData.loading_date);
+                    }
+                    
+                    if (!isNaN(utcDate.getTime())) {
+                      // 转换为中国时区 (UTC+8)
+                      const chinaTime = utcDate.getTime() + 8 * 60 * 60 * 1000;
+                      const chinaDate = new Date(chinaTime);
+                      loadingDates.push(chinaDate);
+                    }
+                  } catch (error) {
+                    console.warn('日期解析失败:', recData.loading_date, error);
                   }
                 }
               });
@@ -223,17 +241,15 @@ export default function PaymentRequestsList() {
                 }
               }
               
-              // 计算装货日期范围
+              // 计算装货日期范围（使用 format 函数确保正确显示中国时区）
               let dateRangeDisplay = '-';
               if (loadingDates.length > 0) {
                 loadingDates.sort((a, b) => a.getTime() - b.getTime());
                 const earliest = loadingDates[0];
                 const latest = loadingDates[loadingDates.length - 1];
+                // 使用 format 函数格式化日期，确保正确显示中国时区
                 const formatDate = (date: Date) => {
-                  const year = date.getFullYear();
-                  const month = String(date.getMonth() + 1).padStart(2, '0');
-                  const day = String(date.getDate()).padStart(2, '0');
-                  return `${year}-${month}-${day}`;
+                  return format(date, 'yyyy-MM-dd');
                 };
                 if (earliest.getTime() === latest.getTime()) {
                   dateRangeDisplay = formatDate(earliest);
