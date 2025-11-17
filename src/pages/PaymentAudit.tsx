@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 // ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
+import { convertUTCDateStringToChinaDateString } from '@/utils/dateRangeUtils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
@@ -279,23 +280,22 @@ export default function PaymentAudit() {
                 // 收集装货日期（数据库返回的是UTC时间，需要转换为中国时区）
                 if (recData.loading_date) {
                   try {
-                    // 数据库返回的是UTC时间字符串（timestamptz），需要转换为中国时区显示
-                    let utcDate: Date;
+                    // 数据库返回的是UTC时间字符串（timestamptz），提取日期部分
+                    let dateStr: string;
                     if (typeof recData.loading_date === 'string') {
-                      // 如果包含时间信息，直接解析；否则添加UTC时间
-                      const dateStr = recData.loading_date.includes('T') 
-                        ? recData.loading_date 
-                        : recData.loading_date + 'T00:00:00Z';
-                      utcDate = new Date(dateStr);
+                      // 提取日期部分（YYYY-MM-DD）
+                      dateStr = recData.loading_date.split('T')[0];
                     } else {
-                      utcDate = new Date(recData.loading_date);
+                      // 如果是Date对象，转换为ISO字符串并提取日期部分
+                      dateStr = new Date(recData.loading_date).toISOString().split('T')[0];
                     }
                     
-                    if (!isNaN(utcDate.getTime())) {
-                      // 转换为中国时区 (UTC+8)
-                      const chinaTime = utcDate.getTime() + 8 * 60 * 60 * 1000;
-                      const chinaDate = new Date(chinaTime);
-                      loadingDates.push(chinaDate);
+                    if (dateStr) {
+                      // 使用与开票审核相同的转换函数，将UTC日期转换为中国时区日期
+                      const chinaDateStr = convertUTCDateStringToChinaDateString(dateStr);
+                      if (chinaDateStr) {
+                        loadingDates.push(chinaDateStr);
+                      }
                     }
                   } catch (error) {
                     console.warn('日期解析失败:', recData.loading_date, error);
@@ -314,20 +314,18 @@ export default function PaymentAudit() {
                 }
               }
               
-              // 计算装货日期范围（使用 format 函数确保正确显示中国时区）
+              // 计算装货日期范围（使用与开票审核相同的逻辑）
               let dateRangeDisplay = '-';
               if (loadingDates.length > 0) {
-                loadingDates.sort((a, b) => a.getTime() - b.getTime());
-                const earliest = loadingDates[0];
-                const latest = loadingDates[loadingDates.length - 1];
-                // 使用 format 函数格式化日期，确保正确显示中国时区
-                const formatDate = (date: Date) => {
-                  return format(date, 'yyyy-MM-dd');
-                };
-                if (earliest.getTime() === latest.getTime()) {
-                  dateRangeDisplay = formatDate(earliest);
+                // 去重并排序日期字符串
+                const uniqueDates = Array.from(new Set(loadingDates)).sort();
+                const earliest = uniqueDates[0];
+                const latest = uniqueDates[uniqueDates.length - 1];
+                
+                if (earliest === latest) {
+                  dateRangeDisplay = earliest;
                 } else {
-                  dateRangeDisplay = `${formatDate(earliest)} 至 ${formatDate(latest)}`;
+                  dateRangeDisplay = `${earliest} 至 ${latest}`;
                 }
               }
               
