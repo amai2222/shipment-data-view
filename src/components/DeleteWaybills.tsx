@@ -47,6 +47,34 @@ interface DeleteWaybillsProps {
   onDeleteSuccess?: () => void;
 }
 
+// 预览运单类型（基于 SQL 函数返回的字段）
+interface WaybillPreview {
+  id: string;
+  auto_number: string;
+  project_name: string;
+  driver_name: string;
+  license_plate: string | null;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+  unloading_date: string | null;
+  loading_weight: number | null;
+  unloading_weight: number | null;
+  current_cost: number | null;
+  extra_cost: number | null;
+  payable_cost: number | null;
+  transport_type: string | null;
+  remarks: string | null;
+}
+
+// 删除结果类型
+interface DeleteResult {
+  success: boolean;
+  deleted_logistics_count?: number;
+  deleted_costs_count?: number;
+  error?: string;
+}
+
 export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps) {
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -59,11 +87,11 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [deleteResult, setDeleteResult] = useState<any>(null);
+  const [deleteResult, setDeleteResult] = useState<DeleteResult | null>(null);
   
   // 预览数据
   const [previewData, setPreviewData] = useState<{
-    waybills: any[];
+    waybills: WaybillPreview[];
     totalCount: number;
     totalPages: number;
     currentPage: number;
@@ -82,12 +110,25 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
           .order('name');
 
         if (error) throw error;
-        setProjects(data || []);
-      } catch (error: any) {
+        // 转换数据库字段名到 Project 类型
+        const transformedProjects = (data || []).map((p: { id: string; name: string; start_date: string; end_date: string; project_status?: string }) => ({
+          id: p.id,
+          name: p.name,
+          startDate: p.start_date,
+          endDate: p.end_date,
+          manager: '',
+          loadingAddress: '',
+          unloadingAddress: '',
+          createdAt: '',
+          projectStatus: p.project_status
+        }));
+        setProjects(transformedProjects);
+      } catch (error: unknown) {
         console.error('加载项目失败:', error);
+        const errorMessage = error instanceof Error ? error.message : '未知错误';
         toast({ 
           title: "错误", 
-          description: "加载项目列表失败: " + (error.message || '未知错误'), 
+          description: "加载项目列表失败: " + errorMessage, 
           variant: "destructive" 
         });
       }
@@ -155,11 +196,12 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
       } else {
         throw new Error(data?.error || '预览失败');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('预览删除数量失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast({ 
         title: "错误", 
-        description: "预览失败: " + (error.message || '未知错误'), 
+        description: "预览失败: " + errorMessage, 
         variant: "destructive" 
       });
       setPreviewCount(null);
@@ -249,11 +291,12 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
       } else {
         throw new Error(data?.error || '删除失败');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('删除运单失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast({ 
         title: "删除失败", 
-        description: "删除运单时发生错误: " + (error.message || '未知错误'), 
+        description: "删除运单时发生错误: " + errorMessage, 
         variant: "destructive" 
       });
     } finally {
@@ -307,7 +350,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
                       <div className="flex items-center gap-2">
                         <span>{project.name}</span>
                         <Badge variant="outline" className="text-xs">
-                          {project.project_status || '进行中'}
+                          {project.projectStatus || '进行中'}
                         </Badge>
                       </div>
                     </SelectItem>
@@ -321,7 +364,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
               <div className="space-y-2">
                 <Label htmlFor="start-date">
                   <Calendar className="h-4 w-4 inline mr-1" />
-                  开始日期（装货日期 >=）
+                  开始日期（装货日期 {'>='}）
                 </Label>
                 <Input
                   id="start-date"
@@ -342,7 +385,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
               <div className="space-y-2">
                 <Label htmlFor="end-date">
                   <Calendar className="h-4 w-4 inline mr-1" />
-                  结束日期（装货日期 <=）
+                  结束日期（装货日期 {'<='}）
                 </Label>
                 <Input
                   id="end-date"
@@ -367,8 +410,8 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
               <AlertTitle>日期范围说明</AlertTitle>
               <AlertDescription>
                 <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>只设置开始日期：删除装货日期 >= 开始日期的所有运单</li>
-                  <li>只设置结束日期：删除装货日期 <= 结束日期的所有运单</li>
+                  <li>只设置开始日期：删除装货日期 {'>='} 开始日期的所有运单</li>
+                  <li>只设置结束日期：删除装货日期 {'<='} 结束日期的所有运单</li>
                   <li>同时设置：删除装货日期在 [开始日期, 结束日期] 范围内的运单</li>
                   <li>两个日期都为空：无法删除（必须至少设置一个日期）</li>
                 </ul>
