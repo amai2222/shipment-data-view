@@ -983,12 +983,14 @@ export default function PaymentAudit() {
                     <td class="signature-cell">信息专员签字</td>
                     <td class="signature-cell">信息部审核签字</td>
                     <td class="signature-cell">业务负责人签字</td>
-                    <td class="signature-cell">总经理签字</td>
+                    <td class="signature-cell">财务会计审核</td>
                     <td class="signature-cell">复核审批人签字</td>
-                    <td class="signature-cell">财务部审核签字</td>
+                    <td class="signature-cell">总经理签字</td>
+                    <td class="signature-cell">办公室领导复核</td>
                     <td class="signature-cell">董事长签字</td>
                   </tr>
                   <tr>
+                    <td class="signature-space"></td>
                     <td class="signature-space"></td>
                     <td class="signature-space"></td>
                     <td class="signature-space"></td>
@@ -1054,8 +1056,8 @@ export default function PaymentAudit() {
               .remarks-section { margin: 15px 0; }
               .remarks-label { font-weight: bold; margin-bottom: 5px; }
               .table-signature-section { margin-top: 0; margin-bottom: 0; padding-top: 0; }
-              .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 0; table-layout: auto; }
-              .signature-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; }
+              .signature-table { width: 100%; border-collapse: collapse; margin-top: 0; margin-bottom: 0; table-layout: fixed; }
+              .signature-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; width: 12.5%; }
               .signature-table { border-collapse: collapse; }
               .signature-table tr:first-child td { border-top: none !important; }
               .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
