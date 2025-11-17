@@ -264,7 +264,13 @@ export default function InvoiceAudit() {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
       // ✅ 修改：支持多个 project_id（逗号分隔）
       let projectIdParam: string | null = null;
-      if (selectedShipperId && selectedShipperId !== 'all') {
+      
+      // ✅ 如果只选择了项目（没有选择货主），直接使用项目ID
+      if (selectedProjectId && selectedProjectId !== 'all' && (!selectedShipperId || selectedShipperId === 'all')) {
+        projectIdParam = selectedProjectId.trim() || null; // 确保空字符串转换为 null
+      }
+      // ✅ 如果选择了货主
+      else if (selectedShipperId && selectedShipperId !== 'all') {
         if (selectedProjectId === 'all' && availableProjects.length > 0) {
           // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
           const projectIds = availableProjects.map(p => p.id).join(',');
