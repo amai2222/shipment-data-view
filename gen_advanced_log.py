@@ -6,21 +6,19 @@ import time
 
 # --- 配置区 ---
 
-# 1. 你的 Git 作者名 (用于筛选你自己的提交)
-#    (打开终端，输入 git config user.name 即可查看)
-GIT_AUTHOR_NAME = "dmuxue2"  # 替换成你的名字
+# 1. 您的 Git 作者名 (已根据您的反馈填好)
+GIT_AUTHOR_NAME = "dmuxue2"
 
 # 2. 批量处理的最终停止日期
 FINAL_STOP_DATE = "2025-07-01"
 
-# 3. 批量处理的开始日期 (默认从今天开始)
+# 3. 批量处理的开始日期 (您指定的日期)
 BATCH_START_DATE = "2025-11-17"
 
 # 4. 输出目录 (脚本会在当前目录下创建这个文件夹来存放md文件)
-OUTPUT_DIR = "Weekly_Worklog_Drafts"
+OUTPUT_DIR = "Daily_Worklog_Drafts_dmuxue2"
 
 # --- 关键配置：自定义文件分类 ---
-# (请根据你的项目 'shipment-data-view' 的结构修改这里的规则)
 def categorize_file(filepath):
     """根据文件路径返回它的类别"""
     if filepath.startswith('supabase/functions/'):
@@ -49,19 +47,23 @@ def categorize_file(filepath):
 # ---------------------------------
 
 
-def get_git_log_with_files(author_name, start_date, end_date):
+def get_git_log_with_files(author_name, date_str):
     """
-    使用 git log 获取指定日期范围内的提交记录和文件状态。
+    使用 git log 获取指定某一天的提交记录和文件状态。
+    V3版：使用 %B 抓取完整提交信息，并使用更健壮的分隔符。
     """
-    # %H = 完整 hash, %s = 提交信息
+    # %B = 完整的提交信息 (标题 + 正文)
     # --name-status = 显示文件状态 (A=Added, M=Modified, D=Deleted)
+    # 使用 \x01 (Start of Heading) 和 \x02 (Start of Text) 作为机器可读的分隔符
+    commit_format = "--COMMIT_START--%n%B%n--FILES_START--"
+    
     command = [
         'git', 'log', 
         f'--author={author_name}', 
-        f'--since="{start_date} 00:00:00"',
-        f'--until="{end_date} 23:59:59"',
+        f'--since="{date_str} 00:00:00"',
+        f'--until="{date_str} 23:59:59"',
         '--name-status',
-        '--pretty=format:---COMMIT---%n%s' # 使用特殊分隔符
+        f'--pretty=format:{commit_format}'
     ]
     
     try:
@@ -69,6 +71,10 @@ def get_git_log_with_files(author_name, start_date, end_date):
         result = subprocess.run(' '.join(command), capture_output=True, text=True, check=True, shell=True, encoding='utf-8')
         return result.stdout
     except subprocess.CalledProcessError as e:
+        # 如果没有提交，git log 可能会返回错误，但这没关系
+        if e.returncode == 128 or e.stdout == "" or e.stderr:
+             print(f"  > 提示: {date_str} 没有找到匹配的提交。")
+             return "" # 返回空字符串表示无活动
         print(f"  > 执行 git log 出错: {e.stderr}")
         return None
     except FileNotFoundError:
@@ -77,57 +83,62 @@ def get_git_log_with_files(author_name, start_date, end_date):
 
 def parse_git_log(log_output):
     """
-    解析 git log 的输出，分类提交和文件。
+    V3版解析器：使用新的分隔符来解析完整的提交信息和文件。
     """
-    commits_by_category = {
-        'Feat': [], 'Fix': [], 'Refactor': [], 'Docs': [], 
-        'Chore': [], 'Style': [], 'Test': [], 'Others': []
-    }
+    all_commits_set = set() # 使用集合自动去重
     files_added = set()
     files_modified = set()
     files_deleted = set()
     
     if not log_output or log_output.strip() == "":
-        return commits_by_category, files_added, files_modified, files_deleted
+        return all_commits_set, files_added, files_modified, files_deleted
 
-    commit_pattern = re.compile(r'^\s*(\w+)(?:\([\w\s-]+\))?:\s*(.+)')
-    current_commit_msg = "Unknown"
-    lines = log_output.strip().split('\n')
+    # 1. 按 "--COMMIT_START--" 分割每个提交
+    commit_chunks = log_output.split('--COMMIT_START--')
     
-    for line in lines:
-        line = line.strip()
-        if not line:
+    for chunk in commit_chunks:
+        if not chunk.strip():
             continue
-        if line.startswith('---COMMIT---'):
-            continue
+            
+        # 2. 按 "--FILES_START--" 分割提交信息和文件列表
+        parts = chunk.split('--FILES_START--')
         
-        if line.startswith(('A\t', 'M\t', 'D\t')):
-            try:
-                status, filepath = line.split('\t', 1)
-                filepath = filepath.replace('"', '') # 清理可能的引号
+        if len(parts) != 2:
+            # print(f"  > 警告：解析块失败，跳过: {chunk[:50]}...")
+            continue
+            
+        # 3. 提取完整的提交信息
+        commit_message = parts[0].strip()
+        if commit_message:
+            all_commits_set.add(commit_message)
+            
+        # 4. 提取文件列表
+        file_list_str = parts[1].strip()
+        file_lines = file_list_str.split('\n')
+        
+        for line in file_lines:
+            line = line.strip()
+            if not line:
+                continue
                 
-                if status == 'A':
-                    files_added.add(filepath)
-                elif status == 'M':
-                    files_modified.add(filepath)
-                elif status == 'D':
-                    files_deleted.add(filepath)
-            except ValueError:
-                print(f"  > 警告：无法解析的文件行: {line}")
-        else:
-            current_commit_msg = line
-            match = commit_pattern.match(current_commit_msg)
-            if match:
-                category_key = match.group(1).capitalize()
-                message = match.group(2).strip()
-                if category_key in commits_by_category:
-                    commits_by_category[category_key].append(message)
-                else:
-                    commits_by_category['Others'].append(current_commit_msg)
-            else:
-                commits_by_category['Others'].append(current_commit_msg)
+            if line.startswith(('A\t', 'M\t', 'D\t')):
+                try:
+                    # 使用 split(maxsplit=1) 来正确处理包含空格的文件名
+                    status, filepath = line.split('\t', 1) 
+                    filepath = filepath.replace('"', '') # 清理可能的引号
+                    
+                    if status == 'A':
+                        files_added.add(filepath)
+                    elif status == 'M':
+                        files_modified.add(filepath)
+                    elif status == 'D':
+                        files_deleted.add(filepath)
+                except ValueError:
+                    print(f"  > 警告：无法解析的文件行: {line}")
+            # else:
+                # 可能是空的提交（没有文件变更），忽略即可
 
-    return commits_by_category, files_added, files_modified, files_deleted
+    return all_commits_set, files_added, files_modified, files_deleted
 
 def categorize_files(file_set):
     """
@@ -135,33 +146,34 @@ def categorize_files(file_set):
     """
     categorized = {}
     for filepath in sorted(list(file_set)):
+        # 修复因Git转义导致的路径问题
+        if '\\' in filepath:
+            filepath = filepath.encode('latin-1').decode('unicode_escape')
+            
         category = categorize_file(filepath)
         if category not in categorized:
             categorized[category] = []
         categorized[category].append(filepath)
     return categorized
 
-def generate_worklog_draft(log_date_str, commits, added_files, modified_files, deleted_files):
+def generate_worklog_draft(log_date_str, all_commits_set, added_files, modified_files, deleted_files):
     """
-    生成最终的 Markdown 工作日志初稿。
+    V3版生成器：将所有“改进内容”（包括正文）放在最前面。
     """
     log_content = f"# 📅 工作日志 - {log_date_str}\n\n"
-    log_content += "## ✅ 已完成的任务 (Commits)\n\n"
-    log_content += "*(请将以下 Commit 记录归纳总结为 '任务1: ...', '任务2: ...')*\n\n"
     
-    has_commits = False
-    for category, messages in commits.items():
-        if messages:
-            # 我们只显示不重复的提交信息
-            unique_messages = sorted(list(set(messages)))
-            if unique_messages:
-                has_commits = True
-                log_content += f"### {category}:\n"
-                for msg in unique_messages:
-                    log_content += f"- {msg}\n"
-                log_content += "\n"
-            
-    if not has_commits:
+    # --- 核心改进内容 (Commits) ---
+    log_content += "## ✅ 核心改进内容 (Commits)\n\n"
+    log_content += "*(AI总结的基础素材)*\n\n"
+    
+    if all_commits_set:
+        unique_messages = sorted(list(all_commits_set))
+        for msg in unique_messages:
+            if msg.strip(): 
+                # 为多行提交信息添加 markdown 换行（在行尾加两个空格）
+                formatted_msg = '  \n'.join(msg.splitlines())
+                log_content += f"- {formatted_msg}\n\n" # 提交之间用空行分隔
+    else:
         log_content += "此时间段内暂无提交记录。\n\n"
 
     # --- 文件清单 ---
@@ -193,6 +205,7 @@ def generate_worklog_draft(log_date_str, commits, added_files, modified_files, d
             log_content += "\n"
 
     # --- 待补充模板 ---
+    log_content += "--- (以下为AI总结填充区) ---\n\n"
     log_content += "## 🚀 待执行的部署\n\n"
     log_content += "*(待补充...)*\n\n"
     log_content += "## 📊 工作统计\n\n"
@@ -206,15 +219,16 @@ def generate_worklog_draft(log_date_str, commits, added_files, modified_files, d
 
     return log_content
 
-# --- 主程序：批量循环 ---
+# --- 主程序：批量循环 (日报版) ---
 if __name__ == "__main__":
     
+    # 检查用户名是否已配置
     if not GIT_AUTHOR_NAME or GIT_AUTHOR_NAME == "你的Git用户名":
         print("="*50)
-        print("错误：请先修改脚本顶部的 `GIT_AUTHOR_NAME` 变量！")
-        print("你可以通过在终端输入 `git config user.name` 来查看你的Git用户名。")
+        print("错误：脚本顶部的 `GIT_AUTHOR_NAME` 变量未配置！")
+        print(f"已根据您的输入自动设置为 'dmuxue2'，如果不正确，请手动修改脚本。")
+        GIT_AUTHOR_NAME = "dmuxue2" # 自动设置
         print("="*50)
-        exit()
 
     # 创建输出目录
     if not os.path.exists(OUTPUT_DIR):
@@ -222,48 +236,47 @@ if __name__ == "__main__":
         print(f"创建输出目录: {OUTPUT_DIR}")
 
     try:
-        end_date_obj = datetime.strptime(BATCH_START_DATE, '%Y-%m-%d')
+        current_date = datetime.strptime(BATCH_START_DATE, '%Y-%m-%d')
         final_stop_date_obj = datetime.strptime(FINAL_STOP_DATE, '%Y-%m-%d')
     except ValueError as e:
         print(f"日期格式错误: {e}. 请使用 'YYYY-MM-DD'.")
         exit()
 
-    current_end_date = end_date_obj
-    week_counter = 1
+    day_counter = 1
 
-    print("--- 开始批量抓取每周工作日志 ---")
+    print(f"--- 开始为 {GIT_AUTHOR_NAME} 批量抓取每日工作日志 ---")
+    print(f"时间范围: {BATCH_START_DATE} 回溯至 {FINAL_STOP_DATE}")
 
-    while current_end_date >= final_stop_date_obj:
+    while current_date >= final_stop_date_obj:
         
-        # 1. 计算本周的开始和结束日期
-        current_start_date = current_end_date - timedelta(days=6)
+        # 1. 获取当天的日期字符串
+        date_str = current_date.strftime('%Y-%m-%d')
         
-        # 确保开始日期不会早于最终停止日期
-        if current_start_date < final_stop_date_obj:
-            current_start_date = final_stop_date_obj
-            
-        start_str = current_start_date.strftime('%Y-%m-%d')
-        end_str = current_end_date.strftime('%Y-%m-%d')
-        
-        print(f"\n[第 {week_counter} 周] 正在处理: {start_str} 至 {end_str}")
+        print(f"\n[第 {day_counter} 天] 正在处理: {date_str}")
 
         # 2. 获取 Git Log
         raw_log = get_git_log_with_files(
             author_name=GIT_AUTHOR_NAME, 
-            start_date=start_str,
-            end_date=end_str
+            date_str=date_str
         )
         
         if raw_log is not None:
             # 3. 解析 Log
             commits, added, modified, deleted = parse_git_log(raw_log)
             
-            # 4. 生成日志
-            log_date_str = f"{start_str} 至 {end_str}"
-            worklog_draft = generate_worklog_draft(log_date_str, commits, added, modified, deleted)
+            # 4. 检查当天是否有活动
+            if not commits and not added and not modified and not deleted:
+                print(f"  > ⚪ 无活动，跳过。")
+                # 准备下一轮循环
+                current_date = current_date - timedelta(days=1)
+                day_counter += 1
+                continue # 跳过本轮循环的剩余部分
+
+            # 5. (如果有活动) 生成日志
+            worklog_draft = generate_worklog_draft(date_str, commits, added, modified, deleted)
             
-            # 5. 保存文件
-            filename = f"worklog_summary_{start_str}_to_{end_str}.md"
+            # 6. 保存文件
+            filename = f"worklog_summary_{date_str}.md"
             filepath = os.path.join(OUTPUT_DIR, filename)
             
             try:
@@ -274,13 +287,13 @@ if __name__ == "__main__":
                 print(f"  > ❌ 保存文件失败: {e}")
                 
         else:
-            print(f"  > ⚠️ 抓取 Git Log 失败，跳过这一周。")
+            print(f"  > ⚠️ 抓取 Git Log 失败，跳过这一天。")
 
-        # 6. 准备下一轮循环 (移到上一周的开始日期的前一天)
-        current_end_date = current_start_date - timedelta(days=1)
-        week_counter += 1
+        # 7. 准备下一轮循环 (移到前一天)
+        current_date = current_date - timedelta(days=1)
+        day_counter += 1
         
         # 稍微暂停一下，避免请求过快 (如果需要)
-        # time.sleep(0.1) 
+        # time.sleep(0.05) 
 
     print("\n--- 批量处理完成！ ---")
