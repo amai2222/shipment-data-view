@@ -480,7 +480,20 @@ export function FilterBar({ filters, onFiltersChange, onSearch, onClear, loading
 
           {/* 操作按钮 */}
           <div className="flex items-end gap-2">
-            <Button variant="outline" onClick={onClear} disabled={loading} className="h-10">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // 重置货主和项目筛选器状态
+                setSelectedShipperId('all');
+                setSelectedProjectId('all');
+                selectedShipperIdRef.current = 'all';
+                selectedProjectIdRef.current = 'all';
+                // 调用父组件的清除函数
+                onClear();
+              }} 
+              disabled={loading} 
+              className="h-10"
+            >
               清除
             </Button>
             <Button onClick={onSearch} disabled={loading} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md text-white">
