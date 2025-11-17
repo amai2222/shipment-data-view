@@ -2043,12 +2043,6 @@ export default function PaymentRequest() {
                             <CurrencyDisplay value={totalDriverPayable} />
                           </span>
                         </div>
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-sm font-semibold text-blue-700">货主金额合计：</span>
-                          <span className="font-mono font-semibold text-blue-700 text-right whitespace-nowrap">
-                            <CurrencyDisplay value={totalPartnerAmount} />
-                          </span>
-                        </div>
                       </div>
                     </div>
                   </CardContent>
