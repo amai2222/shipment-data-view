@@ -27,6 +27,7 @@ import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateM
 import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
+import DeleteWaybills from '@/components/DeleteWaybills';
 import { PageHeader } from "@/components/PageHeader";
 import SelectiveFieldUpdate from '@/components/SelectiveFieldUpdate';
 import * as XLSX from 'xlsx';
@@ -56,7 +57,7 @@ export default function EnhancedWaybillMaintenance() {
   const [waybillCount, setWaybillCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective' | 'delete'>('standard');
   
   // 增强的导入状态
   const [isEnhancedImporting, setIsEnhancedImporting] = useState(false);
@@ -480,7 +481,7 @@ export default function EnhancedWaybillMaintenance() {
 
         {/* 标签页 */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger 
               value="standard"
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -504,6 +505,12 @@ export default function EnhancedWaybillMaintenance() {
               className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
               选择性更新
+            </TabsTrigger>
+            <TabsTrigger 
+              value="delete"
+              className="data-[state=active]:bg-red-600 data-[state=active]:text-white"
+            >
+              删除运单
             </TabsTrigger>
           </TabsList>
 
@@ -655,6 +662,11 @@ export default function EnhancedWaybillMaintenance() {
               selectedProject={selectedProject}
               onUpdateSuccess={loadWaybillCount}
             />
+          </TabsContent>
+
+          {/* 删除运单标签页 */}
+          <TabsContent value="delete" className="space-y-6">
+            <DeleteWaybills onDeleteSuccess={loadWaybillCount} />
           </TabsContent>
         </Tabs>
         </div>

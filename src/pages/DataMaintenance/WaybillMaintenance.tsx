@@ -23,6 +23,7 @@ import { UpdateModeImportDialog } from '@/pages/BusinessEntry/components/UpdateM
 import { useExcelImportWithUpdate } from '@/pages/BusinessEntry/hooks/useExcelImportWithUpdate';
 import TemplateMappingManager from '@/components/TemplateMappingManager';
 import TemplateBasedImport from '@/components/TemplateBasedImport';
+import DeleteWaybills from '@/components/DeleteWaybills';
 import { PageHeader } from "@/components/PageHeader";
 import SelectiveFieldUpdate from '@/components/SelectiveFieldUpdate';
 import * as XLSX from 'xlsx';
@@ -37,7 +38,7 @@ export default function WaybillMaintenance() {
   const [waybillCount, setWaybillCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective' | 'delete'>('standard');
 
   // Excel导入相关状态
   const {
@@ -207,11 +208,12 @@ export default function WaybillMaintenance() {
 
             {/* 标签页 */}
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="standard">标准导入</TabsTrigger>
                 <TabsTrigger value="template">模板导入</TabsTrigger>
                 <TabsTrigger value="mapping">模板管理</TabsTrigger>
                 <TabsTrigger value="selective">选择性更新</TabsTrigger>
+                <TabsTrigger value="delete">删除运单</TabsTrigger>
               </TabsList>
 
               {/* 标准导入标签页 */}
@@ -374,6 +376,11 @@ export default function WaybillMaintenance() {
                   selectedProject={selectedProject}
                   onUpdateSuccess={loadWaybillCount}
                 />
+              </TabsContent>
+
+              {/* 删除运单标签页 */}
+              <TabsContent value="delete" className="space-y-6">
+                <DeleteWaybills onDeleteSuccess={loadWaybillCount} />
               </TabsContent>
             </Tabs>
           </CardContent>
