@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 // ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 import { convertUTCDateStringToChinaDateString } from '@/utils/dateRangeUtils';
+import { addDays } from 'date-fns';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
@@ -241,7 +242,7 @@ export default function PaymentRequestsList() {
                 }
               }
               
-              // 计算装货日期范围（使用与开票审核相同的逻辑）
+              // 计算装货日期范围（使用与开票审核相同的逻辑，日期+1天）
               let dateRangeDisplay = '-';
               if (loadingDates.length > 0) {
                 // 去重并排序日期字符串
@@ -249,10 +250,16 @@ export default function PaymentRequestsList() {
                 const earliest = uniqueDates[0];
                 const latest = uniqueDates[uniqueDates.length - 1];
                 
-                if (earliest === latest) {
-                  dateRangeDisplay = earliest;
+                // ✅ 将日期加1天（与开票审核逻辑一致）
+                const earliestDateObj = new Date(earliest + 'T00:00:00+08:00');
+                const latestDateObj = new Date(latest + 'T00:00:00+08:00');
+                const adjustedEarliest = format(addDays(earliestDateObj, 1), 'yyyy-MM-dd');
+                const adjustedLatest = format(addDays(latestDateObj, 1), 'yyyy-MM-dd');
+                
+                if (adjustedEarliest === adjustedLatest) {
+                  dateRangeDisplay = adjustedEarliest;
                 } else {
-                  dateRangeDisplay = `${earliest} 至 ${latest}`;
+                  dateRangeDisplay = `${adjustedEarliest} 至 ${adjustedLatest}`;
                 }
               }
               
