@@ -1890,8 +1890,31 @@ export default function PaymentRequest() {
                       ))}
                       <TableRow className="bg-muted/30 font-semibold border-t-2">
                         <TableCell colSpan={7} className="text-right font-bold whitespace-nowrap">合计</TableCell>
-                        <TableCell className="font-bold text-primary text-center whitespace-nowrap"><div><CurrencyDisplay value={reportData?.overview?.total_driver_receivable || 0} className="text-primary" /></div><div className="text-xs text-muted-foreground font-normal">(司机应收)</div></TableCell>
-                        {Array.isArray(displayedPartners) && displayedPartners.map(p => { const total = (Array.isArray(reportData?.partner_summary) && reportData.partner_summary.find((pp) => pp.partner_id === p.id)?.total_payable) || 0; return (<TableCell key={p.id} className="text-center font-bold whitespace-nowrap"><div><CurrencyDisplay value={total} /></div><div className="text-xs text-muted-foreground font-normal">({p.name})</div></TableCell>);})}
+                        <TableCell className="font-bold text-primary text-center whitespace-nowrap">
+                          <div>
+                            <CurrencyDisplay 
+                              value={Array.isArray(sortedRecords) ? sortedRecords.reduce((sum, r) => sum + (Number(r.payable_cost) || 0), 0) : 0} 
+                              className="text-primary" 
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground font-normal">(司机应收)</div>
+                        </TableCell>
+                        {Array.isArray(displayedPartners) && displayedPartners.map(p => {
+                          const total = Array.isArray(sortedRecords) 
+                            ? sortedRecords.reduce((sum, r) => {
+                                const cost = Array.isArray(r.partner_costs) 
+                                  ? r.partner_costs.find((c) => c.partner_id === p.id)?.payable_amount || 0
+                                  : 0;
+                                return sum + (Number(cost) || 0);
+                              }, 0)
+                            : 0;
+                          return (
+                            <TableCell key={p.id} className="text-center font-bold whitespace-nowrap">
+                              <div><CurrencyDisplay value={total} /></div>
+                              <div className="text-xs text-muted-foreground font-normal">({p.name})</div>
+                            </TableCell>
+                          );
+                        })}
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
                         <TableCell className="whitespace-nowrap"></TableCell>
