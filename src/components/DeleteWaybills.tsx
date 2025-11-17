@@ -5,17 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Project } from '@/types';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
+import { formatChinaDateString } from '@/utils/dateUtils';
 import { 
   Trash2, 
   AlertTriangle, 
   Info,
   Loader2,
-  Calendar,
   Filter
 } from 'lucide-react';
 import {
@@ -79,8 +80,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -147,6 +147,10 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
       });
       return;
     }
+
+    // 从日期范围中提取开始和结束日期
+    const startDate = dateRange?.from ? formatChinaDateString(dateRange.from) : '';
+    const endDate = dateRange?.to ? formatChinaDateString(dateRange.to) : '';
 
     if (!startDate && !endDate) {
       toast({ 
@@ -229,10 +233,10 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
       return;
     }
 
-    if (!startDate && !endDate) {
+    if (!dateRange?.from || !dateRange?.to) {
       toast({ 
         title: "错误", 
-        description: "请至少选择一个日期条件", 
+        description: "请选择完整的日期范围", 
         variant: "destructive" 
       });
       return;
@@ -257,6 +261,10 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
     setIsDeleting(true);
     setShowConfirmDialog(false);
 
+    // 从日期范围中提取开始和结束日期
+    const startDate = dateRange?.from ? formatChinaDateString(dateRange.from) : '';
+    const endDate = dateRange?.to ? formatChinaDateString(dateRange.to) : '';
+
     try {
       const { data, error } = await supabase.rpc('delete_waybills_by_project_and_date', {
         p_project_name: selectedProject,
@@ -276,8 +284,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
         
         // 重置状态
         setSelectedProject('');
-        setStartDate('');
-        setEndDate('');
+        setDateRange(undefined);
         setPreviewCount(null);
         setPreviewData(null);
         setCurrentPage(1);
@@ -340,6 +347,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
                 setSelectedProject(value);
                 setPreviewCount(null);
                 setDeleteResult(null);
+                setPreviewData(null);
               }}>
                 <SelectTrigger id="project-select" className="w-full">
                   <SelectValue placeholder="选择项目" />
@@ -360,63 +368,21 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
             </div>
 
             {/* 日期范围选择 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-date">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  开始日期（装货日期 {'>='}）
-                </Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setPreviewCount(null);
-                    setDeleteResult(null);
-                  }}
-                  placeholder="选择开始日期"
-                />
-                <p className="text-xs text-muted-foreground">
-                  删除装货日期大于等于此日期的运单
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="end-date">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  结束日期（装货日期 {'<='}）
-                </Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setPreviewCount(null);
-                    setDeleteResult(null);
-                  }}
-                  placeholder="选择结束日期"
-                />
-                <p className="text-xs text-muted-foreground">
-                  删除装货日期小于等于此日期的运单
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="date-range">日期范围 <span className="text-red-500">*</span></Label>
+              <DateRangePicker
+                date={dateRange}
+                setDate={(range) => {
+                  setDateRange(range);
+                  setPreviewCount(null);
+                  setDeleteResult(null);
+                  setPreviewData(null);
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                选择装货日期范围，将删除该范围内的所有运单记录
+              </p>
             </div>
-
-            {/* 日期范围说明 */}
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>日期范围说明</AlertTitle>
-              <AlertDescription>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>只设置开始日期：删除装货日期 {'>='} 开始日期的所有运单</li>
-                  <li>只设置结束日期：删除装货日期 {'<='} 结束日期的所有运单</li>
-                  <li>同时设置：删除装货日期在 [开始日期, 结束日期] 范围内的运单</li>
-                  <li>两个日期都为空：无法删除（必须至少设置一个日期）</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
           </div>
 
           {/* 删除结果 */}
@@ -437,7 +403,7 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
           <div className="flex items-center gap-4">
             <Button
               onClick={() => previewDeleteCount(1)}
-              disabled={!selectedProject || (!startDate && !endDate) || isChecking || isDeleting}
+              disabled={!selectedProject || !dateRange?.from || !dateRange?.to || isChecking || isDeleting}
               variant="outline"
             >
               {isChecking ? (
@@ -488,11 +454,13 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
                   <div>
                     <span className="font-medium">日期范围：</span>
                     <span>
-                      {startDate && endDate 
-                        ? `${startDate} 至 ${endDate}`
-                        : startDate 
-                        ? `>= ${startDate}`
-                        : `<= ${endDate}`
+                      {dateRange?.from && dateRange?.to
+                        ? `${formatChinaDateString(dateRange.from)} 至 ${formatChinaDateString(dateRange.to)}`
+                        : dateRange?.from
+                        ? `>= ${formatChinaDateString(dateRange.from)}`
+                        : dateRange?.to
+                        ? `<= ${formatChinaDateString(dateRange.to)}`
+                        : '未设置'
                       }
                     </span>
                   </div>
@@ -694,11 +662,13 @@ export default function DeleteWaybills({ onDeleteSuccess }: DeleteWaybillsProps)
               <p className="font-medium">项目：{selectedProject}</p>
               <p className="text-sm text-muted-foreground">
                 日期范围：
-                {startDate && endDate 
-                  ? `${startDate} 至 ${endDate}`
-                  : startDate 
-                  ? `>= ${startDate}`
-                  : `<= ${endDate}`
+                {dateRange?.from && dateRange?.to
+                  ? `${formatChinaDateString(dateRange.from)} 至 ${formatChinaDateString(dateRange.to)}`
+                  : dateRange?.from
+                  ? `>= ${formatChinaDateString(dateRange.from)}`
+                  : dateRange?.to
+                  ? `<= ${formatChinaDateString(dateRange.to)}`
+                  : '未设置'
                 }
               </p>
               <p className="text-sm text-red-600 font-medium">

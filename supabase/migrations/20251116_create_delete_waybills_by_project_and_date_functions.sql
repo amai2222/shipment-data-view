@@ -8,10 +8,14 @@
 -- 1. 预览删除数量的函数（返回运单列表）
 -- ============================================================================
 
+-- 删除旧版本的函数（如果存在）
+DROP FUNCTION IF EXISTS public.preview_delete_waybills(TEXT, DATE, DATE, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS public.preview_delete_waybills(TEXT, TEXT, TEXT, INTEGER, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.preview_delete_waybills(
     p_project_name TEXT,
-    p_start_date DATE DEFAULT NULL,
-    p_end_date DATE DEFAULT NULL,
+    p_start_date TEXT DEFAULT NULL,
+    p_end_date TEXT DEFAULT NULL,
     p_page INTEGER DEFAULT 1,
     p_page_size INTEGER DEFAULT 20
 )
@@ -26,6 +30,8 @@ DECLARE
     v_waybills JSONB;
     v_total_pages INTEGER;
     v_offset INTEGER;
+    v_start_date DATE;
+    v_end_date DATE;
 BEGIN
     -- 查找项目ID
     SELECT id INTO v_project_id
@@ -44,13 +50,28 @@ BEGIN
         );
     END IF;
 
+    -- 转换日期参数：将 TEXT 转换为 DATE，空字符串或 NULL 转换为 NULL
+    v_start_date := CASE 
+        WHEN p_start_date IS NULL OR p_start_date = '' THEN NULL 
+        ELSE p_start_date::DATE 
+    END;
+    v_end_date := CASE 
+        WHEN p_end_date IS NULL OR p_end_date = '' THEN NULL 
+        ELSE p_end_date::DATE 
+    END;
+
     -- 统计符合条件的运单数量
+    -- ✅ 修复：使用 +08:00 时区转换，确保按中国时区日期进行比较
+    -- 前端传递的是中国时区日期字符串（如 "2025-11-01"），需要转换为中国时区时间戳
+    -- 数据库中的 loading_date 是 timestamptz（UTC存储），PostgreSQL会自动进行时区转换比较
     SELECT COUNT(*)
     INTO v_count
     FROM public.logistics_records
     WHERE project_id = v_project_id
-      AND (p_start_date IS NULL OR loading_date::date >= p_start_date)
-      AND (p_end_date IS NULL OR loading_date::date <= p_end_date);
+      AND (v_start_date IS NULL OR 
+           loading_date >= (v_start_date::text || ' 00:00:00+08:00')::timestamptz)
+      AND (v_end_date IS NULL OR 
+           loading_date < ((v_end_date::text || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second'));
 
     -- 计算分页
     v_total_pages := CEIL(v_count::NUMERIC / NULLIF(p_page_size, 0));
@@ -86,8 +107,10 @@ BEGIN
             payable_cost, transport_type, remarks
         FROM public.logistics_records
         WHERE project_id = v_project_id
-          AND (p_start_date IS NULL OR loading_date::date >= p_start_date)
-          AND (p_end_date IS NULL OR loading_date::date <= p_end_date)
+          AND (v_start_date IS NULL OR 
+               loading_date >= (v_start_date::text || ' 00:00:00+08:00')::timestamptz)
+          AND (v_end_date IS NULL OR 
+               loading_date < ((v_end_date::text || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second'))
         ORDER BY loading_date DESC, auto_number
         LIMIT p_page_size
         OFFSET v_offset
@@ -113,10 +136,14 @@ COMMENT ON FUNCTION public.preview_delete_waybills IS '预览符合条件的运�
 -- 2. 删除运单的函数
 -- ============================================================================
 
+-- 删除旧版本的函数（如果存在）
+DROP FUNCTION IF EXISTS public.delete_waybills_by_project_and_date(TEXT, DATE, DATE);
+DROP FUNCTION IF EXISTS public.delete_waybills_by_project_and_date(TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.delete_waybills_by_project_and_date(
     p_project_name TEXT,
-    p_start_date DATE DEFAULT NULL,
-    p_end_date DATE DEFAULT NULL
+    p_start_date TEXT DEFAULT NULL,
+    p_end_date TEXT DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -130,6 +157,8 @@ DECLARE
     v_deleted_costs_count INTEGER := 0;
     v_has_payment_requests BOOLEAN;
     v_has_invoice_requests BOOLEAN;
+    v_start_date DATE;
+    v_end_date DATE;
 BEGIN
     -- ========== 第1步：验证项目 ==========
     SELECT id INTO v_project_id
@@ -145,13 +174,28 @@ BEGIN
         );
     END IF;
 
+    -- 转换日期参数：将 TEXT 转换为 DATE，空字符串或 NULL 转换为 NULL
+    v_start_date := CASE 
+        WHEN p_start_date IS NULL OR p_start_date = '' THEN NULL 
+        ELSE p_start_date::DATE 
+    END;
+    v_end_date := CASE 
+        WHEN p_end_date IS NULL OR p_end_date = '' THEN NULL 
+        ELSE p_end_date::DATE 
+    END;
+
     -- ========== 第2步：查找符合条件的运单ID ==========
+    -- ✅ 修复：使用 +08:00 时区转换，确保按中国时区日期进行比较
+    -- 前端传递的是中国时区日期字符串（如 "2025-11-01"），需要转换为中国时区时间戳
+    -- 数据库中的 loading_date 是 timestamptz（UTC存储），PostgreSQL会自动进行时区转换比较
     SELECT array_agg(id)
     INTO v_target_record_ids
     FROM public.logistics_records
     WHERE project_id = v_project_id
-      AND (p_start_date IS NULL OR loading_date::date >= p_start_date)
-      AND (p_end_date IS NULL OR loading_date::date <= p_end_date);
+      AND (v_start_date IS NULL OR 
+           loading_date >= (v_start_date::text || ' 00:00:00+08:00')::timestamptz)
+      AND (v_end_date IS NULL OR 
+           loading_date < ((v_end_date::text || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second'));
 
     -- 如果没有找到任何运单记录，返回提示
     IF v_target_record_ids IS NULL OR array_length(v_target_record_ids, 1) = 0 THEN
