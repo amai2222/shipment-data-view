@@ -505,7 +505,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         toast({ title: "成功", description: "运单已更新" });
       } else {
         // 使用数据库函数来添加运单并自动计算合作方成本
-        const { error } = await supabase.rpc('add_logistics_record_with_costs', {
+        const { data: newRecordId, error } = await supabase.rpc('add_logistics_record_with_costs', {
           p_project_id: formData.projectId,
           p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
           p_chain_id: formData.chainId,
@@ -526,29 +526,29 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error('保存运单失败 - 详细错误:', error);
+          console.error('错误代码:', error.code);
+          console.error('错误消息:', error.message);
+          console.error('错误详情:', error.details);
+          console.error('错误提示:', error.hint);
+          throw error;
+        }
         
-        // 获取新创建的运单ID并更新平台运单信息
-        const { data: newRecord } = await supabase
-          .from('logistics_records')
-          .select('id')
-          .eq('project_id', formData.projectId)
-          .eq('driver_name', drivers.find(d => d.id === formData.driverId)?.name || '')
-          .eq('loading_date', formData.loadingDate ? formatChinaDateString(formData.loadingDate) : '')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+        console.log('运单创建成功，ID:', newRecordId);
         
-        if (newRecord) {
-          if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
-            const { error: platformError } = await supabase
-              .from('logistics_records')
-              .update({ 
-                external_tracking_numbers: externalTrackingNumbers,
-                other_platform_names: otherPlatformNames
-              })
-              .eq('id', newRecord.id);
-            if (platformError) throw platformError;
+        // 使用函数返回的ID更新平台运单信息
+        if (newRecordId && (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0)) {
+          const { error: platformError } = await supabase
+            .from('logistics_records')
+            .update({ 
+              external_tracking_numbers: externalTrackingNumbers,
+              other_platform_names: otherPlatformNames
+            })
+            .eq('id', newRecordId);
+          if (platformError) {
+            console.error('更新平台运单信息失败:', platformError);
+            throw platformError;
           }
         }
         
