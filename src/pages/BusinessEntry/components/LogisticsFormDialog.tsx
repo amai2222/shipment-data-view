@@ -76,6 +76,15 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [chains, setChains] = useState<PartnerChain[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 调试：监听司机列表变化
+  useEffect(() => {
+    console.log('司机列表已更新:', { 
+      count: drivers.length, 
+      drivers: drivers.map(d => ({ id: d.id, name: d.name })),
+      currentProjectId: formData.projectId 
+    });
+  }, [drivers, formData.projectId]);
+
   const selectedChain = useMemo(() => chains.find(c => c.id === formData.chainId), [chains, formData.chainId]);
   const billingTypeId = selectedChain?.billing_type_id || 1;
 
@@ -95,8 +104,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     if (isOpen) {
       if (editingRecord) {
         // 直接使用数据库中的信息，不需要复杂的初始化
+        const initialProjectId = editingRecord.project_id || '';
         setFormData({
-          projectId: editingRecord.project_id || '',
+          projectId: initialProjectId,
           chainId: editingRecord.chain_id || '',
           driverId: editingRecord.driver_id || '',
           loadingLocationIds: [], // 地点ID会在locations加载后设置
@@ -118,9 +128,22 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             ? editingRecord.external_tracking_numbers.join(',') 
             : (editingRecord.external_tracking_numbers || ''),
         });
+        // 如果有项目ID，立即加载项目关联的数据
+        if (initialProjectId) {
+          loadProjectSpecificData(initialProjectId);
+        }
       } else {
         setFormData(INITIAL_FORM_DATA);
+        // 清空所有列表
+        setDrivers([]);
+        setLocations([]);
+        setChains([]);
       }
+    } else {
+      // 对话框关闭时清空数据
+      setDrivers([]);
+      setLocations([]);
+      setChains([]);
     }
   }, [isOpen, editingRecord]);
 
@@ -203,19 +226,52 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
   const loadProjectSpecificData = async (projectId: string) => {
     try {
-      // 1. 加载司机和合作链路
-      const [driversRes, chainsRes] = await Promise.all([
-        supabase.from('drivers').select('*').limit(100),
-        supabase.from('partner_chains').select('id, chain_name, billing_type_id, is_default').eq('project_id', projectId)
-      ]);
+      // 1. 加载合作链路
+      const chainsRes = await supabase
+        .from('partner_chains')
+        .select('id, chain_name, billing_type_id, is_default')
+        .eq('project_id', projectId);
 
-      if (driversRes.error) throw driversRes.error;
       if (chainsRes.error) throw chainsRes.error;
-
-      setDrivers(driversRes.data || []);
       setChains(chainsRes.data || []);
 
-      // 2. 根据项目ID加载关联的地点
+      // 2. 根据项目ID加载关联的司机
+      // 先通过 driver_projects 表查询与项目关联的司机ID
+      const { data: driverProjects, error: driverProjectsError } = await supabase
+        .from('driver_projects')
+        .select('driver_id')
+        .eq('project_id', projectId);
+
+      if (driverProjectsError) {
+        console.error('查询司机项目关联失败:', driverProjectsError);
+        throw driverProjectsError;
+      }
+
+      const driverIds = [...new Set((driverProjects || []).map(dp => dp.driver_id))];
+
+      console.log('项目关联的司机ID:', { projectId, driverIds, count: driverIds.length });
+
+      // 3. 根据司机ID查询司机详情
+      if (driverIds.length > 0) {
+        const { data: driversData, error: driversError } = await supabase
+          .from('drivers')
+          .select('*')
+          .in('id', driverIds)
+          .order('name');
+
+        if (driversError) {
+          console.error('查询司机详情失败:', driversError);
+          throw driversError;
+        }
+        
+        console.log('加载的司机列表:', { count: driversData?.length || 0, drivers: driversData?.map(d => d.name) });
+        setDrivers(driversData || []);
+      } else {
+        console.log('项目没有关联任何司机，清空司机列表');
+        setDrivers([]);
+      }
+
+      // 4. 根据项目ID加载关联的地点
       // 先通过 location_projects 表查询与项目关联的地点ID
       const { data: locationProjects, error: locationProjectsError } = await supabase
         .from('location_projects')
@@ -226,7 +282,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
       const locationIds = [...new Set((locationProjects || []).map(lp => lp.location_id))];
 
-      // 3. 根据地点ID查询地点详情
+      // 5. 根据地点ID查询地点详情
       if (locationIds.length > 0) {
         const { data: locationsData, error: locationsError } = await supabase
           .from('locations')
@@ -241,7 +297,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       }
 
       console.log('加载项目关联数据:', {
-        drivers: driversRes.data?.length,
+        drivers: driverIds.length,
         locations: locationIds.length,
         chains: chainsRes.data?.length,
         currentDriverId: formData.driverId
@@ -514,13 +570,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }));
   };
 
-  // 重新加载司机列表
+  // 重新加载司机列表（添加新司机后调用）
   const handleDriversUpdate = async () => {
     if (formData.projectId) {
-      const { data, error } = await supabase.from('drivers').select('*').limit(100);
-      if (data && !error) {
-        setDrivers(data);
-      }
+      // 重新加载项目关联的司机列表
+      await loadProjectSpecificData(formData.projectId);
     }
   };
 
@@ -597,6 +651,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 onDriversUpdate={handleDriversUpdate}
                 disabled={!formData.projectId}
                 placeholder="搜索或选择司机"
+                projectId={formData.projectId}
               />
             </div>
             

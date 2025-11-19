@@ -111,24 +111,31 @@ export function MultiLocationInput({
       {/* 添加地点选择器 */}
       {value.length < maxLocations && (
         <div className="space-y-2">
-          {availableLocations.length > 0 && (
-            <Combobox
-              value={comboboxValue}
-              onValueChange={(selectedId) => {
-                if (selectedId) {
-                  handleLocationSelect(selectedId);
-                }
-              }}
-              options={availableLocations.map(loc => ({ 
-                value: loc.id, 
-                label: loc.name 
-              }))}
-              placeholder={placeholder}
-              searchPlaceholder="搜索地点..."
-              emptyMessage="无匹配地点"
-              className="w-full"
-            />
-          )}
+          {/* 始终显示搜索下拉框，即使没有可选地点 */}
+          <Combobox
+            value={comboboxValue}
+            onValueChange={(selectedId) => {
+              if (selectedId) {
+                handleLocationSelect(selectedId);
+              }
+            }}
+            onCreateNew={onCustomLocationAdd ? async (locationName) => {
+              if (onCustomLocationAdd) {
+                await onCustomLocationAdd(locationName);
+                // 重置 combobox 值
+                setComboboxValue('');
+              }
+            } : undefined}
+            options={availableLocations.map(loc => ({ 
+              value: loc.id, 
+              label: loc.name 
+            }))}
+            placeholder={availableLocations.length > 0 ? placeholder : "搜索或添加地点..."}
+            searchPlaceholder="搜索地点..."
+            createLabel="创建地点"
+            emptyMessage={availableLocations.length > 0 ? "无匹配地点" : "暂无地点，请添加自定义地点"}
+            className="w-full"
+          />
 
           {/* 自定义地点输入 */}
           {allowCustomInput && (

@@ -43,6 +43,7 @@ interface DriverComboInputProps {
   onDriversUpdate?: () => void;
   disabled?: boolean;
   placeholder?: string;
+  projectId?: string; // 当前项目ID，用于自动关联新添加的司机
 }
 
 export function DriverComboInput({
@@ -52,6 +53,7 @@ export function DriverComboInput({
   onDriversUpdate,
   disabled = false,
   placeholder = "搜索或选择司机",
+  projectId,
 }: DriverComboInputProps) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -91,9 +93,31 @@ export function DriverComboInput({
 
       if (error) throw error;
 
+      // 如果提供了项目ID，自动将新司机关联到项目
+      if (data && projectId) {
+        const driverData = data as any;
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // 关联司机到项目
+        const { error: linkError } = await supabase
+          .from('driver_projects')
+          .insert({
+            driver_id: driverData.id,
+            project_id: projectId,
+            user_id: user?.id
+          })
+          .select()
+          .single();
+        
+        // 如果关联已存在，忽略错误
+        if (linkError && !linkError.message.includes('duplicate') && !linkError.message.includes('unique')) {
+          console.warn('关联司机关联到项目失败:', linkError);
+        }
+      }
+
       toast({
         title: "成功",
-        description: `司机 ${newDriverData.name} 已添加`,
+        description: `司机 ${newDriverData.name} 已添加${projectId ? '并关联到项目' : ''}`,
       });
 
       // 通知父组件更新司机列表
