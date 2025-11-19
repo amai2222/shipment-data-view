@@ -13,7 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { formatChinaDateString, convertUTCDateToChinaDate, formatChinaDateToTimestamptz } from '@/utils/dateUtils';
+import { formatChinaDateString, convertUTCDateToChinaDate } from '@/utils/dateUtils';
 import { ExternalTrackingNumber } from '@/types';
 import { limitAmountInput } from '@/utils/formatters';
 
@@ -279,8 +279,8 @@ export default function MobileBusinessEntryForm() {
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
           p_unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          p_loading_date: formData.loadingDate ? formatChinaDateToTimestamptz(formData.loadingDate) : null,
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -289,8 +289,8 @@ export default function MobileBusinessEntryForm() {
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          p_unloading_date: formData.unloadingDate ? formatChinaDateToTimestamptz(formData.unloadingDate) : null
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
         });
 
         if (error) throw error;
@@ -331,8 +331,8 @@ export default function MobileBusinessEntryForm() {
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
           p_unloading_location: locations.find(l => l.id === formData.unloadingLocationId)?.name || '',
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          p_loading_date: formData.loadingDate ? formatChinaDateToTimestamptz(formData.loadingDate) : null,
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -341,8 +341,8 @@ export default function MobileBusinessEntryForm() {
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          p_unloading_date: formData.unloadingDate ? formatChinaDateToTimestamptz(formData.unloadingDate) : null
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
         });
 
         if (error) throw error;

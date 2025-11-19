@@ -1,7 +1,6 @@
 ﻿// 最终文件路径: src/pages/BusinessEntry/components/LogisticsFormDialog.tsx
-/// <reference path="../../../react-shim.d.ts" />
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { formatChinaDateString, convertUTCDateToChinaDate, formatChinaDateToTimestamptz } from "@/utils/dateUtils";
+import { formatChinaDateString, convertUTCDateToChinaDate } from "@/utils/dateUtils";
 
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
@@ -100,6 +99,103 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     return current + extra;
   }, [formData.currentCost, formData.extraCost]);
 
+  // 解析地点字符串为地点ID数组
+  const parseLocationString = (locationString: string): string[] => {
+    if (!locationString) return [];
+    return locationString.split('|').map(loc => loc.trim()).filter(Boolean);
+  };
+
+  // 根据地点名称数组查找地点ID数组
+  const findLocationIdsByName = useCallback((locationNames: string[]): string[] => {
+    return locationNames
+      .map(name => locations.find(loc => loc.name === name)?.id)
+      .filter(Boolean) as string[];
+  }, [locations]);
+
+  const loadProjectSpecificData = useCallback(async (projectId: string) => {
+    try {
+      // 1. 加载合作链路
+      const chainsRes = await supabase
+        .from('partner_chains')
+        .select('id, chain_name, billing_type_id, is_default')
+        .eq('project_id', projectId);
+
+      if (chainsRes.error) throw chainsRes.error;
+      setChains(chainsRes.data || []);
+
+      // 2. 根据项目ID加载关联的司机
+      // 先通过 driver_projects 表查询与项目关联的司机ID
+      const { data: driverProjects, error: driverProjectsError } = await supabase
+        .from('driver_projects')
+        .select('driver_id')
+        .eq('project_id', projectId);
+
+      if (driverProjectsError) {
+        console.error('查询司机项目关联失败:', driverProjectsError);
+        throw driverProjectsError;
+      }
+
+      const driverIds = [...new Set((driverProjects || []).map(dp => dp.driver_id))];
+
+      console.log('项目关联的司机ID:', { projectId, driverIds, count: driverIds.length });
+
+      // 3. 根据司机ID查询司机详情
+      if (driverIds.length > 0) {
+        const { data: driversData, error: driversError } = await supabase
+          .from('drivers')
+          .select('*')
+          .in('id', driverIds)
+          .order('name');
+
+        if (driversError) {
+          console.error('查询司机详情失败:', driversError);
+          throw driversError;
+        }
+
+        console.log('加载的司机列表:', { count: driversData?.length || 0, drivers: driversData?.map(d => d.name) });
+        setDrivers(driversData || []);
+      } else {
+        console.log('项目没有关联任何司机，清空司机列表');
+        setDrivers([]);
+      }
+
+      // 4. 根据项目ID加载关联的地点
+      // 先通过 location_projects 表查询与项目关联的地点ID
+      const { data: locationProjects, error: locationProjectsError } = await supabase
+        .from('location_projects')
+        .select('location_id')
+        .eq('project_id', projectId);
+
+      if (locationProjectsError) throw locationProjectsError;
+
+      const locationIds = [...new Set((locationProjects || []).map(lp => lp.location_id))];
+
+      // 5. 根据地点ID查询地点详情
+      if (locationIds.length > 0) {
+        const { data: locationsData, error: locationsError } = await supabase
+          .from('locations')
+          .select('*')
+          .in('id', locationIds)
+          .order('name');
+
+        if (locationsError) throw locationsError;
+        setLocations(locationsData || []);
+      } else {
+        setLocations([]);
+      }
+
+      console.log('加载项目关联数据:', {
+        drivers: driverIds.length,
+        locations: locationIds.length,
+        chains: chainsRes.data?.length,
+        currentDriverId: formData.driverId
+      });
+    } catch (error) {
+      console.error('加载项目关联数据失败:', error);
+      toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
+    }
+  }, [toast, formData.driverId]);
+
   useEffect(() => {
     if (isOpen) {
       if (editingRecord) {
@@ -145,7 +241,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setLocations([]);
       setChains([]);
     }
-  }, [isOpen, editingRecord]);
+  }, [isOpen, editingRecord, loadProjectSpecificData]);
 
   // 当司机数据加载完成后，如果是编辑模式且司机信息为空，自动从司机数据中填充
   useEffect(() => {
@@ -159,7 +255,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         }));
       }
     }
-  }, [editingRecord, drivers, formData.driverId]);
+  }, [editingRecord, drivers, formData.driverId, formData.licensePlate, formData.driverPhone]);
 
   useEffect(() => {
     if (formData.projectId) {
@@ -173,7 +269,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationIds: [], unloadingLocationIds: [] }));
       }
     }
-  }, [formData.projectId]);
+  }, [formData.projectId, loadProjectSpecificData, editingRecord]);
 
   useEffect(() => {
     if (chains.length > 0) {
@@ -202,8 +298,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         unloadingLocationIds,
       }));
     }
-  }, [editingRecord, locations]);
-
+  }, [editingRecord, locations, formData.loadingLocationIds.length, findLocationIdsByName]);
 
   // 创建缺失的地点
   const createMissingLocations = async (locationNames: string[]) => {
@@ -215,7 +310,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       if (error) throw error;
       if (data) {
         setLocations(prev => {
-          const newLocations = data.filter((loc: any) => !prev.find(l => l.id === loc.id));
+          const newLocations = (data as Location[]).filter((loc) => !prev.find(l => l.id === loc.id));
           return [...prev, ...newLocations];
         });
       }
@@ -224,102 +319,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
-  const loadProjectSpecificData = async (projectId: string) => {
-    try {
-      // 1. 加载合作链路
-      const chainsRes = await supabase
-        .from('partner_chains')
-        .select('id, chain_name, billing_type_id, is_default')
-        .eq('project_id', projectId);
-
-      if (chainsRes.error) throw chainsRes.error;
-      setChains(chainsRes.data || []);
-
-      // 2. 根据项目ID加载关联的司机
-      // 先通过 driver_projects 表查询与项目关联的司机ID
-      const { data: driverProjects, error: driverProjectsError } = await supabase
-        .from('driver_projects')
-        .select('driver_id')
-        .eq('project_id', projectId);
-
-      if (driverProjectsError) {
-        console.error('查询司机项目关联失败:', driverProjectsError);
-        throw driverProjectsError;
-      }
-
-      const driverIds = [...new Set((driverProjects || []).map(dp => dp.driver_id))];
-
-      console.log('项目关联的司机ID:', { projectId, driverIds, count: driverIds.length });
-
-      // 3. 根据司机ID查询司机详情
-      if (driverIds.length > 0) {
-        const { data: driversData, error: driversError } = await supabase
-          .from('drivers')
-          .select('*')
-          .in('id', driverIds)
-          .order('name');
-
-        if (driversError) {
-          console.error('查询司机详情失败:', driversError);
-          throw driversError;
-        }
-        
-        console.log('加载的司机列表:', { count: driversData?.length || 0, drivers: driversData?.map(d => d.name) });
-        setDrivers(driversData || []);
-      } else {
-        console.log('项目没有关联任何司机，清空司机列表');
-        setDrivers([]);
-      }
-
-      // 4. 根据项目ID加载关联的地点
-      // 先通过 location_projects 表查询与项目关联的地点ID
-      const { data: locationProjects, error: locationProjectsError } = await supabase
-        .from('location_projects')
-        .select('location_id')
-        .eq('project_id', projectId);
-
-      if (locationProjectsError) throw locationProjectsError;
-
-      const locationIds = [...new Set((locationProjects || []).map(lp => lp.location_id))];
-
-      // 5. 根据地点ID查询地点详情
-      if (locationIds.length > 0) {
-        const { data: locationsData, error: locationsError } = await supabase
-          .from('locations')
-          .select('*')
-          .in('id', locationIds)
-          .order('name');
-
-        if (locationsError) throw locationsError;
-        setLocations(locationsData || []);
-      } else {
-        setLocations([]);
-      }
-
-      console.log('加载项目关联数据:', {
-        drivers: driverIds.length,
-        locations: locationIds.length,
-        chains: chainsRes.data?.length,
-        currentDriverId: formData.driverId
-      });
-    } catch (error) {
-      console.error('加载项目关联数据失败:', error);
-      toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
-    }
-  };
-
-  // 解析地点字符串为地点ID数组
-  const parseLocationString = (locationString: string): string[] => {
-    if (!locationString) return [];
-    return locationString.split('|').map(loc => loc.trim()).filter(Boolean);
-  };
-
-  // 根据地点名称数组查找地点ID数组
-  const findLocationIdsByName = (locationNames: string[]): string[] => {
-    return locationNames
-      .map(name => locations.find(loc => loc.name === name)?.id)
-      .filter(Boolean) as string[];
-  };
 
   const populateFormWithRecord = (record: LogisticsRecord) => {
     // 解析装卸货地点
@@ -468,9 +467,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: drivers.find(d => d.id === finalDriverId)?.name || editingRecord.driver_name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          // 数据库会自动将 '2025-11-19 00:00:00+08:00' 转换为 UTC 时间存储
-          p_loading_date: formData.loadingDate ? formatChinaDateToTimestamptz(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateToTimestamptz(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : null),
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateString(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : null),
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -479,9 +477,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          p_unloading_date: formData.unloadingDate ? formatChinaDateToTimestamptz(formData.unloadingDate) : null
-        } as any);
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
+        });
         
         // 更新可选字段
         if (error) throw error;
@@ -491,9 +489,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           const { error: platformError } = await supabase
             .from('logistics_records')
             .update({
-              external_tracking_numbers: externalTrackingNumbers as any,
-              other_platform_names: otherPlatformNames as any,
-            } as any)
+              external_tracking_numbers: externalTrackingNumbers,
+              other_platform_names: otherPlatformNames,
+            })
             .eq('id', editingRecord.id);
           
           if (platformError) throw platformError;
@@ -510,8 +508,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          // 将中国时区的日期转换为 timestamptz 格式（带时区）
-          p_loading_date: formData.loadingDate ? formatChinaDateToTimestamptz(formData.loadingDate) : null,
+          // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
+          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -520,7 +518,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          p_unloading_date: formData.unloadingDate ? formatChinaDateToTimestamptz(formData.unloadingDate) : null
+          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
         });
         
         if (error) throw error;
@@ -553,8 +551,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       }
       onSubmitSuccess();
       onClose();
-    } catch (error: any) {
-      toast({ title: "保存失败", description: error.message, variant: "destructive" });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '保存失败';
+      toast({ title: "保存失败", description: errorMessage, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -753,11 +752,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                         description: "地点已添加并关联到项目" 
                       });
                     }
-                  } catch (error: any) {
+                  } catch (error) {
                     console.error('Error adding custom location:', error);
+                    const errorMessage = error instanceof Error ? error.message : "添加自定义地点失败";
                     toast({ 
                       title: "错误", 
-                      description: error.message || "添加自定义地点失败", 
+                      description: errorMessage, 
                       variant: "destructive" 
                     });
                   }
@@ -844,11 +844,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                         description: "地点已添加并关联到项目" 
                       });
                     }
-                  } catch (error: any) {
+                  } catch (error) {
                     console.error('Error adding custom location:', error);
+                    const errorMessage = error instanceof Error ? error.message : "添加自定义地点失败";
                     toast({ 
                       title: "错误", 
-                      description: error.message || "添加自定义地点失败", 
+                      description: errorMessage, 
                       variant: "destructive" 
                     });
                   }
