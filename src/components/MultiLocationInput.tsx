@@ -2,9 +2,9 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Combobox } from '@/components/ui/combobox';
 
 interface Location {
   id: string;
@@ -36,6 +36,7 @@ export function MultiLocationInput({
 }: MultiLocationInputProps) {
   const [customLocation, setCustomLocation] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [comboboxValue, setComboboxValue] = useState('');
 
   // 获取选中的地点信息
   const selectedLocations = value
@@ -50,6 +51,8 @@ export function MultiLocationInput({
     if (value.length >= maxLocations) return;
     
     onChange([...value, locationId]);
+    // 重置 Combobox 的值，以便继续选择
+    setComboboxValue('');
   };
 
   const handleLocationRemove = (locationId: string) => {
@@ -109,21 +112,22 @@ export function MultiLocationInput({
       {value.length < maxLocations && (
         <div className="space-y-2">
           {availableLocations.length > 0 && (
-            <Select
-              value=""
-              onValueChange={handleLocationSelect}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={placeholder} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableLocations.map((location) => (
-                  <SelectItem key={location.id} value={location.id}>
-                    {location.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={comboboxValue}
+              onValueChange={(selectedId) => {
+                if (selectedId) {
+                  handleLocationSelect(selectedId);
+                }
+              }}
+              options={availableLocations.map(loc => ({ 
+                value: loc.id, 
+                label: loc.name 
+              }))}
+              placeholder={placeholder}
+              searchPlaceholder="搜索地点..."
+              emptyMessage="无匹配地点"
+              className="w-full"
+            />
           )}
 
           {/* 自定义地点输入 */}
