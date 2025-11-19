@@ -145,6 +145,25 @@ export function formatChinaDateString(date: Date): string {
 }
 
 /**
+ * 将中国时区的日期转换为数据库 timestamptz 格式的字符串
+ * 例如：前端选择 2025-11-19（中国时间）
+ * 转换为：'2025-11-19 00:00:00+08:00'（数据库会自动转换为UTC存储）
+ * @param date Date 对象（代表中国时区的日期）
+ * @returns timestamptz 格式的字符串
+ */
+export function formatChinaDateToTimestamptz(date: Date | undefined | null): string | null {
+  if (!date) return null;
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  // 返回带时区的 timestamptz 格式字符串
+  // 数据库会将 '2025-11-19 00:00:00+08:00' 转换为 UTC 时间存储
+  return `${year}-${month}-${day} 00:00:00+08:00`;
+}
+
+/**
  * 将数据库的UTC时间转换为中国时区的日期字符串（用于前端显示）
  * @param dateValue 数据库UTC时间值（可能是string、Date或null）
  * @param formatStr 格式化字符串，默认 'yyyy-MM-dd'

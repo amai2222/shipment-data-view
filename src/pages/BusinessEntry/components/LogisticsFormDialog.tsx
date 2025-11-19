@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { formatChinaDateString, convertUTCDateToChinaDate } from "@/utils/dateUtils";
+import { formatChinaDateString, convertUTCDateToChinaDate, formatChinaDateToTimestamptz } from "@/utils/dateUtils";
 
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; }
@@ -468,9 +468,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: drivers.find(d => d.id === finalDriverId)?.name || editingRecord.driver_name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
-          // 如果表单有日期，使用表单日期；否则使用编辑记录的日期（从UTC转换为中国时区）
-          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateString(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : ''),
+          // 将中国时区的日期转换为 timestamptz 格式（带时区）
+          // 数据库会自动将 '2025-11-19 00:00:00+08:00' 转换为 UTC 时间存储
+          p_loading_date: formData.loadingDate ? formatChinaDateToTimestamptz(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateToTimestamptz(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : null),
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -479,8 +479,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
-          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
+          // 将中国时区的日期转换为 timestamptz 格式（带时区）
+          p_unloading_date: formData.unloadingDate ? formatChinaDateToTimestamptz(formData.unloadingDate) : null
         } as any);
         
         // 更新可选字段
@@ -510,8 +510,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: loadingLocationNames,
           p_unloading_location: unloadingLocationNames,
-          // 将中国时区的日期转换为日期字符串（YYYY-MM-DD格式）
-          p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : '',
+          // 将中国时区的日期转换为 timestamptz 格式（带时区）
+          p_loading_date: formData.loadingDate ? formatChinaDateToTimestamptz(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
           p_current_cost: parseFloat(formData.currentCost) || 0,
@@ -520,7 +520,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_transport_type: formData.transportType,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
-          p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : ''
+          p_unloading_date: formData.unloadingDate ? formatChinaDateToTimestamptz(formData.unloadingDate) : null
         });
         
         if (error) throw error;
