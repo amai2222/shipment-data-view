@@ -187,14 +187,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       console.log('加载项目关联数据:', {
         drivers: driverIds.length,
         locations: locationIds.length,
-        chains: chainsRes.data?.length,
-        currentDriverId: formData.driverId
+        chains: chainsRes.data?.length
       });
     } catch (error) {
       console.error('加载项目关联数据失败:', error);
       toast({ title: "错误", description: "加载项目关联数据失败", variant: "destructive" });
     }
-  }, [toast, formData.driverId]);
+  }, [toast]);
 
   useEffect(() => {
     if (isOpen) {
@@ -247,15 +246,21 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   useEffect(() => {
     if (editingRecord && drivers.length > 0 && formData.driverId) {
       const driver = drivers.find(d => d.id === formData.driverId);
-      if (driver && (!formData.licensePlate || !formData.driverPhone)) {
-        setFormData(prev => ({
-          ...prev,
-          licensePlate: prev.licensePlate || driver.license_plate || '',
-          driverPhone: prev.driverPhone || driver.phone || ''
-        }));
+      if (driver) {
+        setFormData(prev => {
+          // 只在车牌或电话为空时才填充，避免覆盖用户手动输入的值
+          if (!prev.licensePlate || !prev.driverPhone) {
+            return {
+              ...prev,
+              licensePlate: prev.licensePlate || driver.license_plate || '',
+              driverPhone: prev.driverPhone || driver.phone || ''
+            };
+          }
+          return prev;
+        });
       }
     }
-  }, [editingRecord, drivers, formData.driverId, formData.licensePlate, formData.driverPhone]);
+  }, [editingRecord, drivers, formData.driverId]);
 
   useEffect(() => {
     if (formData.projectId) {
@@ -560,14 +565,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   };
 
   // [新增] 当选择司机时，自动填充车牌和电话
-  const handleDriverSelect = (driverId: string, driverData?: { name: string; license_plate: string; phone: string }) => {
-    setFormData(prev => ({
-      ...prev,
-      driverId: driverId,
-      licensePlate: driverData?.license_plate || '',
-      driverPhone: driverData?.phone || ''
-    }));
-  };
+  const handleDriverSelect = useCallback((driverId: string, driverData?: { name: string; license_plate: string; phone: string }) => {
+    setFormData(prev => {
+      // 如果司机ID没有变化，不更新（避免不必要的重渲染）
+      if (prev.driverId === driverId) {
+        return prev;
+      }
+      return {
+        ...prev,
+        driverId: driverId,
+        licensePlate: driverData?.license_plate || prev.licensePlate || '',
+        driverPhone: driverData?.phone || prev.driverPhone || ''
+      };
+    });
+  }, []);
 
   // 重新加载司机列表（添加新司机后调用）
   const handleDriversUpdate = async () => {
