@@ -38,12 +38,14 @@ WHERE (unit_price IS NULL OR unit_price = 0)
     AND effective_quantity IS NOT NULL
     AND effective_quantity > 0;
 
--- 步骤 3：确认自动模式运单的计算模式
+-- 步骤 3：为还没有设置计算模式的运单设置计算模式
+-- 注意：只处理 calculation_mode 为 NULL 的记录，不覆盖步骤2已设置的 manual
 UPDATE public.logistics_records
-SET calculation_mode = 'auto'
-WHERE unit_price IS NOT NULL 
-    AND unit_price > 0
-    AND (calculation_mode IS NULL OR calculation_mode != 'auto');
+SET calculation_mode = CASE 
+    WHEN unit_price IS NOT NULL AND unit_price > 0 THEN 'auto'
+    ELSE 'manual'
+END
+WHERE calculation_mode IS NULL;
 
 -- 显示修复结果统计
 SELECT 
