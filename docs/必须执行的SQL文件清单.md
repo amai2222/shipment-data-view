@@ -2,7 +2,7 @@
 
 ## ✅ 更新状态
 
-- ✅ **数据库迁移文件**：5 个 SQL 文件已准备就绪
+- ✅ **数据库迁移文件**：8 个 SQL 文件已准备就绪
 - ✅ **前端函数调用**：21 个文件已全部更新为 `_1120` 后缀
 - ✅ **保护逻辑**：已修正为"只对未付款 且 未开票 且 未收款的运单重算"
 
@@ -114,13 +114,79 @@ WHERE proname IN (
 
 ---
 
+## ✅ 第六步：创建筛选函数（修复页面报错）
+
+**文件路径**：`supabase/migrations/20251120_create_filtered_functions_1120.sql`
+
+**功能**：
+- 创建 `get_payment_requests_filtered_1120`（付款申请单筛选）
+- 创建 `get_invoice_requests_filtered_1120`（开票申请单筛选）
+- **修复前端页面报错：找不到函数 `_1120` 版本**
+
+**验证**：
+```sql
+-- 执行后验证
+SELECT proname FROM pg_proc 
+WHERE proname IN (
+    'get_payment_requests_filtered_1120',
+    'get_invoice_requests_filtered_1120'
+);
+-- 应该返回 2 行
+```
+
+---
+
+## ✅ 第七步：创建收款函数（修复收款报表报错）
+
+**文件路径**：`supabase/migrations/20251120_create_receipt_functions_1120.sql`
+
+**功能**：
+- 创建 `get_receipt_statistics_1120`（收款统计）
+- 创建 `get_receipt_details_report_1120`（收款详情报表）
+- **修复收款报表页面报错：找不到函数 `_1120` 版本**
+
+**验证**：
+```sql
+-- 执行后验证
+SELECT proname FROM pg_proc 
+WHERE proname IN (
+    'get_receipt_statistics_1120',
+    'get_receipt_details_report_1120'
+);
+-- 应该返回 2 行
+```
+
+---
+
+## ✅ 第八步：创建财务对账函数（修复对账管理页面报错）
+
+**文件路径**：`supabase/migrations/20251120_create_finance_reconciliation_function_1120.sql`
+
+**功能**：
+- 创建 `get_finance_reconciliation_by_partner_1120`（财务对账查询）
+- **修复对账管理页面报错：找不到函数 `_1120` 版本**
+- 支持多个 project_id（逗号分隔）
+- 支持高级筛选（司机、车牌、电话、运单号、平台）
+- 支持对账状态筛选
+- 返回对账状态相关字段
+
+**验证**：
+```sql
+-- 执行后验证
+SELECT proname FROM pg_proc 
+WHERE proname = 'get_finance_reconciliation_by_partner_1120';
+-- 应该返回 1 行
+```
+
+---
+
 ## 📝 执行方式
 
 ### 方式一：Supabase SQL Editor（推荐新手）
 
 1. 登录 Supabase Dashboard
 2. 进入 SQL Editor
-3. 依次复制粘贴上述 5 个文件的内容并执行
+3. 依次复制粘贴上述 8 个文件的内容并执行
 4. 每执行一个文件后，运行对应的验证 SQL 确认成功
 
 ### 方式二：Supabase CLI（推荐有经验用户）
@@ -192,7 +258,7 @@ SELECT constraint_name, check_clause
 FROM information_schema.check_constraints
 WHERE constraint_name = 'check_calculation_method';
 
--- 3. 验证函数（应返回 8+ 行）
+-- 3. 验证函数（应返回 13+ 行）
 SELECT proname, pronargs
 FROM pg_proc 
 WHERE proname IN (
@@ -204,7 +270,12 @@ WHERE proname IN (
     'recalculate_costs_for_project_1120',
     'auto_recalc_on_project_partner_change_1120',
     'modify_logistics_record_chain_with_recalc_1120',
-    'batch_recalculate_by_filter_1120'
+    'batch_recalculate_by_filter_1120',
+    'get_payment_requests_filtered_1120',
+    'get_invoice_requests_filtered_1120',
+    'get_receipt_statistics_1120',
+    'get_receipt_details_report_1120',
+    'get_finance_reconciliation_by_partner_1120'
 )
 ORDER BY proname;
 
