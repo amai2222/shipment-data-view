@@ -77,6 +77,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [chains, setChains] = useState<PartnerChain[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveAndContinue, setSaveAndContinue] = useState(false); // 保存并新增模式
+  const [taxIncludedPrice, setTaxIncludedPrice] = useState(''); // 含税单价
+  const [taxRate, setTaxRate] = useState(''); // 税点
+  const [costCalculationMode, setCostCalculationMode] = useState<'manual' | 'auto'>('manual'); // 费用计算模式
   
   // 使用 ref 跟踪是否已经初始化，避免重复初始化导致表单重置
   const isInitializedRef = useRef(false);
@@ -136,14 +139,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [formData.loading_weight, formData.unloading_weight, formData.projectId, projects, billingTypeId]);
 
-  // 判断计算模式（有单价则自动计算，无单价则手动输入）
-  const isAutoMode = useMemo(() => {
-    return formData.unitPrice !== '' && parseFloat(formData.unitPrice) > 0;
-  }, [formData.unitPrice]);
-
-  // 自动计算运费（优化：避免在用户输入时频繁更新）
+  // 自动计算运费（仅在自动模式下）
   useEffect(() => {
-    if (isAutoMode && effectiveQuantity > 0) {
+    if (costCalculationMode === 'auto' && effectiveQuantity > 0) {
       const unitPrice = parseFloat(formData.unitPrice) || 0;
       if (unitPrice > 0) {
         const calculatedCost = unitPrice * effectiveQuantity;
@@ -157,7 +155,21 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         });
       }
     }
-  }, [isAutoMode, formData.unitPrice, effectiveQuantity]);
+  }, [costCalculationMode, formData.unitPrice, effectiveQuantity]);
+
+  // 含税单价自动计算（仅在自动模式下）
+  useEffect(() => {
+    if (costCalculationMode === 'auto') {
+      const taxPrice = parseFloat(taxIncludedPrice) || 0;
+      const tax = parseFloat(taxRate) || 0;
+      
+      if (taxPrice > 0 && tax >= 0 && tax < 100) {
+        // 计算不含税单价：含税单价 × (1 - 税点/100)
+        const unitPriceBeforeTax = taxPrice * (1 - tax / 100);
+        setFormData(prev => ({ ...prev, unitPrice: unitPriceBeforeTax.toFixed(2) }));
+      }
+    }
+  }, [costCalculationMode, taxIncludedPrice, taxRate]);
 
   const driverReceivable = useMemo(() => {
     const current = parseFloat(formData.currentCost) || 0;
@@ -372,6 +384,10 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         setDrivers([]);
         setLocations([]);
         setChains([]);
+        // 清空含税单价计算器
+        setTaxIncludedPrice('');
+        setTaxRate('');
+        setCostCalculationMode('manual');
       } else if (!isInitializedRef.current && !editingRecord) {
         // 首次打开且是新增模式
         isInitializedRef.current = true;
@@ -379,6 +395,10 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         setDrivers([]);
         setLocations([]);
         setChains([]);
+        // 清空含税单价计算器
+        setTaxIncludedPrice('');
+        setTaxRate('');
+        setCostCalculationMode('manual');
       }
     } else {
       // 对话框关闭时重置状态
@@ -753,6 +773,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           chainId,
         });
         
+        // 清空含税单价计算器
+        setTaxIncludedPrice('');
+        setTaxRate('');
+        setCostCalculationMode('manual');
+        
         // 重置保存并新增标志
         setSaveAndContinue(false);
         
@@ -1117,98 +1142,85 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 <Banknote className="h-4 w-4 text-emerald-600" />
               </div>
               <Label className="text-sm font-semibold text-emerald-800">费用信息</Label>
-              {isAutoMode && (
-                <div className="ml-auto">
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
-                    自动计算模式
-                  </span>
-                </div>
-              )}
+              <div className="ml-auto">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={costCalculationMode === 'auto' ? 'default' : 'outline'}
+                  onClick={() => {
+                    const newMode = costCalculationMode === 'manual' ? 'auto' : 'manual';
+                    setCostCalculationMode(newMode);
+                    if (newMode === 'manual') {
+                      // 切换到手动模式时，清空单价和计算器
+                      setFormData(prev => ({ ...prev, unitPrice: '' }));
+                      setTaxIncludedPrice('');
+                      setTaxRate('');
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  {costCalculationMode === 'auto' ? '✅ 自动计算模式' : '✏️ 手动输入模式'}
+                </Button>
+              </div>
             </div>
             
-            {/* 含税单价计算器 */}
-            <div className="mb-3 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold text-blue-800">🧮 含税单价计算器</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                  <Label className="text-xs text-blue-600">含税单价（元/{unitLabel}）</Label>
-                  <Input 
-                    type="number" 
-                    step="0.01" 
-                    min="0" 
-                    placeholder="含税价格"
-                    className="mt-1 text-sm"
-                    id="taxIncludedPrice"
-                  />
+            {/* 含税单价计算器（仅在自动模式显示） */}
+            {costCalculationMode === 'auto' && (
+              <div className="mb-3 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-blue-800">🧮 含税单价计算器</span>
                 </div>
-                <div>
-                  <Label className="text-xs text-blue-600">税点（%）</Label>
-                  <Input 
-                    type="number" 
-                    step="0.1" 
-                    min="0" 
-                    max="100"
-                    placeholder="如：3"
-                    className="mt-1 text-sm"
-                    id="taxRate"
-                  />
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <Label className="text-xs text-blue-600">含税单价（元/{unitLabel}）</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      min="0" 
+                      placeholder="含税价格"
+                      className="mt-1 text-sm"
+                      value={taxIncludedPrice}
+                      onChange={(e) => setTaxIncludedPrice(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-blue-600">税点（%）</Label>
+                    <Input 
+                      type="number" 
+                      step="0.1" 
+                      min="0" 
+                      max="100"
+                      placeholder="如：3"
+                      className="mt-1 text-sm"
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-blue-600 bg-white bg-opacity-60 p-2 rounded">
+                  💡 公式：不含税单价 = 含税单价 × (1 - 税点%)
                 </div>
               </div>
-              <Button 
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full text-xs bg-white hover:bg-blue-50"
-                onClick={() => {
-                  const taxIncludedPrice = parseFloat((document.getElementById('taxIncludedPrice') as HTMLInputElement)?.value || '0');
-                  const taxRate = parseFloat((document.getElementById('taxRate') as HTMLInputElement)?.value || '0');
-                  
-                  if (taxIncludedPrice > 0 && taxRate >= 0 && taxRate < 100) {
-                    // 计算不含税单价：含税单价 × (1 - 税点/100)
-                    const unitPriceBeforeTax = taxIncludedPrice * (1 - taxRate / 100);
-                    setFormData(prev => ({ ...prev, unitPrice: unitPriceBeforeTax.toFixed(2) }));
-                    
-                    toast({
-                      title: "计算成功",
-                      description: `不含税单价：${unitPriceBeforeTax.toFixed(2)} 元/${unitLabel}`,
-                    });
-                  } else {
-                    toast({
-                      title: "提示",
-                      description: "请输入有效的含税单价和税点（0-100之间）",
-                      variant: "destructive"
-                    });
-                  }
-                }}
-              >
-                计算不含税单价
-              </Button>
-              <div className="text-xs text-blue-600 mt-2 bg-white bg-opacity-60 p-2 rounded">
-                💡 公式：不含税单价 = 含税单价 × (1 - 税点%)
-              </div>
-            </div>
+            )}
 
-            {/* 单价输入 */}
-            <div className="mb-4 bg-white p-3 rounded-lg border border-emerald-100">
-              <Label className="text-xs text-emerald-600 font-medium">单价（元/{unitLabel}）</Label>
-              <Input 
-                type="number" 
-                step="0.01" 
-                min="0" 
-                value={formData.unitPrice} 
-                onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: e.target.value }))} 
-                placeholder="输入单价可自动计算运费，留空则手动输入运费" 
-                className="mt-1"
-              />
-              <div className="text-xs text-gray-500 mt-1 bg-blue-50 p-2 rounded">
-                💡 提示：{isAutoMode ? '已输入单价，运费将自动计算' : '未输入单价，请手动输入运费'}
+            {/* 单价输入（仅在自动模式显示） */}
+            {costCalculationMode === 'auto' && (
+              <div className="mb-4 bg-white p-3 rounded-lg border border-emerald-100">
+                <Label className="text-xs text-emerald-600 font-medium">单价（元/{unitLabel}）</Label>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  value={formData.unitPrice} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: e.target.value }))} 
+                  placeholder="单价（自动从含税单价计算）" 
+                  className="mt-1"
+                />
               </div>
-            </div>
+            )}
 
             {/* 有效数量显示（仅在自动模式） */}
-            {isAutoMode && (
+            {costCalculationMode === 'auto' && (
               <div className="mb-4 bg-white p-3 rounded-lg border border-blue-100">
                 <Label className="text-xs text-blue-600 font-medium">有效数量（{unitLabel}）</Label>
                 <Input 
@@ -1232,7 +1244,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs text-emerald-600 font-medium">
-                  运费(元) * {isAutoMode && <span className="text-blue-500">（自动计算）</span>}
+                  运费(元) * {costCalculationMode === 'auto' && <span className="text-blue-500">（自动计算）</span>}
                 </Label>
                 <Input 
                   type="number" 
@@ -1240,12 +1252,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   min="0" 
                   value={formData.currentCost} 
                   onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))} 
-                  placeholder={isAutoMode ? "自动计算" : "输入运费"} 
+                  placeholder={costCalculationMode === 'auto' ? "自动计算" : "输入运费"} 
                   className="mt-1"
-                  disabled={isAutoMode}
-                  style={isAutoMode ? { backgroundColor: '#f3f4f6', fontWeight: '600' } : {}}
+                  disabled={costCalculationMode === 'auto'}
+                  style={costCalculationMode === 'auto' ? { backgroundColor: '#f3f4f6', fontWeight: '600' } : {}}
                 />
-                {isAutoMode && (
+                {costCalculationMode === 'auto' && (
                   <div className="text-xs text-blue-600 mt-1">
                     计算公式：{formData.unitPrice} × {effectiveQuantity.toFixed(3)} = {formData.currentCost}
                   </div>
