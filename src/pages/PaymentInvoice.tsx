@@ -20,6 +20,7 @@ import {
   RequestTableHeader,
   ActionButtons,
   LoadingState,
+  TableSkeleton,
   type BulkAction,
   type TableColumn
 } from '@/components/common';
@@ -366,7 +367,11 @@ export default function InvoiceAudit() {
     }
   }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
-  useEffect(() => { fetchInvoiceRequests(); }, [fetchInvoiceRequests]);
+  // ✅ 优化：避免 availableProjects 变化时重复加载
+  useEffect(() => { 
+    fetchInvoiceRequests(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId]);
 
   // 获取项目列表和平台选项
   const fetchProjects = useCallback(async () => {
@@ -2179,7 +2184,7 @@ export default function InvoiceAudit() {
         <CardContent className="pt-0 p-0">
           <div className="min-h-[400px] overflow-x-auto">
             {loading ? (
-              <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
+              <TableSkeleton rowCount={pageSize} colCount={10} showCheckbox={isAdmin} />
             ) : (
               <div className="border-t">
               <Table>

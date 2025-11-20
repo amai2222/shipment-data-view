@@ -275,8 +275,11 @@ export default function InvoiceAudit() {
       }
       
       const requestsData = result.records || [];
-      setTotalRequestsCount(result.total_count || 0);
-      setRequests(requestsData.map(item => ({
+      
+      // ✅ 优化：先计算所有值，再一次性批量更新状态
+      const totalCount = result.total_count || 0;
+      const totalPagesCount = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0;
+      const processedRequests = requestsData.map(item => ({
         id: item.id,
         created_at: item.created_at,
         request_number: item.request_number,
@@ -297,27 +300,18 @@ export default function InvoiceAudit() {
         total_payable_cost: item.total_payable_cost,      // ✅ 新增字段
         is_merged_request: item.is_merged_request,        // ✅ 新增字段
         merged_count: item.merged_count                   // ✅ 新增字段
-      })));
+      }));
       
-      // 设置总数和总页数
-      if (requestsData.length > 0) {
-        const totalCount = requestsData[0].total_count || 0;
-        setTotalRequestsCount(totalCount);
-        setTotalPages(Math.ceil(totalCount / pageSize));
-      } else {
-        setTotalRequestsCount(0);
-        setTotalPages(0);
-      }
+      // ✅ 优化：一次性批量更新所有状态
+      setRequests(processedRequests);
+      setTotalRequestsCount(totalCount);
+      setTotalPages(totalPagesCount);
     } catch (error) {
       console.error("加载开票申请列表失败:", error);
       // 详细错误日志
       if (error && typeof error === 'object') {
         console.error("错误详情:", JSON.stringify(error, null, 2));
       }
-      // 设置默认值，避免页面崩溃
-      setRequests([]);
-      setTotalRequestsCount(0);
-      setTotalPages(0);
       
       // 提取详细错误信息
       let errorMessage = '未知错误';
@@ -327,6 +321,11 @@ export default function InvoiceAudit() {
         const err = error as { message?: string; error_description?: string; hint?: string };
         errorMessage = err.message || err.error_description || err.hint || JSON.stringify(error);
       }
+      
+      // ✅ 优化：批量更新错误状态
+      setRequests([]);
+      setTotalRequestsCount(0);
+      setTotalPages(0);
       
       toast({ 
         title: "加载失败", 
@@ -338,7 +337,11 @@ export default function InvoiceAudit() {
     }
   }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
-  useEffect(() => { fetchInvoiceRequests(); }, [fetchInvoiceRequests]);
+  // ✅ 优化：避免 availableProjects 变化时重复加载，直接调用函数而不使用 fetchInvoiceRequests 依赖
+  useEffect(() => { 
+    fetchInvoiceRequests(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId]);
 
   // 获取项目列表和平台选项
   const fetchProjects = useCallback(async () => {

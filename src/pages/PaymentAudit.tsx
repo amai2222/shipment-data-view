@@ -226,14 +226,13 @@ export default function PaymentAudit() {
       // 处理返回的数据
       const requestsData = (data as PaymentRequestRaw[]) || [];
       
-      // 设置总数和总页数
+      // ✅ 优化：先计算所有状态，再一次性更新
+      let totalCount = 0;
+      let totalPagesCount = 0;
+      
       if (requestsData.length > 0) {
-        const totalCount = requestsData[0].total_count || 0;
-        setTotalRequestsCount(totalCount);
-        setTotalPages(Math.ceil(totalCount / pageSize));
-      } else {
-        setTotalRequestsCount(0);
-        setTotalPages(0);
+        totalCount = requestsData[0].total_count || 0;
+        totalPagesCount = Math.ceil(totalCount / pageSize);
       }
       
       // 并行获取每个申请单的详细数据以计算合计
@@ -372,16 +371,27 @@ export default function PaymentAudit() {
         })
       );
       
+      // ✅ 优化：批量更新所有状态，减少重新渲染次数
       setRequests(requestsWithTotals);
+      setTotalRequestsCount(totalCount);
+      setTotalPages(totalPagesCount);
     } catch (error) {
       console.error("加载付款申请列表失败:", error);
       toast({ title: "错误", description: `加载付款申请列表失败: ${(error as Error).message}`, variant: "destructive" });
+      // 错误时重置状态
+      setRequests([]);
+      setTotalRequestsCount(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
   }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
-  useEffect(() => { fetchPaymentRequests(); }, [fetchPaymentRequests]);
+  // ✅ 优化：避免 availableProjects 变化时重复加载，直接调用函数而不使用 fetchPaymentRequests 依赖
+  useEffect(() => { 
+    fetchPaymentRequests(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId]);
 
   // 移除自动搜索，改为手动搜索
   // useEffect(() => {

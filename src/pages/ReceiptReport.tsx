@@ -16,7 +16,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
-import { PaginationControl } from '@/components/common';
+import { PaginationControl, TableSkeleton } from '@/components/common';
 
 interface ReceiptStatistics {
   total_invoiced: number;
@@ -410,9 +410,7 @@ export default function ReceiptReport() {
         <CardContent className="p-0">
           <div className="p-4">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <TableSkeleton rowCount={pageSize} colCount={10} showCheckbox={false} />
           ) : details.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               暂无数据

@@ -23,6 +23,7 @@ import {
   RequestTableHeader,
   ActionButtons,
   LoadingState,
+  TableSkeleton,
   type BulkAction,
   type TableColumn
 } from '@/components/common';
@@ -2081,9 +2082,9 @@ export default function InvoiceRequestManagement() {
           </div>
         </CardHeader>
         <CardContent className="pt-0 p-0">
-          {/* ✅ 使用LoadingState组件 */}
+          {/* ✅ 使用TableSkeleton组件 */}
           {loading ? (
-            <LoadingState message="加载开票申请单中..." />
+            <TableSkeleton rowCount={pageSize} colCount={10} showCheckbox={true} />
           ) : (
             <div className="border-t">
             <Table>
