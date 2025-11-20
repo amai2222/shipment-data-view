@@ -1,6 +1,6 @@
 ﻿// 最终文件路径: src/pages/BusinessEntry/components/LogisticsFormDialog.tsx
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +76,10 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [locations, setLocations] = useState<Location[]>([]);
   const [chains, setChains] = useState<PartnerChain[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // 使用 ref 跟踪是否已经初始化，避免重复初始化导致表单重置
+  const isInitializedRef = useRef(false);
+  const editingRecordIdRef = useRef<string | null>(null);
 
   // 调试：监听司机列表变化
   useEffect(() => {
@@ -136,15 +140,21 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     return formData.unitPrice !== '' && parseFloat(formData.unitPrice) > 0;
   }, [formData.unitPrice]);
 
-  // 自动计算运费
+  // 自动计算运费（优化：避免在用户输入时频繁更新）
   useEffect(() => {
-    if (isAutoMode) {
+    if (isAutoMode && effectiveQuantity > 0) {
       const unitPrice = parseFloat(formData.unitPrice) || 0;
-      const calculatedCost = unitPrice * effectiveQuantity;
-      setFormData(prev => ({
-        ...prev,
-        currentCost: calculatedCost > 0 ? calculatedCost.toFixed(2) : ''
-      }));
+      if (unitPrice > 0) {
+        const calculatedCost = unitPrice * effectiveQuantity;
+        const newCost = calculatedCost > 0 ? calculatedCost.toFixed(2) : '';
+        // 只有当计算出的值不同时才更新，避免不必要的重渲染
+        setFormData(prev => {
+          if (prev.currentCost !== newCost) {
+            return { ...prev, currentCost: newCost };
+          }
+          return prev;
+        });
+      }
     }
   }, [isAutoMode, formData.unitPrice, effectiveQuantity]);
 
@@ -250,9 +260,17 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [toast]);
 
+  // 初始化表单数据（只在打开对话框或编辑记录变化时执行，避免 chains 更新导致重置）
   useEffect(() => {
     if (isOpen) {
-      if (editingRecord) {
+      // 检查是否是新的编辑记录或首次打开
+      const isNewRecord = editingRecord?.id !== editingRecordIdRef.current;
+      
+      if (editingRecord && isNewRecord) {
+        // 更新 ref，标记当前正在编辑的记录
+        editingRecordIdRef.current = editingRecord.id;
+        isInitializedRef.current = true;
+        
         // 调试：检查单价数据
         console.log('编辑运单 - 从数据库读取的数据:', {
           id: editingRecord.id,
@@ -344,20 +362,33 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         if (initialProjectId) {
           loadProjectSpecificData(initialProjectId);
         }
-      } else {
+      } else if (!editingRecord && isInitializedRef.current) {
+        // 新增模式：重置表单
+        isInitializedRef.current = false;
+        editingRecordIdRef.current = null;
         setFormData(INITIAL_FORM_DATA);
         // 清空所有列表
         setDrivers([]);
         setLocations([]);
         setChains([]);
+      } else if (!isInitializedRef.current && !editingRecord) {
+        // 首次打开且是新增模式
+        isInitializedRef.current = true;
+        setFormData(INITIAL_FORM_DATA);
+        setDrivers([]);
+        setLocations([]);
+        setChains([]);
       }
     } else {
-      // 对话框关闭时清空数据
+      // 对话框关闭时重置状态
+      isInitializedRef.current = false;
+      editingRecordIdRef.current = null;
       setDrivers([]);
       setLocations([]);
       setChains([]);
     }
-  }, [isOpen, editingRecord, loadProjectSpecificData, projects, chains]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingRecord?.id, loadProjectSpecificData, projects]);
 
   // 当司机数据加载完成后，如果是编辑模式且司机信息为空，自动从司机数据中填充
   useEffect(() => {
@@ -393,16 +424,25 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   }, [formData.projectId, loadProjectSpecificData, editingRecord]);
 
+  // 当 chains 加载完成后，设置默认链路（只在新增模式或链路为空时设置，避免覆盖用户选择）
   useEffect(() => {
-    if (chains.length > 0) {
-      if (editingRecord && editingRecord.chain_id) {
-        setFormData(prev => ({ ...prev, chainId: editingRecord.chain_id || '' }));
-      } else if (!editingRecord) {
+    if (chains.length > 0 && isInitializedRef.current) {
+      // 只在新增模式时设置默认链路，编辑模式不自动设置（避免覆盖已有数据）
+      if (!editingRecord) {
         const defaultChain = chains.find(c => c.is_default);
-        if (defaultChain) setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
+        if (defaultChain) {
+          setFormData(prev => {
+            // 只在当前没有选择链路时才设置默认链路
+            if (!prev.chainId) {
+              return { ...prev, chainId: defaultChain.id };
+            }
+            return prev;
+          });
+        }
       }
     }
-  }, [chains, editingRecord]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chains]);
 
   // 在编辑模式下，当地点数据加载完成后，直接设置地点ID
   useEffect(() => {
