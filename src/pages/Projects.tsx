@@ -91,7 +91,7 @@ export default function Projects() {
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
     queryKey: ['projects-with-details'],
     queryFn: async () => {
-      const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details_fixed');
+      const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details_fixed_1120');
       if (projectsError) throw projectsError;
 
       interface RpcPayload {
