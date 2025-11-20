@@ -198,7 +198,6 @@ BEGIN
                 CASE 
                     WHEN p_sort_field = 'payable_cost' AND p_sort_direction = 'desc' THEN fr.payable_cost 
                 END DESC
-                LIMIT p_page_size OFFSET v_offset
             ), '[]'::jsonb)
             FROM (
                 SELECT * FROM filtered_records
