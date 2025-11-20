@@ -19,7 +19,8 @@ import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, Ro
 import {
   PaginationControl,
   StatusBadge,
-  PAYMENT_REQUEST_STATUS_CONFIG
+  PAYMENT_REQUEST_STATUS_CONFIG,
+  TableSkeleton
 } from '@/components/common';
 
 import { PaymentApproval } from '@/components/PaymentApproval';
@@ -251,7 +252,7 @@ export default function PaymentAudit() {
               
               // 收集项目名称和装货日期
               const projectNamesSet = new Set<string>();
-              const loadingDates: Date[] = [];
+              const loadingDates: string[] = [];
               
               records.forEach((rec: unknown) => {
                 const recData = rec as { 
@@ -293,7 +294,7 @@ export default function PaymentAudit() {
                     
                     if (dateStr) {
                       // 使用与开票审核相同的转换函数，将UTC日期转换为中国时区日期
-                      const chinaDateStr = convertUTCDateStringToChinaDateString(dateStr);
+                      const chinaDateStr: string = convertUTCDateStringToChinaDateString(dateStr);
                       if (chinaDateStr) {
                         loadingDates.push(chinaDateStr);
                       }
@@ -2023,7 +2024,7 @@ export default function PaymentAudit() {
         <CardContent className="pt-0">
           <div className="min-h-[400px]">
             {loading ? (
-              <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
+              <TableSkeleton rowCount={pageSize} colCount={10} showCheckbox={isAdmin} />
             ) : (
               <Table>
                  <TableHeader>

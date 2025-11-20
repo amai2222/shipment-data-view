@@ -41,9 +41,42 @@ import { PaginationControl } from "@/components/common";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
+
+// 表格骨架屏组件（防止布局抖动）
+const TableSkeleton = ({ rowCount = 10, partnerCount = 0 }: { rowCount?: number; partnerCount?: number }) => {
+  // 基础列数：选择框(1) + 运单编号(1) + 项目(1) + 司机(1) + 路线(1) + 数量(1) + 日期(1) + 司机应收(1) + 合作链路(1) + 支付状态(1) + 操作(1) = 11
+  // 动态列数：合作方列数（根据实际显示的合作方数量）
+  const totalCols = 11 + partnerCount;
+  
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {Array.from({ length: totalCols }).map((_, i) => (
+            <TableHead key={i}>
+              <Skeleton className="h-4 w-20" />
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {Array.from({ length: rowCount }).map((_, i) => (
+          <TableRow key={i}>
+            {Array.from({ length: totalCols }).map((_, j) => (
+              <TableCell key={j}>
+                <Skeleton className="h-4 w-full" />
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
 const FileSpreadsheet = ({ className }: { className?: string }) => <span className={className}>📊</span>;
 const EditIcon = ({ className }: { className?: string }) => <span className={className}>✏️</span>;
@@ -236,7 +269,7 @@ export default function PaymentRequest() {
     } catch (error) {
       toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
     }
-  }, [toast]);
+  }, []); // ✅ 优化：移除toast依赖，toast是稳定的
 
   const fetchReportData = useCallback(async () => {
     setLoading(true);
@@ -285,7 +318,7 @@ export default function PaymentRequest() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, currentPage, pageSize, toast, selectedShipperId, selectedProjectId, availableProjects]);
+  }, [activeFilters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); setReportData(null); } }, [fetchReportData, isStale]);
@@ -1811,7 +1844,7 @@ export default function PaymentRequest() {
             <CardContent>
               <div className="relative overflow-x-auto">
                 <div className="min-h-[400px]">
-                  {loading ? (<div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin"/></div>) : (
+                  {loading ? <TableSkeleton rowCount={pageSize} partnerCount={displayedPartners.length} /> : (
                   <Table>
                     <TableHeader><TableRow>
                       <TableHead className="w-12 whitespace-nowrap"><Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage} /></TableHead>

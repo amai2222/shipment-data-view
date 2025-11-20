@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
 import { InvoiceRequestFilterBar } from "@/pages/InvoiceRequest/components/InvoiceRequestFilterBar";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { TableSkeleton } from "@/components/common";
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -262,7 +263,7 @@ export default function InvoiceRequest() {
         return (value && value.trim() !== '' && value !== 'all') ? value.trim() : null;
       };
       
-      const { data, error } = await supabase.rpc('get_invoice_request_data_1113', {
+      const { data, error } = await supabase.rpc('get_invoice_request_data_1120', {
         p_project_id: toNullIfEmpty(activeFilters.projectId),
         p_start_date: toNullIfEmpty(activeFilters.startDate),
         p_end_date: toNullIfEmpty(activeFilters.endDate),
@@ -478,7 +479,7 @@ export default function InvoiceRequest() {
       if (isCrossPageSelection) {
         // 使用与主查询相同的逻辑获取所有筛选条件下的运单ID
         // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-        const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data_1113', {
+        const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data_1120', {
           p_project_id: activeFilters.projectId === 'all' ? null : activeFilters.projectId,
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,
@@ -942,9 +943,7 @@ export default function InvoiceRequest() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
+                <TableSkeleton rowCount={10} colCount={12} showCheckbox={true} />
               ) : (
                 <>
                   <div className="overflow-x-auto -mx-4 px-4">

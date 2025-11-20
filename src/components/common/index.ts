@@ -18,4 +18,5 @@ export { ActionButton, ActionButtons } from './ActionButton';
 export type { ActionButtonConfig } from './ActionButton';
 export { EmptyState } from './EmptyState';
 export { LoadingState, TableLoadingState, CardLoadingState } from './LoadingState';
+export { TableSkeleton } from './TableSkeleton';
 

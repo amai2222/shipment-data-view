@@ -14,6 +14,7 @@ import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { TableSkeleton } from "@/components/common";
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -332,14 +333,29 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={isBatchMode ? 13 : 12} className="h-24 text-center">
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    正在加载数据...
-                  </div>
-                </TableCell>
-              </TableRow>
+              <>
+                {Array.from({ length: pagination.pageSize || 25 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {isBatchMode && (
+                      <TableCell className="min-w-[50px]">
+                        <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
+                      </TableCell>
+                    )}
+                    <TableCell><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></TableCell>
+                    <TableCell><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></TableCell>
+                  </TableRow>
+                ))}
+              </>
             ) : records.length > 0 ? (
               records.map((record) => {
                 const driverPayable = (record.current_cost || 0) + (record.extra_cost || 0);

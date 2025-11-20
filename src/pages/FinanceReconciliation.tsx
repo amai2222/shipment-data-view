@@ -27,7 +27,7 @@ import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
 import { VirtualizedTable } from "@/components/VirtualizedTable";
 import { PageHeader } from "@/components/PageHeader";
-import { PaginationControl } from "@/components/common";
+import { PaginationControl, TableSkeleton } from "@/components/common";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { useUnifiedPermissions } from "@/hooks/useUnifiedPermissions";
 import { WaybillDetailDialog } from "@/components/WaybillDetailDialog";
@@ -772,7 +772,24 @@ export default function FinanceReconciliation() {
     return selection.selectedIds.size;
   }, [selection, reportData?.count]);
 
-  if (loading && !reportData) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>;
+  // 初始加载时显示骨架屏（使用默认列数，因为此时reportData为null）
+  if (loading && !reportData) {
+    return (
+      <div className="space-y-6 p-4 md:p-6">
+        <PageHeader 
+          title="运费对账" 
+          description="运费收入与合作方应付金额统计"
+          icon={Calculator}
+          iconColor="text-blue-600"
+        />
+        <Card>
+          <CardContent className="pt-6">
+            <TableSkeleton rowCount={20} colCount={15} showCheckbox={true} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -1395,7 +1412,13 @@ export default function FinanceReconciliation() {
             </CardHeader>
             <CardContent>
               <div className="min-h-[400px] overflow-x-auto">
-                {loading ? (<div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin"/></div>) : (
+                {loading ? (
+                  <TableSkeleton 
+                    rowCount={pageSize} 
+                    colCount={11 + displayedPartners.length} 
+                    showCheckbox={true} 
+                  />
+                ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>

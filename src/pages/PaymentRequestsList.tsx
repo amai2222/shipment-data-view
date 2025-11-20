@@ -19,6 +19,7 @@ import {
   PaginationControl,
   StatusBadge,
   PAYMENT_REQUEST_STATUS_CONFIG,
+  TableSkeleton,
   type TableColumn
 } from '@/components/common';
 
@@ -178,7 +179,7 @@ export default function PaymentRequestsList() {
               
               // 收集项目名称和装货日期
               const projectNamesSet = new Set<string>();
-              const loadingDates: Date[] = [];
+              const loadingDates: string[] = [];
               
               records.forEach((rec: unknown) => {
                 const recData = rec as { 
@@ -896,7 +897,7 @@ export default function PaymentRequestsList() {
                   }).join('')}
                   <tr class="total-row">
                     <td colspan="10" class="remarks-label">备注：共${sorted.length}条运单</td>
-                    <td class="total-amount">${sorted.reduce((sum: number, item: unknown) => sum + Number((item as { record: { payable_cost?: number } }).record.payable_cost || 0), 0).toFixed(2)}</td>
+                    <td class="total-amount">${(sorted.reduce((sum: number, item: unknown) => sum + Number((item as { record: { payable_cost?: number } }).record.payable_cost || 0), 0) as number).toFixed(2)}</td>
                     <td class="total-amount">${(sheetData as { total_payable?: number }).total_payable?.toFixed(2) || '0.00'}</td>
                     <td colspan="4"></td>
                   </tr>
@@ -1919,7 +1920,7 @@ export default function PaymentRequestsList() {
         <CardContent className="pt-0">
           <div className="min-h-[400px]">
             {loading ? (
-              <div className="flex justify-center items-center h-full min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
+              <TableSkeleton rowCount={pageSize} colCount={10} showCheckbox={isAdmin} />
             ) : (
               <Table>
                  <TableHeader>
