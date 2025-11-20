@@ -104,10 +104,17 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     return '吨';
   }, [billingTypeId]);
 
-  // 计算有效数量（根据项目配置）
+  // 计算有效数量（根据链路计费模式和项目配置）
   const effectiveQuantity = useMemo(() => {
     const loadingWeight = parseFloat(formData.loading_weight) || 0;
     const unloadingWeight = parseFloat(formData.unloading_weight) || 0;
+    
+    // 1. 如果是计车模式（billing_type_id = 2），有效数量固定为 1
+    if (billingTypeId === 2) {
+      return 1;
+    }
+    
+    // 2. 对于其他计费模式（计重/计方/计件），根据项目配置计算
     const project = projects.find(p => p.id === formData.projectId);
     const quantityType = project?.effective_quantity_type || 'min_value';
     
@@ -122,7 +129,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       }
       return loadingWeight || unloadingWeight || 0;
     }
-  }, [formData.loading_weight, formData.unloading_weight, formData.projectId, projects]);
+  }, [formData.loading_weight, formData.unloading_weight, formData.projectId, projects, billingTypeId]);
 
   // 判断计算模式（有单价则自动计算，无单价则手动输入）
   const isAutoMode = useMemo(() => {
@@ -264,22 +271,34 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         // 如果有单价，先计算有效数量和运费（在设置 formData 之前）
         let initialCurrentCost = editingRecord.current_cost?.toString() || '';
         if (hasUnitPrice) {
-          // 根据项目配置计算有效数量
-          const project = projects.find(p => p.id === initialProjectId);
-          const quantityType = project?.effective_quantity_type || 'min_value';
+          // 获取链路的计费模式（优先使用 editingRecord 中的 billing_type_id，否则从 chains 中查找）
+          const recordBillingTypeId = editingRecord.billing_type_id || 1;
+          const chain = chains.find(c => c.id === editingRecord.chain_id);
+          const chainBillingTypeId = chain?.billing_type_id || recordBillingTypeId;
+          
           const loadingWeight = parseFloat(editingRecord.loading_weight?.toString() || '0') || 0;
           const unloadingWeight = parseFloat(editingRecord.unloading_weight?.toString() || '0') || 0;
           
           let effectiveQty = 0;
-          if (quantityType === 'loading') {
-            effectiveQty = loadingWeight;
-          } else if (quantityType === 'unloading') {
-            effectiveQty = unloadingWeight;
-          } else { // min_value
-            if (loadingWeight > 0 && unloadingWeight > 0) {
-              effectiveQty = Math.min(loadingWeight, unloadingWeight);
-            } else {
-              effectiveQty = loadingWeight || unloadingWeight || 0;
+          
+          // 1. 如果是计车模式（billing_type_id = 2），有效数量固定为 1
+          if (chainBillingTypeId === 2) {
+            effectiveQty = 1;
+          } else {
+            // 2. 对于其他计费模式（计重/计方/计件），根据项目配置计算
+            const project = projects.find(p => p.id === initialProjectId);
+            const quantityType = project?.effective_quantity_type || 'min_value';
+            
+            if (quantityType === 'loading') {
+              effectiveQty = loadingWeight;
+            } else if (quantityType === 'unloading') {
+              effectiveQty = unloadingWeight;
+            } else { // min_value
+              if (loadingWeight > 0 && unloadingWeight > 0) {
+                effectiveQty = Math.min(loadingWeight, unloadingWeight);
+              } else {
+                effectiveQty = loadingWeight || unloadingWeight || 0;
+              }
             }
           }
           
@@ -338,7 +357,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setLocations([]);
       setChains([]);
     }
-  }, [isOpen, editingRecord, loadProjectSpecificData, projects]);
+  }, [isOpen, editingRecord, loadProjectSpecificData, projects, chains]);
 
   // 当司机数据加载完成后，如果是编辑模式且司机信息为空，自动从司机数据中填充
   useEffect(() => {
