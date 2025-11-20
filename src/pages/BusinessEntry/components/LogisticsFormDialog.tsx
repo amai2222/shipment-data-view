@@ -1165,9 +1165,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   const taxIncludedPrice = parseFloat((document.getElementById('taxIncludedPrice') as HTMLInputElement)?.value || '0');
                   const taxRate = parseFloat((document.getElementById('taxRate') as HTMLInputElement)?.value || '0');
                   
-                  if (taxIncludedPrice > 0 && taxRate >= 0) {
-                    // 计算不含税单价：含税单价 / (1 + 税点/100)
-                    const unitPriceBeforeTax = taxIncludedPrice / (1 + taxRate / 100);
+                  if (taxIncludedPrice > 0 && taxRate >= 0 && taxRate < 100) {
+                    // 计算不含税单价：含税单价 × (1 - 税点/100)
+                    const unitPriceBeforeTax = taxIncludedPrice * (1 - taxRate / 100);
                     setFormData(prev => ({ ...prev, unitPrice: unitPriceBeforeTax.toFixed(2) }));
                     
                     toast({
@@ -1177,7 +1177,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   } else {
                     toast({
                       title: "提示",
-                      description: "请输入有效的含税单价和税点",
+                      description: "请输入有效的含税单价和税点（0-100之间）",
                       variant: "destructive"
                     });
                   }
@@ -1186,7 +1186,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 计算不含税单价
               </Button>
               <div className="text-xs text-blue-600 mt-2 bg-white bg-opacity-60 p-2 rounded">
-                💡 公式：不含税单价 = 含税单价 ÷ (1 + 税点%)
+                💡 公式：不含税单价 = 含税单价 × (1 - 税点%)
               </div>
             </div>
 
