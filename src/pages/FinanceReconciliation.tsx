@@ -246,7 +246,7 @@ export default function FinanceReconciliation() {
         }
       }
       
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1116', {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1120', {
         p_project_id: projectIdParam,
         p_start_date: utcStartDate,
         p_end_date: utcEndDate,
@@ -519,7 +519,7 @@ export default function FinanceReconciliation() {
   const handleAutoReconcile = async (partnerId?: string) => {
     setIsReconciling(true);
     try {
-      const { data, error } = await supabase.rpc('auto_reconcile_by_waybill_1116', {
+      const { data, error } = await supabase.rpc('auto_reconcile_by_waybill_1120', {
         p_partner_id: partnerId && partnerId !== 'all' ? partnerId : null
       });
 
@@ -589,7 +589,7 @@ export default function FinanceReconciliation() {
           }
         }
         
-        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter_1116', {
+        const { error: filterError } = await supabase.rpc('batch_recalculate_by_filter_1120', {
           p_project_id: projectIdParam,
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,
@@ -603,7 +603,7 @@ export default function FinanceReconciliation() {
           setIsRecalculating(false);
           return;
         }
-        const { data: recalcResult, error: idError } = await supabase.rpc('batch_recalculate_partner_costs', { p_record_ids: idsToRecalculate });
+        const { data: recalcResult, error: idError } = await supabase.rpc('batch_recalculate_partner_costs_1120', { p_record_ids: idsToRecalculate });
         
         // ✅ 检查返回结果
         console.log('🔄 重算结果:', recalcResult);
@@ -842,7 +842,7 @@ export default function FinanceReconciliation() {
                   })() : null;
                   
                   // 获取所有筛选条件下的运单（不分页）
-                  const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1116', {
+                  const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1120', {
                     p_project_id: projectIdParam,
                     p_start_date: utcStartDate,
                     p_end_date: utcEndDate,

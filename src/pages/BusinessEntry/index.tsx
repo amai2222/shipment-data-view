@@ -181,7 +181,7 @@ export default function BusinessEntry() {
         }
         
         // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
-        const { data, error } = await supabase.rpc<RpcResponse>('get_logistics_summary_and_records_enhanced_1115', {
+        const { data, error } = await supabase.rpc<RpcResponse>('get_logistics_summary_and_records_enhanced_1120', {
           p_start_date: activeFilters.startDate || null,
           p_end_date: activeFilters.endDate || null,
           p_project_name: activeFilters.projectName || null,

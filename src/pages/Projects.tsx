@@ -25,6 +25,17 @@ interface ProjectWithDetails extends Project {
   partnerChains: (PartnerChain & { partners: ProjectPartner[] })[];
 }
 
+// 【辅助函数】根据计费类型ID获取单位文本
+const getBillingUnitText = (billingTypeId: number): string => {
+  const unitMap: Record<number, string> = {
+    1: '吨',  // 计吨
+    2: '车',  // 计车
+    3: '方',  // 计方
+    4: '件',  // 计件
+  };
+  return unitMap[billingTypeId] || '单位';
+};
+
 // 【美化组件】用于美化合作链路的横向展示
 const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
   if (!partners || partners.length === 0) {
@@ -37,7 +48,11 @@ const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
           <div className="flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm">
             <span className="text-sm font-semibold">{partner.partnerName}</span>
             <span className="text-xs text-primary-foreground/80">
-              {partner.calculationMethod === "tax" ? `税点: ${(partner.taxRate * 100).toFixed(1)}%` : `利润: ${partner.profitRate}元`}
+              {partner.calculationMethod === "tax" 
+                ? `税点: ${(partner.taxRate * 100).toFixed(1)}%` 
+                : partner.calculationMethod === "profit"
+                ? `利润: ${partner.profitRate}元`
+                : `单价: ${partner.unitPrice}元`}
             </span>
           </div>
           {index < partners.length - 1 && (<ChevronRight className="h-5 w-5 text-muted-foreground mx-2" />)}
@@ -218,7 +233,9 @@ export default function Projects() {
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
         calculationMethod: pp.calculationMethod || "tax",
-        profitRate: pp.profitRate || 0, partnerName: pp.partnerName
+        profitRate: pp.profitRate || 0,
+        unitPrice: pp.unitPrice || 0,  // 添加单价字段
+        partnerName: pp.partnerName
       }))
     }));
     
@@ -360,7 +377,8 @@ export default function Projects() {
                 level: Number(p.level),
                 tax_rate: Number(p.taxRate) || 0,
                 calculation_method: p.calculationMethod || 'tax',
-                profit_rate: Number(p.profitRate) || 0
+                profit_rate: Number(p.profitRate) || 0,
+                unit_price: Number(p.unitPrice) || 0  // 添加单价字段
               };
             })
           };
@@ -419,7 +437,8 @@ export default function Projects() {
             level: Number(p.level),
             tax_rate: Number(p.taxRate) || 0,
             calculation_method: p.calculationMethod || 'tax',
-            profit_rate: Number(p.profitRate) || 0
+            profit_rate: Number(p.profitRate) || 0,
+            unit_price: Number(p.unitPrice) || 0  // 添加单价字段
           }))
         }));
 
@@ -511,7 +530,8 @@ export default function Projects() {
         ? { ...chain, partners: [...chain.partners, {
             id: `partner-new-${Date.now()}`, dbId: undefined, partnerId: '',
             level: chain.partners.length + 1, taxRate: 0.03,
-            calculationMethod: "tax" as "tax" | "profit", profitRate: 0
+            calculationMethod: "tax" as "tax" | "profit" | "fixed_price", profitRate: 0,
+            unitPrice: 0  // 添加单价字段，默认值为0
           }] }
         : chain
     ));
@@ -665,8 +685,56 @@ export default function Projects() {
                                     />
                                   </div>
                                   <div className="w-16"><input type="number" min="1" value={partner.level} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'level', parseInt(e.target.value) || 1)} className="w-full p-1 border rounded text-sm" placeholder="级别" disabled={isSubmitting}/></div>
-                                  <div className="w-24"><select value={partner.calculationMethod} onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'calculationMethod', e.target.value)} className="w-full p-1 border rounded text-sm" disabled={isSubmitting}><option value="tax">税点</option><option value="profit">利润</option></select></div>
-                                  <div className="w-20"><input type="number" step="0.001" min="0" max={partner.calculationMethod === "tax" ? "0.999" : "999"} value={partner.calculationMethod === "tax" ? partner.taxRate : (partner.profitRate || 0)} onChange={(e) => { const value = parseFloat(e.target.value) || 0; const field = partner.calculationMethod === "tax" ? 'taxRate' : 'profitRate'; updatePartnerInChain(chainIndex, partnerIndex, field, value); }} className="w-full p-1 border rounded text-sm" placeholder={partner.calculationMethod === "tax" ? "税点" : "利润"} disabled={isSubmitting}/></div>
+                                  <div className="w-24">
+                                    <select 
+                                      value={partner.calculationMethod} 
+                                      onChange={(e) => updatePartnerInChain(chainIndex, partnerIndex, 'calculationMethod', e.target.value)} 
+                                      className="w-full p-1 border rounded text-sm" 
+                                      disabled={isSubmitting}
+                                    >
+                                      <option value="tax">税点</option>
+                                      <option value="profit">利润</option>
+                                      <option value="fixed_price">定价</option>
+                                    </select>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <input 
+                                      type="number" 
+                                      step="0.001" 
+                                      min="0" 
+                                      max={partner.calculationMethod === "tax" ? "0.999" : "9999"} 
+                                      value={
+                                        partner.calculationMethod === "tax" 
+                                          ? partner.taxRate 
+                                          : partner.calculationMethod === "profit"
+                                          ? (partner.profitRate || 0)
+                                          : (partner.unitPrice || 0)
+                                      } 
+                                      onChange={(e) => { 
+                                        const value = parseFloat(e.target.value) || 0; 
+                                        const field = partner.calculationMethod === "tax" 
+                                          ? 'taxRate' 
+                                          : partner.calculationMethod === "profit"
+                                          ? 'profitRate'
+                                          : 'unitPrice';
+                                        updatePartnerInChain(chainIndex, partnerIndex, field, value); 
+                                      }} 
+                                      className="w-20 p-1 border rounded text-sm" 
+                                      placeholder={
+                                        partner.calculationMethod === "tax" 
+                                          ? "税点" 
+                                          : partner.calculationMethod === "profit"
+                                          ? "利润"
+                                          : "单价"
+                                      } 
+                                      disabled={isSubmitting}
+                                    />
+                                    {partner.calculationMethod === "fixed_price" && (
+                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                        元/{getBillingUnitText(chain.billingTypeId ?? 1)}
+                                      </span>
+                                    )}
+                                  </div>
                                   <Button type="button" variant="outline" size="sm" onClick={() => removePartnerFromChain(chainIndex, partnerIndex)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                               ))}

@@ -49,7 +49,7 @@ export default function MobileShipperSubmitReceipt() {
       if (!requestNumber || !user?.partnerId) return null;
 
       const { data, error } = await supabase.rpc(
-        'get_invoice_requests_filtered_1114',
+        'get_invoice_requests_filtered_1120',
         {
           p_invoicing_partner_id: user.partnerId,
           p_request_number: requestNumber,
@@ -176,7 +176,7 @@ export default function MobileShipperSubmitReceipt() {
       const receiptImageUrls = uploadData.urls || [];
 
       // 调用后端RPC函数登记收款
-      const { data, error } = await supabase.rpc('receive_invoice_payment_1114', {
+      const { data, error } = await supabase.rpc('receive_invoice_payment_1120', {
         p_request_number: requestNumber,
         p_receipt_number: receiptNumber || null,
         p_receipt_bank: receiptBank || null,

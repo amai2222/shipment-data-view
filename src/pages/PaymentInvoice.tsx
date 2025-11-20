@@ -286,7 +286,7 @@ export default function InvoiceAudit() {
         return (value && value.trim() !== '') ? value.trim() : null;
       };
       
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1116', {
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1120', {
         p_request_number: toNullIfEmpty(filters.requestNumber),
         p_waybill_number: toNullIfEmpty(filters.waybillNumber),
         p_driver_name: toNullIfEmpty(filters.driverName),
@@ -1246,7 +1246,7 @@ export default function InvoiceAudit() {
       }
 
       // 调用后端RPC函数更新状态
-      const { data, error } = await supabase.rpc('receive_invoice_payment_1114', {
+      const { data, error } = await supabase.rpc('receive_invoice_payment_1120', {
         p_request_number: selectedReceiptRequest.request_number,
         p_receipt_number: receiptNumber || null,  // 收款单号
         p_receipt_bank: receiptBank || null,  // 收款银行
@@ -1320,7 +1320,7 @@ export default function InvoiceAudit() {
 
     setProcessingRefund(true);
     try {
-      const { data, error } = await supabase.rpc('refund_invoice_receipt_1114', {
+      const { data, error } = await supabase.rpc('refund_invoice_receipt_1120', {
         p_request_number: selectedRefundRequest.request_number,
         p_refund_amount: refundAmountNum,
         p_refund_reason: refundReason || null,
@@ -1367,7 +1367,7 @@ export default function InvoiceAudit() {
 
     setProcessingReconciliation(true);
     try {
-      const { data, error } = await supabase.rpc('reconcile_invoice_receipt_1114', {
+      const { data, error } = await supabase.rpc('reconcile_invoice_receipt_1120', {
         p_request_number: selectedReconciliationRequest.request_number,
         p_reconciliation_status: reconciliationStatus,
         p_reconciliation_notes: reconciliationNotes || null
@@ -2360,7 +2360,7 @@ export default function InvoiceAudit() {
                                   setShowReceiptRecordsDialog(true);
                                   setLoadingReceiptRecords(true);
                                   try {
-                                    const { data, error } = await supabase.rpc('get_receipt_records_1114', {
+                                    const { data, error } = await supabase.rpc('get_receipt_records_1120', {
                                       p_request_number: req.request_number,
                                       p_start_date: null,
                                       p_end_date: null,

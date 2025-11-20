@@ -89,7 +89,7 @@ export default function MobileShipperHome() {
 
       // 获取待付款申请单
       const { data: invoicesData, error: invoicesError } = await supabase.rpc(
-        'get_invoice_requests_filtered_1114',
+        'get_invoice_requests_filtered_1120',
         {
           p_invoicing_partner_id: user.partnerId,
           p_status: 'Completed',

@@ -28,9 +28,11 @@ BEGIN
         RETURN NEW;  -- 司机应收没变，不处理
     END IF;
     
-    -- 跳过已付款或已开票的运单
-    IF NEW.payment_status != 'Unpaid' OR (NEW.invoice_status IS NOT NULL AND NEW.invoice_status != 'Uninvoiced') THEN
-        RAISE NOTICE '⚠️  运单已付款或已开票，跳过自动重算';
+    -- 跳过已付款、已开票或已收款的运单
+    IF NEW.payment_status != 'Unpaid' 
+       OR (NEW.invoice_status IS NOT NULL AND NEW.invoice_status != 'Uninvoiced')
+       OR (NEW.receipt_status IS NOT NULL AND NEW.receipt_status = 'Received') THEN
+        RAISE NOTICE '⚠️  运单已付款、已开票或已收款，跳过自动重算';
         RETURN NEW;
     END IF;
     

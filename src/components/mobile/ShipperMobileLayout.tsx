@@ -115,7 +115,7 @@ export function ShipperMobileLayout({ children, showBack, title }: ShipperMobile
     queryKey: ['shipper-pending-payments-count', user?.partnerId],
     queryFn: async () => {
       if (!user?.partnerId) return 0;
-      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1114', {
+      const { data, error } = await supabase.rpc('get_invoice_requests_filtered_1120', {
         p_invoicing_partner_id: user.partnerId,
         p_status: 'Completed',
         p_page_number: 1,

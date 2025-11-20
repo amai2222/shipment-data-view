@@ -200,7 +200,7 @@ export default function ShipperDashboard() {
       
       // 加载总体统计（货主看板数据总是包括本级和下级）
       const { data: statsData, error: statsError } = await supabase.rpc(
-        'get_shipper_dashboard_stats_1115',
+        'get_shipper_dashboard_stats_1120',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,
@@ -230,7 +230,7 @@ export default function ShipperDashboard() {
 
       // 加载下级货主列表
       const { data: subordinatesData, error: subordinatesError } = await supabase.rpc(
-        'get_subordinate_shippers_stats_1115',
+        'get_subordinate_shippers_stats_1120',
         {
           p_shipper_id: currentShipperId,
           p_start_date: dates.startDate,

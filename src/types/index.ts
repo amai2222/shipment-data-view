@@ -127,8 +127,9 @@ export interface ProjectPartner {
   chainId: string;
   level: number;
   taxRate: number;  // 项目特定税点
-  calculationMethod: "tax" | "profit";  // 计算方法：税点或利润
+  calculationMethod: "tax" | "profit" | "fixed_price";  // 计算方法：税点、利润或定价法
   profitRate?: number;  // 利润率（仅当计算方法为利润时使用）
+  unitPrice?: number;  // 单价（元/单位，仅当计算方法为定价法时使用）
   createdAt: string;
   partnerName?: string;
 }

@@ -261,7 +261,7 @@ export default function PaymentRequest() {
         }
       }
       
-      const { data, error } = await supabase.rpc('get_payment_request_data_1116', {
+      const { data, error } = await supabase.rpc('get_payment_request_data_1120', {
         p_project_id: projectIdParam,
         p_start_date: activeFilters.startDate || null,
         p_end_date: activeFilters.endDate || null,
@@ -484,7 +484,7 @@ export default function PaymentRequest() {
           }
         }
         
-        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids_1116', {
+        const { data: allFilteredIds, error: idError } = await supabase.rpc('get_filtered_unpaid_ids_1120', {
             p_project_id: projectIdParam,
             p_start_date: activeFilters.startDate || null,
             p_end_date: activeFilters.endDate || null,

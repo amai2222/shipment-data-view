@@ -38,7 +38,7 @@ export default function MobileShipperWaybills() {
 
       // 通过开票申请单关联查询运单
       const { data: invoicesData, error: invoicesError } = await supabase.rpc(
-        'get_invoice_requests_filtered_1114',
+        'get_invoice_requests_filtered_1120',
         {
           p_invoicing_partner_id: user.partnerId,
           p_page_number: 1,

@@ -191,7 +191,7 @@ export default function MobilePaymentRequestsList() {
     try {
       // 使用后端筛选函数
       // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
-      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1116', {
+      const { data, error } = await supabase.rpc('get_payment_requests_filtered_1120', {
         p_request_id: filters.requestId || null,
         p_waybill_number: filters.waybillNumber || null,
         p_driver_name: filters.driverName || null,
