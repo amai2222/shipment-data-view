@@ -92,7 +92,16 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const quantityLabel = useMemo(() => {
     if (billingTypeId === 2) return '发车次数';
     if (billingTypeId === 3) return '体积(立方)';
+    if (billingTypeId === 4) return '件数(件)';
     return '重量(吨)';
+  }, [billingTypeId]);
+
+  // 获取单位文本（用于显示）
+  const unitLabel = useMemo(() => {
+    if (billingTypeId === 2) return '车';
+    if (billingTypeId === 3) return '立方';
+    if (billingTypeId === 4) return '件';
+    return '吨';
   }, [billingTypeId]);
 
   // 计算有效数量（根据项目配置）
@@ -249,7 +258,44 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         // 直接使用数据库中的信息，不需要复杂的初始化
         const initialProjectId = editingRecord.project_id || '';
         const unitPriceValue = editingRecord.unit_price?.toString() || '';
-        console.log('设置单价到表单:', unitPriceValue);
+        const hasUnitPrice = unitPriceValue !== '' && parseFloat(unitPriceValue) > 0;
+        console.log('设置单价到表单:', unitPriceValue, '有单价:', hasUnitPrice);
+        
+        // 如果有单价，先计算有效数量和运费（在设置 formData 之前）
+        let initialCurrentCost = editingRecord.current_cost?.toString() || '';
+        if (hasUnitPrice) {
+          // 根据项目配置计算有效数量
+          const project = projects.find(p => p.id === initialProjectId);
+          const quantityType = project?.effective_quantity_type || 'min_value';
+          const loadingWeight = parseFloat(editingRecord.loading_weight?.toString() || '0') || 0;
+          const unloadingWeight = parseFloat(editingRecord.unloading_weight?.toString() || '0') || 0;
+          
+          let effectiveQty = 0;
+          if (quantityType === 'loading') {
+            effectiveQty = loadingWeight;
+          } else if (quantityType === 'unloading') {
+            effectiveQty = unloadingWeight;
+          } else { // min_value
+            if (loadingWeight > 0 && unloadingWeight > 0) {
+              effectiveQty = Math.min(loadingWeight, unloadingWeight);
+            } else {
+              effectiveQty = loadingWeight || unloadingWeight || 0;
+            }
+          }
+          
+          // 重新计算运费
+          if (effectiveQty > 0) {
+            const unitPrice = parseFloat(unitPriceValue);
+            const calculatedCost = unitPrice * effectiveQty;
+            initialCurrentCost = calculatedCost.toFixed(2);
+            console.log('编辑模式 - 重新计算运费:', {
+              unitPrice,
+              effectiveQty,
+              calculatedCost,
+              initialCurrentCost
+            });
+          }
+        }
         
         setFormData({
           projectId: initialProjectId,
@@ -265,7 +311,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           unloading_weight: editingRecord.unloading_weight?.toString() || '',
           transportType: editingRecord.transport_type || '实际运输',
           unitPrice: unitPriceValue, // 从数据库读取单价
-          currentCost: editingRecord.current_cost?.toString() || '',
+          currentCost: initialCurrentCost, // 如果有单价则使用重新计算的值，否则使用数据库的值
           extraCost: editingRecord.extra_cost?.toString() || '',
           remarks: editingRecord.remarks || '',
           other_platform_names: Array.isArray(editingRecord.other_platform_names) 
@@ -292,7 +338,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setLocations([]);
       setChains([]);
     }
-  }, [isOpen, editingRecord, loadProjectSpecificData]);
+  }, [isOpen, editingRecord, loadProjectSpecificData, projects]);
 
   // 当司机数据加载完成后，如果是编辑模式且司机信息为空，自动从司机数据中填充
   useEffect(() => {
@@ -997,7 +1043,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             
             {/* 单价输入 */}
             <div className="mb-4 bg-white p-3 rounded-lg border border-emerald-100">
-              <Label className="text-xs text-emerald-600 font-medium">单价（元/吨）</Label>
+              <Label className="text-xs text-emerald-600 font-medium">单价（元/{unitLabel}）</Label>
               <Input 
                 type="number" 
                 step="0.01" 
@@ -1015,7 +1061,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             {/* 有效数量显示（仅在自动模式） */}
             {isAutoMode && (
               <div className="mb-4 bg-white p-3 rounded-lg border border-blue-100">
-                <Label className="text-xs text-blue-600 font-medium">有效数量（吨）</Label>
+                <Label className="text-xs text-blue-600 font-medium">有效数量（{unitLabel}）</Label>
                 <Input 
                   type="text" 
                   value={effectiveQuantity.toFixed(3)} 
@@ -1026,9 +1072,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   {(() => {
                     const project = projects.find(p => p.id === formData.projectId);
                     const quantityType = project?.effective_quantity_type || 'min_value';
-                    if (quantityType === 'loading') return '📦 按项目配置：取装货数量';
-                    if (quantityType === 'unloading') return '📦 按项目配置：取卸货数量';
-                    return '📦 按项目配置：取装货和卸货较小值';
+                    if (quantityType === 'loading') return `📦 按项目配置：取装货${unitLabel}`;
+                    if (quantityType === 'unloading') return `📦 按项目配置：取卸货${unitLabel}`;
+                    return `📦 按项目配置：取装货和卸货较小值（${unitLabel}）`;
                   })()}
                 </div>
               </div>
