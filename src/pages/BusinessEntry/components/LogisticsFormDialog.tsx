@@ -1100,6 +1100,70 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
               )}
             </div>
             
+            {/* 含税单价计算器 */}
+            <div className="mb-3 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold text-blue-800">🧮 含税单价计算器</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <Label className="text-xs text-blue-600">含税单价（元/{unitLabel}）</Label>
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    min="0" 
+                    placeholder="含税价格"
+                    className="mt-1 text-sm"
+                    id="taxIncludedPrice"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-blue-600">税点（%）</Label>
+                  <Input 
+                    type="number" 
+                    step="0.1" 
+                    min="0" 
+                    max="100"
+                    placeholder="如：3"
+                    className="mt-1 text-sm"
+                    id="taxRate"
+                  />
+                </div>
+              </div>
+              <Button 
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full text-xs bg-white hover:bg-blue-50"
+                onClick={() => {
+                  const taxIncludedPrice = parseFloat((document.getElementById('taxIncludedPrice') as HTMLInputElement)?.value || '0');
+                  const taxRate = parseFloat((document.getElementById('taxRate') as HTMLInputElement)?.value || '0');
+                  
+                  if (taxIncludedPrice > 0 && taxRate >= 0) {
+                    // 计算不含税单价：含税单价 / (1 + 税点/100)
+                    const unitPriceBeforeTax = taxIncludedPrice / (1 + taxRate / 100);
+                    setFormData(prev => ({ ...prev, unitPrice: unitPriceBeforeTax.toFixed(2) }));
+                    
+                    toast({
+                      title: "计算成功",
+                      description: `不含税单价：${unitPriceBeforeTax.toFixed(2)} 元/${unitLabel}`,
+                    });
+                  } else {
+                    toast({
+                      title: "提示",
+                      description: "请输入有效的含税单价和税点",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              >
+                计算不含税单价
+              </Button>
+              <div className="text-xs text-blue-600 mt-2 bg-white bg-opacity-60 p-2 rounded">
+                💡 公式：不含税单价 = 含税单价 ÷ (1 + 税点%)
+              </div>
+            </div>
+
             {/* 单价输入 */}
             <div className="mb-4 bg-white p-3 rounded-lg border border-emerald-100">
               <Label className="text-xs text-emerald-600 font-medium">单价（元/{unitLabel}）</Label>
