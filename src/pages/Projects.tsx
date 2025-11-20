@@ -77,7 +77,7 @@ export default function Projects() {
   
   const [selectedChains, setSelectedChains] = useState<{
     id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null; isDefault?: boolean;
-    partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit", profitRate?: number, partnerName?: string}[];
+    partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit" | "fixed_price", profitRate?: number, unitPrice?: number, partnerName?: string}[];
   }[]>([]);
   const [originalChains, setOriginalChains] = useState<typeof selectedChains>([]);
   
@@ -94,23 +94,44 @@ export default function Projects() {
       const { data: projectsData, error: projectsError } = await supabase.rpc('get_projects_with_details_fixed');
       if (projectsError) throw projectsError;
 
-      const payload = (projectsData as any) || {};
-      const rawProjects: any[] = Array.isArray(payload.projects) ? payload.projects : [];
-      const chainsMap: Record<string, any[]> = payload.chains || {};
-      const partnersMap: Record<string, any[]> = payload.partners || {};
+      interface RpcPayload {
+        projects?: unknown[];
+        chains?: Record<string, unknown[]>;
+        partners?: Record<string, unknown[]>;
+      }
 
-      const composedProjects: ProjectWithDetails[] = rawProjects.map((p: any) => {
-        const chains = (chainsMap[p.id] || []).map((c: any) => ({
+      interface RawProject {
+        id: string;
+        [key: string]: unknown;
+      }
+
+      interface RawChain {
+        id: string;
+        [key: string]: unknown;
+      }
+
+      interface RawPartner {
+        chainId: string;
+        [key: string]: unknown;
+      }
+
+      const payload = (projectsData as RpcPayload) || {};
+      const rawProjects: RawProject[] = Array.isArray(payload.projects) ? (payload.projects as RawProject[]) : [];
+      const chainsMap: Record<string, RawChain[]> = (payload.chains || {}) as Record<string, RawChain[]>;
+      const partnersMap: Record<string, RawPartner[]> = (payload.partners || {}) as Record<string, RawPartner[]>;
+
+      const composedProjects: ProjectWithDetails[] = rawProjects.map((p: RawProject) => {
+        const chains = (chainsMap[p.id] || []).map((c: RawChain) => ({
           ...c,
-          partners: (partnersMap[p.id] || []).filter((pp: any) => pp.chainId === c.id)
+          partners: (partnersMap[p.id] || []).filter((pp: RawPartner) => pp.chainId === c.id)
         }));
-        return { ...p, partnerChains: chains } as ProjectWithDetails;
+        return { ...p, partnerChains: chains } as unknown as ProjectWithDetails;
       });
 
       return composedProjects;
     },
     staleTime: 2 * 60 * 1000, // 2分钟缓存
-    cacheTime: 10 * 60 * 1000, // 10分钟保留
+    gcTime: 10 * 60 * 1000, // 10分钟保留（React Query v5 使用 gcTime 替代 cacheTime）
     refetchOnWindowFocus: false,
   });
 
@@ -136,7 +157,7 @@ export default function Projects() {
       })) || [];
     },
     staleTime: 10 * 60 * 1000, // 10分钟缓存（合作方变化不频繁）
-    cacheTime: 30 * 60 * 1000,
+    gcTime: 30 * 60 * 1000, // 30分钟保留（React Query v5 使用 gcTime 替代 cacheTime）
   });
 
   // 筛选和排序逻辑
@@ -157,9 +178,10 @@ export default function Projects() {
 
     // 2. 状态筛选
     if (statusFilter !== "all") {
-      filtered = filtered.filter(project => 
-        (project as any).projectStatus === statusFilter
-      );
+      filtered = filtered.filter(project => {
+        const projectWithStatus = project as ProjectWithDetails & { projectStatus?: string };
+        return projectWithStatus.projectStatus === statusFilter;
+      });
     }
 
     // 3. 排序
@@ -172,8 +194,10 @@ export default function Projects() {
           '已完成': 3,
           '已取消': 4
         };
-        const statusA = (a as any).projectStatus || '进行中';
-        const statusB = (b as any).projectStatus || '进行中';
+        const projectA = a as ProjectWithDetails & { projectStatus?: string };
+        const projectB = b as ProjectWithDetails & { projectStatus?: string };
+        const statusA = projectA.projectStatus || '进行中';
+        const statusB = projectB.projectStatus || '进行中';
         const orderDiff = (statusOrder[statusA] || 999) - (statusOrder[statusB] || 999);
         
         // 如果状态相同，按创建时间降序（最新的在上面）
@@ -218,17 +242,17 @@ export default function Projects() {
       unloadingAddress: project.unloadingAddress,
       financeManager: project.financeManager || "",
       plannedTotalTons: (project.plannedTotalTons != null ? String(project.plannedTotalTons) : ""),
-      projectStatus: (project as any).projectStatus || "进行中",
-      cargoType: (project as any).cargoType || "货品",
-      effectiveQuantityType: (project as any).effectiveQuantityType || "min_value",
+      projectStatus: (project as ProjectWithDetails & { projectStatus?: string }).projectStatus || "进行中",
+      cargoType: (project as ProjectWithDetails & { cargoType?: string }).cargoType || "货品",
+      effectiveQuantityType: (project as ProjectWithDetails & { effectiveQuantityType?: "min_value" | "loading" | "unloading" }).effectiveQuantityType || "min_value",
     });
     setEditingProject(project);
     
     const chainsWithPartners = (project.partnerChains || []).map(chain => ({
       id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
       description: chain.description,
-      billingTypeId: Number((chain as any).billing_type_id) || 1,
-      isDefault: (chain as any).is_default || false,
+      billingTypeId: Number((chain as PartnerChain & { billing_type_id?: number }).billing_type_id) || 1,
+      isDefault: (chain as PartnerChain & { is_default?: boolean }).is_default || false,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
@@ -257,14 +281,15 @@ export default function Projects() {
         chain.description !== original.description ||
         chain.isDefault !== original.isDefault;
       
-      // 比较合作方配置
+      // 比较合作方配置（包含 unitPrice）
       const currentPartners = JSON.stringify(
         chain.partners.map(p => ({
           partnerId: p.partnerId,
           level: p.level,
           taxRate: p.taxRate,
           calculationMethod: p.calculationMethod,
-          profitRate: p.profitRate
+          profitRate: p.profitRate,
+          unitPrice: p.unitPrice || 0  // ✅ 添加 unitPrice 到比较逻辑
         })).sort((a, b) => a.level - b.level)
       );
       
@@ -274,7 +299,8 @@ export default function Projects() {
           level: p.level,
           taxRate: p.taxRate,
           calculationMethod: p.calculationMethod,
-          profitRate: p.profitRate
+          profitRate: p.profitRate,
+          unitPrice: p.unitPrice || 0  // ✅ 添加 unitPrice 到比较逻辑
         })).sort((a, b) => a.level - b.level)
       );
       
@@ -462,9 +488,10 @@ export default function Projects() {
       
       let errorMessage = "保存项目时发生错误";
       if (error && typeof error === 'object') {
-        if ('message' in error) errorMessage = (error as any).message;
-        if ('hint' in error) errorMessage += ` (提示: ${(error as any).hint})`;
-        if ('details' in error) errorMessage += ` (详情: ${(error as any).details})`;
+        const errorObj = error as { message?: string; hint?: string; details?: string };
+        if ('message' in errorObj && errorObj.message) errorMessage = errorObj.message;
+        if ('hint' in errorObj && errorObj.hint) errorMessage += ` (提示: ${errorObj.hint})`;
+        if ('details' in errorObj && errorObj.details) errorMessage += ` (详情: ${errorObj.details})`;
       }
       
       toast({ 
@@ -545,13 +572,13 @@ export default function Projects() {
     ));
   };
 
-  const updatePartnerInChain = (chainIndex: number, partnerIndex: number, field: string, value: any) => {
+  const updatePartnerInChain = (chainIndex: number, partnerIndex: number, field: string, value: string | number) => {
     setSelectedChains(prev => prev.map((chain, ci) => {
       if (ci === chainIndex) {
         const newPartners = chain.partners.map((partner, pi) => {
           if (pi === partnerIndex) {
             const updatedPartner = { ...partner, [field]: value };
-            if (field === 'partnerId') {
+            if (field === 'partnerId' && typeof value === 'string') {
               const selectedPartner = partners.find(p => p.id === value);
               if (selectedPartner) {
                 updatedPartner.partnerName = selectedPartner.name;
@@ -678,7 +705,7 @@ export default function Projects() {
                                     <PartnerSelector
                                       value={partner.partnerId}
                                       onChange={(value) => updatePartnerInChain(chainIndex, partnerIndex, 'partnerId', value)}
-                                      partners={partners as any}
+                                      partners={partners}
                                       disabled={isSubmitting}
                                       placeholder="请选择合作方"
                                       className="w-full text-sm"
@@ -788,7 +815,7 @@ export default function Projects() {
                 )}
               </Button>
               
-              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <Select value={sortBy} onValueChange={(value: "status" | "date") => setSortBy(value)}>
                 <SelectTrigger className="w-48">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   <SelectValue />
@@ -861,15 +888,21 @@ export default function Projects() {
                           <span className="mx-2">·</span>
                           计划数: {project.plannedTotalTons ?? '—'}
                           <span className="mx-2">·</span>
-                          状态: <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
-                            (project as any).projectStatus === '进行中' ? 'bg-green-100 text-green-700 border-green-300' :
-                            (project as any).projectStatus === '已完成' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                            (project as any).projectStatus === '已暂停' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                            (project as any).projectStatus === '已取消' ? 'bg-red-100 text-red-700 border-red-300' :
-                            'bg-gray-100 text-gray-700 border-gray-300'
-                          }`}>
-                            {(project as any).projectStatus || '进行中'}
-                          </span>
+                          状态: {(() => {
+                            const projectWithStatus = project as ProjectWithDetails & { projectStatus?: string };
+                            const projectStatus = projectWithStatus.projectStatus || '进行中';
+                            return (
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                                projectStatus === '进行中' ? 'bg-green-100 text-green-700 border-green-300' :
+                                projectStatus === '已完成' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                projectStatus === '已暂停' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                projectStatus === '已取消' ? 'bg-red-100 text-red-700 border-red-300' :
+                                'bg-gray-100 text-gray-700 border-gray-300'
+                              }`}>
+                                {projectStatus}
+                              </span>
+                            );
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -886,7 +919,10 @@ export default function Projects() {
                        <div className="flex space-x-2 ml-4">
                          <div onClick={(e) => e.stopPropagation()}>
                            <Select 
-                             value={(project as any).projectStatus || '进行中'} 
+                             value={(() => {
+                               const projectWithStatus = project as ProjectWithDetails & { projectStatus?: string };
+                               return projectWithStatus.projectStatus || '进行中';
+                             })()} 
                              onValueChange={(value) => handleStatusChange(project.id, value, project.name)}
                            >
                              <SelectTrigger className="w-24 h-8">
