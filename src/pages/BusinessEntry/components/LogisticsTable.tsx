@@ -153,6 +153,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
       case 1: return `${(loading || 0).toFixed(2)} / ${(unloading || 0).toFixed(2)} 吨`;
       case 2: return `1 车`;
       case 3: return `${(loading || 0).toFixed(2)} / ${(unloading || 0).toFixed(2)} 立方`;
+      case 4: return `${(loading || 0).toFixed(0)} / ${(unloading || 0).toFixed(0)} 件`;
       default: return '-';
     }
   };
@@ -163,6 +164,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
       weight: { loading: 0, unloading: 0 },
       trips: { count: 0 },
       volume: { loading: 0, unloading: 0 },
+      pieces: { loading: 0, unloading: 0 },
       currentCost: 0,
       extraCost: 0,
       driverPayable: 0,
@@ -178,6 +180,9 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
       } else if (billingTypeId === 3) {
         totals.volume.loading += r.loading_weight || 0;
         totals.volume.unloading += r.unloading_weight || 0;
+      } else if (billingTypeId === 4) {
+        totals.pieces.loading += r.loading_weight || 0;
+        totals.pieces.unloading += r.unloading_weight || 0;
       }
       totals.currentCost += r.current_cost || 0;
       totals.extraCost += r.extra_cost || 0;

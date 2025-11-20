@@ -68,6 +68,9 @@ const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSu
       {totalSummary.totalVolumeLoading > 0 && (
         <span className="whitespace-nowrap">计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
       )}
+      {totalSummary.totalPiecesLoading > 0 && (
+        <span className="whitespace-nowrap">计件合计: 装 <span className="font-bold text-primary">{totalSummary.totalPiecesLoading.toFixed(0)}件</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalPiecesUnloading.toFixed(0)}件</span></span>
+      )}
     </div>
   );
 };

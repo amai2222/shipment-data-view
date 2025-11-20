@@ -57,6 +57,8 @@ export interface TotalSummary {
   totalTripsLoading: number;
   totalVolumeLoading: number;
   totalVolumeUnloading: number;
+  totalPiecesLoading: number;
+  totalPiecesUnloading: number;
 }
 
 // [核心修正] 初始值也包含所有新字段
@@ -71,6 +73,8 @@ const INITIAL_SUMMARY: TotalSummary = {
   totalTripsLoading: 0,
   totalVolumeLoading: 0,
   totalVolumeUnloading: 0,
+  totalPiecesLoading: 0,
+  totalPiecesUnloading: 0,
 };
 
 export function useLogisticsData() {
@@ -100,7 +104,7 @@ export function useLogisticsData() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced_1116', {
+      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced_1120', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
