@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Combobox } from '@/components/ui/combobox';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Save, Plus } from 'lucide-react';
 import { formatChinaDateString } from '@/utils/dateUtils';
 
 interface Project {
@@ -70,6 +70,7 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
   const [availableTrips, setAvailableTrips] = useState<number[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [saveAndContinue, setSaveAndContinue] = useState(false); // 保存并新增模式
 
   const { toast } = useToast();
 
@@ -364,6 +365,8 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
           .eq('id', editingRecord.id);
 
         if (error) throw error;
+        
+        toast({ title: "成功", description: "磅单已更新" });
       } else {
         // 创建新记录
         const { error } = await supabase
@@ -371,9 +374,42 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
           .insert(recordData);
 
         if (error) throw error;
+        
+        toast({ title: "成功", description: "磅单已创建" });
       }
 
       onSuccess();
+      
+      // 如果是"保存并新增"模式
+      if (saveAndContinue && !isEditMode) {
+        // 保留项目、日期和计费类型
+        const projectId = formData.projectId;
+        const loadingDate = formData.loadingDate;
+        const billingTypeId = formData.billingTypeId;
+        
+        // 重置表单，但保留关键信息
+        setFormData({
+          projectId,
+          loadingDate,
+          licensePlate: '',
+          tripNumber: 1,
+          validQuantity: '',
+          billingTypeId,
+        });
+        
+        // 清空文件和图片
+        setSelectedFiles([]);
+        setExistingImageUrls([]);
+        
+        // 重置保存并新增标志
+        setSaveAndContinue(false);
+        
+        toast({ 
+          title: "成功", 
+          description: "磅单已创建，可继续录入下一单",
+          duration: 2000
+        });
+      }
     } catch (error) {
       console.error('Error saving record:', error);
       toast({
@@ -546,8 +582,24 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={uploading}>
-          {uploading ? (isEditMode ? '更新中...' : '保存中...') : (isEditMode ? '更新' : '保存')}
+        {!isEditMode && (
+          <Button 
+            type="submit" 
+            disabled={uploading}
+            variant="secondary"
+            onClick={() => setSaveAndContinue(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {uploading && saveAndContinue ? '保存中...' : '保存并新增'}
+          </Button>
+        )}
+        <Button 
+          type="submit" 
+          disabled={uploading}
+          onClick={() => setSaveAndContinue(false)}
+        >
+          <Save className="mr-2 h-4 w-4" />
+          {uploading && !saveAndContinue ? (isEditMode ? '更新中...' : '保存中...') : (isEditMode ? '更新' : '保存')}
         </Button>
       </div>
     </form>

@@ -76,6 +76,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [locations, setLocations] = useState<Location[]>([]);
   const [chains, setChains] = useState<PartnerChain[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saveAndContinue, setSaveAndContinue] = useState(false); // 保存并新增模式
   
   // 使用 ref 跟踪是否已经初始化，避免重复初始化导致表单重置
   const isInitializedRef = useRef(false);
@@ -738,7 +739,32 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         toast({ title: "成功", description: "运单已创建" });
       }
       onSubmitSuccess();
-      onClose();
+      
+      // 如果是"保存并新增"模式
+      if (saveAndContinue && !editingRecord) {
+        // 保留项目和链路信息
+        const projectId = formData.projectId;
+        const chainId = formData.chainId;
+        
+        // 重置表单，但保留项目和链路
+        setFormData({
+          ...INITIAL_FORM_DATA,
+          projectId,
+          chainId,
+        });
+        
+        // 重置保存并新增标志
+        setSaveAndContinue(false);
+        
+        toast({ 
+          title: "成功", 
+          description: "运单已创建，可继续录入下一单",
+          duration: 2000
+        });
+      } else {
+        // 正常模式，关闭对话框
+        onClose();
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '保存失败';
       toast({ title: "保存失败", description: errorMessage, variant: "destructive" });
@@ -1325,8 +1351,28 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
             />
           </div>
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}><X className="mr-2 h-4 w-4" />取消</Button>
-            <Button type="submit" disabled={loading}><Save className="mr-2 h-4 w-4" />{loading ? '保存中...' : '保存'}</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              <X className="mr-2 h-4 w-4" />取消
+            </Button>
+            {!editingRecord && (
+              <Button 
+                type="submit" 
+                disabled={loading}
+                variant="secondary"
+                onClick={() => setSaveAndContinue(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {loading && saveAndContinue ? '保存中...' : '保存并新增'}
+              </Button>
+            )}
+            <Button 
+              type="submit" 
+              disabled={loading}
+              onClick={() => setSaveAndContinue(false)}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {loading && !saveAndContinue ? '保存中...' : '保存'}
+            </Button>
           </div>
         </form>
       </DialogContent>
