@@ -241,6 +241,8 @@ export default function MobileProjectDashboard() {
     
     let unitText = '吨';
     if (typeId === 2) unitText = '车';
+    else if (typeId === 3) unitText = '立方';
+    else if (typeId === 4) unitText = '件';
     if (typeId === 3) unitText = '立方';
     if (typeId === 4) unitText = '件';
     

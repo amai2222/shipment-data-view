@@ -151,6 +151,7 @@ const getBillingTypeLabel = (billingTypeId: number | null | undefined): string =
     case 1: return '按重量(吨)';
     case 2: return '按车次';
     case 3: return '按体积(立方)';
+    case 4: return '按件';
     default: return '按重量(吨)';
   }
 };
@@ -165,6 +166,7 @@ const formatQuantity = (record: LogisticsRecord): string => {
     case 1: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 吨`;
     case 2: return '1 车';
     case 3: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 立方`;
+    case 4: return `${Math.round(loading)} / ${Math.round(unloading)} 件`;
     default: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 吨`;
   }
 };

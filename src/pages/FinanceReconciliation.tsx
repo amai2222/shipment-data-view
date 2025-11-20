@@ -308,6 +308,7 @@ export default function FinanceReconciliation() {
     switch (billingTypeId) {
       case 2: return '车次';
       case 3: return '体积(立方)';
+      case 4: return '件数(件)';
       default: return '重量(吨)';
     }
   };
@@ -318,8 +319,10 @@ export default function FinanceReconciliation() {
     const unloading = record.unloading_weight || 0;
     // 根据 billing_type_id 返回带单位的字符串
     switch (billingTypeId) {
+      case 1: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 吨`;
       case 2: return `1 车`;
-      case 3: return `${loading} / ${unloading} 立方`;
+      case 3: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 立方`;
+      case 4: return `${Math.round(loading)} / ${Math.round(unloading)} 件`;
       default: return `${loading} / ${unloading} 吨`;
     }
   };

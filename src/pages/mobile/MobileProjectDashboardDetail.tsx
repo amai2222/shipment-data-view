@@ -213,6 +213,8 @@ export default function MobileProjectDashboardDetail() {
     
     let unitText = '吨';
     if (typeId === 2) unitText = '车';
+    else if (typeId === 3) unitText = '立方';
+    else if (typeId === 4) unitText = '件';
     if (typeId === 3) unitText = '立方';
     if (typeId === 4) unitText = '件';
     
@@ -778,9 +780,12 @@ export default function MobileProjectDashboardDetail() {
             onClick={() => {
               // 分享功能
               if (navigator.share) {
+                const completionRate = unitConfig.progressPlanned > 0 
+                  ? (unitConfig.progressCompleted / unitConfig.progressPlanned * 100).toFixed(1)
+                  : '0.0';
                 navigator.share({
                   title: `项目看板 - ${selectedProject?.name}`,
-                  text: `完成进度: ${dashboardData.summary?.completion_rate?.toFixed(1)}%`,
+                  text: `完成进度: ${completionRate}%`,
                   url: window.location.href,
                 });
               }

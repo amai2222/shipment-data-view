@@ -386,6 +386,7 @@ export default function PaymentRequest() {
       case 1: return '吨';
       case 2: return '车';
       case 3: return '立方';
+      case 4: return '件';
       default: return '';
     }
   };

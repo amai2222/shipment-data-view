@@ -101,6 +101,7 @@ export default function MobileBusinessEntryForm() {
   const quantityLabel = useMemo(() => {
     if (billingTypeId === 2) return '发车次数';
     if (billingTypeId === 3) return '体积(立方)';
+    if (billingTypeId === 4) return '件数(件)';
     return '重量(吨)';
   }, [billingTypeId]);
 

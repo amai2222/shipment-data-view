@@ -60,7 +60,7 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
     const { billing_type_id, planned_total_tons } = project_details;
     const completed = billing_type_id === 2 ? summary_stats?.total_trips : summary_stats?.total_tonnage;
     return {
-      progressUnit: billing_type_id === 2 ? '车' : (billing_type_id === 3 ? '立方' : '吨'),
+      progressUnit: billing_type_id === 2 ? '车' : (billing_type_id === 3 ? '立方' : (billing_type_id === 4 ? '件' : '吨')),
       progressCompleted: completed || 0,
       progressPlanned: planned_total_tons || 1,
     };
@@ -399,7 +399,8 @@ export default function ProjectsOverview() {
                       <TableHead className="text-right">车次</TableHead>
                       <TableHead className="text-right">
                         {projectData.project_details.billing_type_id === 2 ? '车次' : 
-                         projectData.project_details.billing_type_id === 3 ? '立方' : '吨数'}
+                         projectData.project_details.billing_type_id === 3 ? '立方' : 
+                         projectData.project_details.billing_type_id === 4 ? '件数' : '吨数'}
                       </TableHead>
                       <TableHead className="text-right">应收 (元)</TableHead>
                     </TableRow>
@@ -413,7 +414,7 @@ export default function ProjectsOverview() {
                            <TableCell className="text-right">
                              {projectData.project_details.billing_type_id === 2 ? 
                               row.trip_count : 
-                              formatNumber(row.total_tonnage, projectData.project_details.billing_type_id === 3 ? '立方' : '吨')}
+                              formatNumber(row.total_tonnage, projectData.project_details.billing_type_id === 3 ? '立方' : (projectData.project_details.billing_type_id === 4 ? '件' : '吨'))}
                            </TableCell>
                           <TableCell className="text-right text-green-600 font-semibold">{formatNumber(row.total_driver_receivable)}</TableCell>
                         </TableRow>
