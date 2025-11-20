@@ -65,7 +65,7 @@ BEGIN
             lr.project_id,
             lr.project_name,
             lr.chain_id,
-            lr.chain_name,
+            COALESCE(pc.chain_name, '') as chain_name,
             COALESCE(lr.billing_type_id, 1) as billing_type_id,
             lr.driver_id,
             lr.driver_name,
@@ -90,11 +90,12 @@ BEGIN
             lr.created_by_user_id,
             lr.invoice_status,
             lr.payment_status,
-            lr.receipt_status,
+            COALESCE(lr.receipt_status, 'Unreceived') as receipt_status,
             lr.unit_price,
             lr.effective_quantity,
             lr.calculation_mode
         FROM public.logistics_records lr
+        LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id
         WHERE
             (p_start_date IS NULL OR p_start_date = '' OR 
              lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz) AND
@@ -125,7 +126,7 @@ BEGIN
              END) AND
             (p_invoice_status IS NULL OR p_invoice_status = '' OR lr.invoice_status = p_invoice_status) AND
             (p_payment_status IS NULL OR p_payment_status = '' OR lr.payment_status = p_payment_status) AND
-            (p_receipt_status IS NULL OR p_receipt_status = '' OR lr.receipt_status = p_receipt_status)
+            (p_receipt_status IS NULL OR p_receipt_status = '' OR COALESCE(lr.receipt_status, 'Unreceived') = p_receipt_status)
     ),
     total_count AS (
         SELECT COUNT(*) as count FROM filtered_records
@@ -175,7 +176,7 @@ BEGIN
              END) AND
             (p_invoice_status IS NULL OR p_invoice_status = '' OR lr.invoice_status = p_invoice_status) AND
             (p_payment_status IS NULL OR p_payment_status = '' OR lr.payment_status = p_payment_status) AND
-            (p_receipt_status IS NULL OR p_receipt_status = '' OR lr.receipt_status = p_receipt_status)
+            (p_receipt_status IS NULL OR p_receipt_status = '' OR COALESCE(lr.receipt_status, 'Unreceived') = p_receipt_status)
     )
     SELECT jsonb_build_object(
         'records', (

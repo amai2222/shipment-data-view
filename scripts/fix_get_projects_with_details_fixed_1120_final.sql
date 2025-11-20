@@ -1,14 +1,12 @@
 -- ============================================================================
--- 创建 get_projects_with_details_fixed_1120 函数
--- 创建日期：2025-11-20
--- 功能：获取所有项目及其链路和合作方详情，包含 unit_price 字段
--- 统一命名：使用 _1120 后缀
+-- 最终修复 get_projects_with_details_fixed_1120 函数
+-- 确保函数能正确返回数据
 -- ============================================================================
 
--- 删除旧版本（如果存在）
+-- 删除旧版本
 DROP FUNCTION IF EXISTS public.get_projects_with_details_fixed_1120();
 
--- 创建新函数（使用 _1120 后缀），包含 unit_price 字段
+-- 创建新函数（完整版本，带调试）
 CREATE OR REPLACE FUNCTION public.get_projects_with_details_fixed_1120()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -116,6 +114,7 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
+-- 添加注释
 COMMENT ON FUNCTION public.get_projects_with_details_fixed_1120() IS 
 '获取所有项目及其链路和合作方详情（包含 unit_price 字段，_1120版本）
 返回格式：
@@ -125,14 +124,37 @@ COMMENT ON FUNCTION public.get_projects_with_details_fixed_1120() IS
   "partners": { "project_id": [...] }
 }';
 
--- 验证函数
+-- 测试函数
 DO $$
+DECLARE
+    test_result JSONB;
+    projects_count INTEGER;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '========================================';
-    RAISE NOTICE '✅ 函数 get_projects_with_details_fixed_1120 已创建';
-    RAISE NOTICE '✅ 已添加 unit_price 字段支持';
-    RAISE NOTICE '✅ 统一使用 _1120 后缀命名';
+    RAISE NOTICE '开始测试函数 get_projects_with_details_fixed_1120...';
+    RAISE NOTICE '========================================';
+    
+    -- 执行函数
+    SELECT public.get_projects_with_details_fixed_1120() INTO test_result;
+    
+    -- 检查返回结构
+    IF test_result ? 'projects' THEN
+        projects_count := jsonb_array_length(test_result->'projects');
+        RAISE NOTICE '✅ 函数执行成功！';
+        RAISE NOTICE '✅ 返回结构正确（包含 projects, chains, partners）';
+        RAISE NOTICE '✅ 项目数量: %', projects_count;
+        
+        IF projects_count > 0 THEN
+            RAISE NOTICE '✅ 第一个项目: %', test_result->'projects'->0->>'name';
+        ELSE
+            RAISE NOTICE '⚠️  项目数量为0，可能是数据库中没有项目数据';
+        END IF;
+    ELSE
+        RAISE NOTICE '❌ 函数返回结构不正确';
+        RAISE NOTICE '返回内容: %', test_result;
+    END IF;
+    
     RAISE NOTICE '========================================';
 END $$;
 

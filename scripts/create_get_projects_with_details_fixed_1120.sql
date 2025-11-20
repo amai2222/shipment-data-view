@@ -1,14 +1,12 @@
 -- ============================================================================
--- 创建 get_projects_with_details_fixed_1120 函数
--- 创建日期：2025-11-20
--- 功能：获取所有项目及其链路和合作方详情，包含 unit_price 字段
--- 统一命名：使用 _1120 后缀
+-- 快速创建 get_projects_with_details_fixed_1120 函数
+-- 可以直接在 Supabase SQL 编辑器中执行
 -- ============================================================================
 
 -- 删除旧版本（如果存在）
 DROP FUNCTION IF EXISTS public.get_projects_with_details_fixed_1120();
 
--- 创建新函数（使用 _1120 后缀），包含 unit_price 字段
+-- 创建新函数
 CREATE OR REPLACE FUNCTION public.get_projects_with_details_fixed_1120()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -86,7 +84,7 @@ BEGIN
                     'calculationMethod', COALESCE(pp.calculation_method, 'tax'),
                     'profitRate', COALESCE(pp.profit_rate, 0),
                     'unitPrice', COALESCE(pp.unit_price, 0),  -- ✅ 添加 unit_price 字段
-                    'partnerName', COALESCE(p.name, ''),
+                    'partnerName', p.name,
                     'createdAt', pp.created_at
                 )
                 ORDER BY pp.chain_id, pp.level
@@ -96,43 +94,21 @@ BEGIN
         GROUP BY pp.project_id
     ) sub;
 
-    -- 组合结果（确保包含所有字段）
+    -- 组合结果
     v_result := jsonb_build_object(
-        'projects', COALESCE(v_projects, '[]'::jsonb),
-        'chains', COALESCE(v_chains, '{}'::jsonb),
-        'partners', COALESCE(v_partners, '{}'::jsonb)
+        'projects', v_projects,
+        'chains', v_chains,
+        'partners', v_partners
     );
 
     RETURN v_result;
-EXCEPTION WHEN OTHERS THEN
-    -- 错误处理：返回空结构并记录错误
-    RAISE WARNING '函数执行出错: %', SQLERRM;
-    RETURN jsonb_build_object(
-        'projects', '[]'::jsonb,
-        'chains', '{}'::jsonb,
-        'partners', '{}'::jsonb,
-        'error', SQLERRM
-    );
 END;
 $$;
 
+-- 添加注释
 COMMENT ON FUNCTION public.get_projects_with_details_fixed_1120() IS 
-'获取所有项目及其链路和合作方详情（包含 unit_price 字段，_1120版本）
-返回格式：
-{
-  "projects": [...],
-  "chains": { "project_id": [...] },
-  "partners": { "project_id": [...] }
-}';
+'获取所有项目及其链路和合作方详情（包含 unit_price 字段，_1120版本）';
 
--- 验证函数
-DO $$
-BEGIN
-    RAISE NOTICE '';
-    RAISE NOTICE '========================================';
-    RAISE NOTICE '✅ 函数 get_projects_with_details_fixed_1120 已创建';
-    RAISE NOTICE '✅ 已添加 unit_price 字段支持';
-    RAISE NOTICE '✅ 统一使用 _1120 后缀命名';
-    RAISE NOTICE '========================================';
-END $$;
+-- 验证函数是否创建成功
+SELECT '函数 get_projects_with_details_fixed_1120 创建成功！' as status;
 
