@@ -6,6 +6,24 @@
 -- 修复：将日期字符串转换为 timestamptz，明确指定中国时区（+08:00）
 -- ============================================================================
 
+-- 1. 删除所有旧版本的 add_logistics_record_with_costs 函数
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    -- 删除所有 add_logistics_record_with_costs 的重载版本
+    FOR r IN 
+        SELECT oid::regprocedure AS func_signature
+        FROM pg_proc
+        WHERE proname = 'add_logistics_record_with_costs'
+        AND pronamespace = 'public'::regnamespace
+    LOOP
+        EXECUTE 'DROP FUNCTION IF EXISTS ' || r.func_signature || ' CASCADE';
+        RAISE NOTICE '删除旧函数: %', r.func_signature;
+    END LOOP;
+END $$;
+
+-- 2. 创建新版本的函数
 CREATE OR REPLACE FUNCTION public.add_logistics_record_with_costs(
     p_project_id uuid,
     p_project_name text,
@@ -23,7 +41,8 @@ CREATE OR REPLACE FUNCTION public.add_logistics_record_with_costs(
     p_license_plate text,
     p_driver_phone text,
     p_transport_type text,
-    p_remarks text
+    p_remarks text,
+    p_unit_price numeric DEFAULT NULL  -- 新增：单价参数
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -61,6 +80,7 @@ BEGIN
     unloading_date,
     loading_weight,
     unloading_weight,
+    unit_price,
     current_cost,
     extra_cost,
     payable_cost,
@@ -94,6 +114,7 @@ BEGIN
     END,
     p_loading_weight,
     p_unloading_weight,
+    p_unit_price,
     p_current_cost,
     p_extra_cost,
     driver_payable,
@@ -113,6 +134,6 @@ $$;
 
 -- 注释函数（指定完整参数类型列表以避免歧义）
 COMMENT ON FUNCTION public.add_logistics_record_with_costs(
-    uuid, text, uuid, uuid, text, text, text, text, text, numeric, numeric, numeric, numeric, text, text, text, text
-) IS '添加运单记录并自动计算成本，修复日期类型转换问题';
+    uuid, text, uuid, uuid, text, text, text, text, text, numeric, numeric, numeric, numeric, text, text, text, text, numeric
+) IS '添加运单记录并自动计算成本，支持单价功能';
 

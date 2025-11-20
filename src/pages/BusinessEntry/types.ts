@@ -54,6 +54,7 @@ export interface Project {
   loading_address: string | null;
   unloading_address: string | null;
   project_status: string | null;
+  effective_quantity_type?: 'min_value' | 'loading' | 'unloading'; // 有效数量计算方式
 }
 
 // 其他类型保持不变

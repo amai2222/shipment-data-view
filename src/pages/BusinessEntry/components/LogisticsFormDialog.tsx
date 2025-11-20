@@ -40,6 +40,7 @@ interface FormData {
   loading_weight: string;
   unloading_weight: string;
   transportType: string;
+  unitPrice: string; // 单价（元/吨）- 新增
   currentCost: string;
   extraCost: string;
   remarks: string;
@@ -60,6 +61,7 @@ const INITIAL_FORM_DATA: FormData = {
   loading_weight: '',
   unloading_weight: '',
   transportType: '实际运输',
+  unitPrice: '', // 单价 - 新增
   currentCost: '',
   extraCost: '',
   remarks: '',
@@ -92,6 +94,43 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     if (billingTypeId === 3) return '体积(立方)';
     return '重量(吨)';
   }, [billingTypeId]);
+
+  // 计算有效数量（根据项目配置）
+  const effectiveQuantity = useMemo(() => {
+    const loadingWeight = parseFloat(formData.loading_weight) || 0;
+    const unloadingWeight = parseFloat(formData.unloading_weight) || 0;
+    const project = projects.find(p => p.id === formData.projectId);
+    const quantityType = project?.effective_quantity_type || 'min_value';
+    
+    // 根据项目配置计算有效数量
+    if (quantityType === 'loading') {
+      return loadingWeight;
+    } else if (quantityType === 'unloading') {
+      return unloadingWeight;
+    } else { // min_value
+      if (loadingWeight > 0 && unloadingWeight > 0) {
+        return Math.min(loadingWeight, unloadingWeight);
+      }
+      return loadingWeight || unloadingWeight || 0;
+    }
+  }, [formData.loading_weight, formData.unloading_weight, formData.projectId, projects]);
+
+  // 判断计算模式（有单价则自动计算，无单价则手动输入）
+  const isAutoMode = useMemo(() => {
+    return formData.unitPrice !== '' && parseFloat(formData.unitPrice) > 0;
+  }, [formData.unitPrice]);
+
+  // 自动计算运费
+  useEffect(() => {
+    if (isAutoMode) {
+      const unitPrice = parseFloat(formData.unitPrice) || 0;
+      const calculatedCost = unitPrice * effectiveQuantity;
+      setFormData(prev => ({
+        ...prev,
+        currentCost: calculatedCost > 0 ? calculatedCost.toFixed(2) : ''
+      }));
+    }
+  }, [isAutoMode, formData.unitPrice, effectiveQuantity]);
 
   const driverReceivable = useMemo(() => {
     const current = parseFloat(formData.currentCost) || 0;
@@ -213,6 +252,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           loading_weight: editingRecord.loading_weight?.toString() || '',
           unloading_weight: editingRecord.unloading_weight?.toString() || '',
           transportType: editingRecord.transport_type || '实际运输',
+          unitPrice: '', // 编辑时默认为空（手动模式）
           currentCost: editingRecord.current_cost?.toString() || '',
           extraCost: editingRecord.extra_cost?.toString() || '',
           remarks: editingRecord.remarks || '',
@@ -343,6 +383,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       loading_weight: record.loading_weight?.toString() || '',
       unloading_weight: record.unloading_weight?.toString() || '',
       transportType: record.transport_type || '实际运输',
+      unitPrice: '', // 编辑时默认为空（手动模式）
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
@@ -463,7 +504,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         const finalProjectId = formData.projectId || editingRecord.project_id;
         const finalDriverId = formData.driverId || editingRecord.driver_id;
         
-        const { error } = await supabase.rpc('update_logistics_record_via_recalc', { 
+        const { error } = await supabase.rpc('update_logistics_record_via_recalc_1120', { 
           p_record_id: editingRecord.id, 
           p_project_id: finalProjectId,
           p_project_name: projects.find(p => p.id === finalProjectId)?.name || editingRecord.project_name || '',
@@ -476,11 +517,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateString(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : null),
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          p_unit_price: formData.unitPrice ? parseFloat(formData.unitPrice) : null, // 单价参数
           p_current_cost: parseFloat(formData.currentCost) || 0,
+          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_license_plate: formData.licensePlate,
           p_driver_phone: formData.driverPhone,
           p_transport_type: formData.transportType,
-          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
           // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
           p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
@@ -505,7 +547,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         toast({ title: "成功", description: "运单已更新" });
       } else {
         // 使用数据库函数来添加运单并自动计算合作方成本
-        const { data: newRecordId, error } = await supabase.rpc('add_logistics_record_with_costs', {
+        const { data: newRecordId, error } = await supabase.rpc('add_logistics_record_with_costs_1120', {
           p_project_id: formData.projectId,
           p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
           p_chain_id: formData.chainId,
@@ -517,11 +559,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          p_unit_price: formData.unitPrice ? parseFloat(formData.unitPrice) : null, // 单价参数（必须在 current_cost 之前）
           p_current_cost: parseFloat(formData.currentCost) || 0,
+          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_license_plate: formData.licensePlate,
           p_driver_phone: formData.driverPhone,
           p_transport_type: formData.transportType,
-          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
           p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
         });
@@ -908,19 +951,75 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 <Banknote className="h-4 w-4 text-emerald-600" />
               </div>
               <Label className="text-sm font-semibold text-emerald-800">费用信息</Label>
+              {isAutoMode && (
+                <div className="ml-auto">
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                    自动计算模式
+                  </span>
+                </div>
+              )}
             </div>
+            
+            {/* 单价输入 */}
+            <div className="mb-4 bg-white p-3 rounded-lg border border-emerald-100">
+              <Label className="text-xs text-emerald-600 font-medium">单价（元/吨）</Label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                value={formData.unitPrice} 
+                onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: e.target.value }))} 
+                placeholder="输入单价可自动计算运费，留空则手动输入运费" 
+                className="mt-1"
+              />
+              <div className="text-xs text-gray-500 mt-1 bg-blue-50 p-2 rounded">
+                💡 提示：{isAutoMode ? '已输入单价，运费将自动计算' : '未输入单价，请手动输入运费'}
+              </div>
+            </div>
+
+            {/* 有效数量显示（仅在自动模式） */}
+            {isAutoMode && (
+              <div className="mb-4 bg-white p-3 rounded-lg border border-blue-100">
+                <Label className="text-xs text-blue-600 font-medium">有效数量（吨）</Label>
+                <Input 
+                  type="text" 
+                  value={effectiveQuantity.toFixed(3)} 
+                  disabled
+                  className="mt-1 bg-gray-50 text-gray-700 font-semibold"
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  {(() => {
+                    const project = projects.find(p => p.id === formData.projectId);
+                    const quantityType = project?.effective_quantity_type || 'min_value';
+                    if (quantityType === 'loading') return '📦 按项目配置：取装货数量';
+                    if (quantityType === 'unloading') return '📦 按项目配置：取卸货数量';
+                    return '📦 按项目配置：取装货和卸货较小值';
+                  })()}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs text-emerald-600 font-medium">运费(元) *</Label>
+                <Label className="text-xs text-emerald-600 font-medium">
+                  运费(元) * {isAutoMode && <span className="text-blue-500">（自动计算）</span>}
+                </Label>
                 <Input 
                   type="number" 
                   step="0.01" 
                   min="0" 
                   value={formData.currentCost} 
                   onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))} 
-                  placeholder="输入运费" 
+                  placeholder={isAutoMode ? "自动计算" : "输入运费"} 
                   className="mt-1"
+                  disabled={isAutoMode}
+                  style={isAutoMode ? { backgroundColor: '#f3f4f6', fontWeight: '600' } : {}}
                 />
+                {isAutoMode && (
+                  <div className="text-xs text-blue-600 mt-1">
+                    计算公式：{formData.unitPrice} × {effectiveQuantity.toFixed(3)} = {formData.currentCost}
+                  </div>
+                )}
               </div>
               <div>
                 <Label className="text-xs text-emerald-600 font-medium">额外费(元)</Label>
