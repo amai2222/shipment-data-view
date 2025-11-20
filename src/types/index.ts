@@ -115,6 +115,7 @@ export interface PartnerChain {
   projectId: string;
   chainName: string;
   description?: string;
+  billing_type_id?: number;  // ✅ 添加计费模式字段（与数据库返回一致）
   isDefault: boolean;
   createdAt: string;
 }

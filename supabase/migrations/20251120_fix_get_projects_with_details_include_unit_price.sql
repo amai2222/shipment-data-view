@@ -57,7 +57,7 @@ BEGIN
                     'id', pc.id,
                     'chainName', pc.chain_name,
                     'description', pc.description,
-                    'billingTypeId', pc.billing_type_id,
+                    'billing_type_id', pc.billing_type_id,  -- ✅ 修复：使用下划线命名，与数据库字段一致
                     'isDefault', pc.is_default,
                     'createdAt', pc.created_at
                 )

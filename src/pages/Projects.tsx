@@ -251,7 +251,7 @@ export default function Projects() {
     const chainsWithPartners = (project.partnerChains || []).map(chain => ({
       id: `chain-existing-${chain.id}`, dbId: chain.id, chainName: chain.chainName,
       description: chain.description,
-      billingTypeId: Number((chain as PartnerChain & { billing_type_id?: number }).billing_type_id) || 1,
+      billingTypeId: Number(chain.billing_type_id) || 1,  // ✅ 修复：直接使用 billing_type_id，无需类型断言
       isDefault: (chain as PartnerChain & { is_default?: boolean }).is_default || false,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
