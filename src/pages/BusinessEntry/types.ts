@@ -39,6 +39,9 @@ export interface LogisticsRecord {
   invoice_status?: 'Uninvoiced' | 'Processing' | 'Approved' | 'Invoiced' | string | null; // 开票状态
   payment_status?: 'Unpaid' | 'Processing' | 'Approved' | 'Paid' | string | null; // 付款状态
   receipt_status?: 'Unreceived' | 'Received' | string | null; // 收款状态
+  unit_price?: number | null; // 单价（元/吨）
+  effective_quantity?: number | null; // 有效数量（吨）
+  calculation_mode?: 'manual' | 'auto' | string | null; // 计算模式：manual(手动输入) / auto(自动计算)
 }
 
 // [核心移除] - LogisticsFormData 类型已不再需要

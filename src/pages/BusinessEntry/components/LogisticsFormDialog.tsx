@@ -252,7 +252,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           loading_weight: editingRecord.loading_weight?.toString() || '',
           unloading_weight: editingRecord.unloading_weight?.toString() || '',
           transportType: editingRecord.transport_type || '实际运输',
-          unitPrice: '', // 编辑时默认为空（手动模式）
+          unitPrice: editingRecord.unit_price?.toString() || '', // 从数据库读取单价
           currentCost: editingRecord.current_cost?.toString() || '',
           extraCost: editingRecord.extra_cost?.toString() || '',
           remarks: editingRecord.remarks || '',
@@ -383,7 +383,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       loading_weight: record.loading_weight?.toString() || '',
       unloading_weight: record.unloading_weight?.toString() || '',
       transportType: record.transport_type || '实际运输',
-      unitPrice: '', // 编辑时默认为空（手动模式）
+      unitPrice: record.unit_price?.toString() || '', // 从数据库读取单价
       currentCost: record.current_cost?.toString() || '',
       extraCost: record.extra_cost?.toString() || '',
       remarks: record.remarks || '',
