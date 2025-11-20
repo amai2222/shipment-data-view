@@ -205,12 +205,12 @@ BEGIN
                                 'payable_amount', lpc.payable_amount,
                                 'payment_status', lpc.payment_status,
                                 'invoice_status', lpc.invoice_status,
-                                'full_name', p.full_name,
+                                'full_name', pbd.full_name,
                                 'bank_account', pbd.bank_account,
                                 'bank_name', pbd.bank_name,
                                 'branch_name', pbd.branch_name,
-                                'tax_number', p.tax_number,
-                                'company_address', p.company_address
+                                'tax_number', pbd.tax_number,
+                                'company_address', pbd.company_address
                             ) ORDER BY lpc.level
                         ), '[]'::jsonb)
                         FROM public.logistics_partner_costs lpc

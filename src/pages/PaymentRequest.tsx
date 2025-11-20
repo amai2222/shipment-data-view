@@ -414,21 +414,19 @@ export default function PaymentRequest() {
     return '';
   };
   
-  const getBillingUnit = (billingTypeId: number | null | undefined): string => {
-    switch (billingTypeId) {
-      case 1: return '吨';
-      case 2: return '车';
-      case 3: return '立方';
-      case 4: return '件';
-      default: return '';
-    }
-  };
-
+  // 统一的数量显示函数，根据 billing_type_id 动态返回带单位的字符串（参考运单管理）
   const formatQuantity = (record: LogisticsRecord): string => {
-    const unit = getBillingUnit(record.billing_type_id);
-    const loadingText = record.loading_weight ?? '-';
-    const unloadingText = record.unloading_weight ?? '-';
-    return `${loadingText} / ${unloadingText} ${unit}`;
+    const billingTypeId = record.billing_type_id || 1;
+    const loading = record.loading_weight || 0;
+    const unloading = record.unloading_weight || 0;
+    
+    switch (billingTypeId) {
+      case 1: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 吨`;
+      case 2: return `1 车`;
+      case 3: return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 立方`;
+      case 4: return `${loading.toFixed(0)} / ${unloading.toFixed(0)} 件`;
+      default: return '-';
+    }
   };
 
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
