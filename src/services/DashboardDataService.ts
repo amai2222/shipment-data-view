@@ -72,7 +72,7 @@ export interface OverviewDashboardData {
  * 实现数据缓存和共享，避免重复的 RPC 调用
  */
 export class DashboardDataService {
-  private static cache = new Map<string, { data: any; timestamp: number }>();
+  private static cache = new Map<string, { data: unknown; timestamp: number }>();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
 
   /**
@@ -81,7 +81,7 @@ export class DashboardDataService {
   static async getProjectDashboardData(
     projectId: string, 
     reportDate: string
-  ): Promise<{ data: DashboardData | null; error: any }> {
+  ): Promise<{ data: DashboardData | null; error: Error | null }> {
     const cacheKey = `project-dashboard-${projectId}-${reportDate}`;
     
     // 检查缓存
@@ -114,7 +114,7 @@ export class DashboardDataService {
   static async getProjectsOverviewData(
     reportDate: string,
     projectIds?: string[]
-  ): Promise<{ data: OverviewDashboardData | null; error: any }> {
+  ): Promise<{ data: OverviewDashboardData | null; error: Error | null }> {
     const cacheKey = `projects-overview-${reportDate}-${projectIds?.join(',') || 'all'}`;
     
     // 检查缓存
@@ -129,7 +129,7 @@ export class DashboardDataService {
         p_project_ids: projectIds && projectIds.length > 0 ? projectIds : null
       };
       
-      const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
+      const { data, error } = await supabase.rpc('get_all_projects_overview_data', params as Record<string, unknown>);
 
       if (error) {
         return { data: null, error };
@@ -149,7 +149,7 @@ export class DashboardDataService {
   static async getProjectTrendByRange(
     projectId: string,
     days: number
-  ): Promise<{ data: TrendData[] | null; error: any }> {
+  ): Promise<{ data: TrendData[] | null; error: Error | null }> {
     const cacheKey = `project-trend-${projectId}-${days}`;
     
     // 检查缓存
@@ -159,10 +159,10 @@ export class DashboardDataService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('get_project_trend_by_range' as any, {
+      const { data, error } = await supabase.rpc('get_project_trend_by_range', {
         p_project_id: projectId,
         p_days: days
-      });
+      } as Record<string, unknown>);
 
       if (error) {
         return { data: null, error };
@@ -237,11 +237,12 @@ export const calculateUnitConfig = (
   if (!projectDetails || !summaryStats) return defaultConfig;
   
   const { billing_type_id, planned_total_tons } = projectDetails;
-  const typeId = parseInt(billing_type_id as any, 10);
+  const typeId = Number(billing_type_id) || 1;
   
   let unitText = '吨';
   if (typeId === 2) unitText = '车';
   if (typeId === 3) unitText = '立方';
+  if (typeId === 4) unitText = '件';
   
   return {
     billingTypeId: typeId,

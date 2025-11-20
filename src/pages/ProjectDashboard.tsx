@@ -84,10 +84,11 @@ export default function ProjectDashboard() {
     if (!selectedProjectDetails || !dashboardData) return defaultConfig;
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats } = dashboardData;
-    const typeId = parseInt(billing_type_id as any, 10);
+    const typeId = Number(billing_type_id) || 1;
     let unitText = '吨';
     if (typeId === 2) unitText = '车';
     if (typeId === 3) unitText = '立方';
+    if (typeId === 4) unitText = '件';
     return {
       billingTypeId: typeId,
       unit: unitText,
@@ -246,9 +247,9 @@ export default function ProjectDashboard() {
                     <YAxis yAxisId="right-cost" orientation="right" stroke="#f59e0b" label={{ value: '元', angle: -90, position: 'insideRight', fill: '#f59e0b' }} />
                     <Tooltip formatter={(value: number, name: string) => [`${(value || 0).toLocaleString()} ${name === '车次' ? '车' : name === '数量' ? unitConfig.unit : '元'}`, name]} />
                     <Legend 
-                      onClick={(e: any) => handleLegendClick(e.dataKey as string)} 
-                      formatter={(value, entry: any) => {
-                        const dataKey = entry.dataKey as string;
+                      onClick={(e: { dataKey?: string }) => e.dataKey && handleLegendClick(e.dataKey)} 
+                      formatter={(value, entry: { dataKey?: string }) => {
+                        const dataKey = entry.dataKey;
                         const isVisible = visibleLines[dataKey as keyof typeof visibleLines];
                         return <span style={{ textDecoration: isVisible ? 'none' : 'line-through', color: isVisible ? '#333' : '#aaa' }}>{value}</span>;
                       }}

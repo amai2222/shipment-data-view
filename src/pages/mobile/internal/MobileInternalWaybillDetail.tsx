@@ -74,7 +74,8 @@ const transportTypeConfig = {
 const billingTypeConfig = {
   1: { name: '计重', unit: '吨', icon: Weight },
   2: { name: '计车', unit: '车', icon: Truck },
-  3: { name: '计体积', unit: '立方', icon: Package }
+  3: { name: '计体积', unit: '立方', icon: Package },
+  4: { name: '计件', unit: '件', icon: Package }
 };
 
 interface NamingParams {

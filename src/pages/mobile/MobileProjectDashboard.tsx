@@ -151,10 +151,10 @@ export default function MobileProjectDashboard() {
     queryKey: ['mobileProjectDashboard', projectId, format(reportDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!projectId) throw new Error('缺少项目ID');
-      const { data, error } = await supabase.rpc('get_project_dashboard_data' as any, {
+      const { data, error } = await supabase.rpc('get_project_dashboard_data', {
         p_selected_project_id: projectId,
         p_report_date: format(reportDate, 'yyyy-MM-dd')
-      });
+      } as Record<string, unknown>);
       if (error) throw error;
       return data as unknown as DashboardData;
     },
@@ -179,16 +179,16 @@ export default function MobileProjectDashboard() {
   const { data: trendData, isLoading: trendLoading, error: trendError } = useQuery({
     queryKey: ['projectTrendByRange', projectId, trendDays],
     queryFn: async () => {
-      if (!projectId) return [] as any[];
-      const { data, error } = await supabase.rpc('get_project_trend_by_range' as any, {
+      if (!projectId) return [] as TrendData[];
+      const { data, error } = await supabase.rpc('get_project_trend_by_range', {
         p_project_id: projectId,
         p_days: trendDays
-      });
+      } as Record<string, unknown>);
       if (error) {
         console.error('新 RPC 调用失败:', error);
         return [];
       }
-      return (data as any[]) || [];
+      return (data as TrendData[]) || [];
     },
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000,
@@ -201,7 +201,7 @@ export default function MobileProjectDashboard() {
   // 司机列表改为前端排序（不调用排行 RPC）
   const sortedDriverRows = useMemo(() => {
     const rows = dashboardData?.driver_report_table || [];
-    const getVal = (key: 'daily' | 'total' | 'amount', r: any) =>
+    const getVal = (key: 'daily' | 'total' | 'amount', r: DriverReportRow) =>
       key === 'daily' ? r.daily_trip_count : key === 'total' ? r.total_trip_count : r.total_driver_receivable;
     const sorted = [...rows].sort((a, b) => {
       const diff = getVal(driverSortKey, b) - getVal(driverSortKey, a);
@@ -237,11 +237,12 @@ export default function MobileProjectDashboard() {
     
     const { billing_type_id, planned_total_tons } = selectedProjectDetails;
     const { summary_stats } = dashboardData;
-    const typeId = parseInt(billing_type_id as any, 10);
+    const typeId = Number(billing_type_id) || 1;
     
     let unitText = '吨';
     if (typeId === 2) unitText = '车';
     if (typeId === 3) unitText = '立方';
+    if (typeId === 4) unitText = '件';
     
     return {
       billingTypeId: typeId,
@@ -259,11 +260,11 @@ export default function MobileProjectDashboard() {
   const trendSeries = useMemo(() => {
     // 优先使用新 RPC 数据，如果为空则回退到原始数据
     if (trendData && trendData.length > 0) {
-      return trendData as any[];
+      return trendData;
     }
     // 回退到原始 seven_day_trend，并截取指定天数
     const fallbackData = dashboardData?.seven_day_trend || [];
-    return fallbackData.slice(-trendDays) as any[];
+    return fallbackData.slice(-trendDays);
   }, [trendData, dashboardData, trendDays]);
   const chartMargin = useMemo(() => ({ top: 8, right: 8, left: 8, bottom: 8 }), []);
   const tooltipStyle = useMemo(() => ({
@@ -589,7 +590,7 @@ export default function MobileProjectDashboard() {
               司机工作量
             </CardTitle>
             <div className="mt-2 flex items-center gap-2">
-              <Select value={driverSortKey} onValueChange={(v) => setDriverSortKey(v as any)}>
+              <Select value={driverSortKey} onValueChange={(v) => setDriverSortKey(v as 'daily' | 'total' | 'amount')}>
                 <SelectTrigger className="h-8 w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">按今日车次</SelectItem>
@@ -600,7 +601,7 @@ export default function MobileProjectDashboard() {
               <Button size="sm" variant="outline" onClick={() => setDriverSortAsc(v => !v)}>{driverSortAsc ? '升序' : '降序'}</Button>
               <Button size="sm" onClick={() => {
                 const rows = [...dashboardData.driver_report_table].sort((a, b) => {
-                  const val = (key: 'daily' | 'total' | 'amount', r: any) => key === 'daily' ? r.daily_trip_count : key === 'total' ? r.total_trip_count : r.total_driver_receivable;
+                  const val = (key: 'daily' | 'total' | 'amount', r: DriverReportRow) => key === 'daily' ? r.daily_trip_count : key === 'total' ? r.total_trip_count : r.total_driver_receivable;
                   const diff = val(driverSortKey, b) - val(driverSortKey, a);
                   return driverSortAsc ? -diff : diff;
                 });
@@ -636,10 +637,10 @@ export default function MobileProjectDashboard() {
                   width={'100%'}
                   itemData={{ rows: sortedDriverRows, unit: unitConfig.unit, billingTypeId: unitConfig.billingTypeId }}
                 >
-                  {({ index, style, data }: ListChildComponentProps) => {
-                    const driver = (data as any).rows[index] as DriverReportRow;
-                    const unit = (data as any).unit as string;
-                    const billingTypeId = (data as any).billingTypeId as number;
+                  {({ index, style, data }: ListChildComponentProps<{ rows: DriverReportRow[]; unit: string; billingTypeId: number }>) => {
+                    const driver = data.rows[index];
+                    const unit = data.unit;
+                    const billingTypeId = data.billingTypeId;
                     return (
                       <div style={style} className="p-2">
                         <div className="p-3 bg-muted/50 rounded-lg space-y-2">

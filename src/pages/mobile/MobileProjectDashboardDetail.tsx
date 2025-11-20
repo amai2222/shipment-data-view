@@ -116,7 +116,8 @@ interface DashboardData {
 const billingTypeConfig = {
   1: { name: '计重', unit: '吨', icon: Package },
   2: { name: '计车', unit: '车', icon: Truck },
-  3: { name: '计体积', unit: '立方', icon: Package }
+  3: { name: '计体积', unit: '立方', icon: Package },
+  4: { name: '计件', unit: '件', icon: Package }
 };
 
 // 圆形进度图组件
@@ -208,11 +209,12 @@ export default function MobileProjectDashboardDetail() {
     
     const { billing_type_id, planned_total_tons } = selectedProject;
     const { summary_stats } = dashboardData;
-    const typeId = parseInt(billing_type_id as any, 10);
+    const typeId = Number(billing_type_id) || 1;
     
     let unitText = '吨';
     if (typeId === 2) unitText = '车';
     if (typeId === 3) unitText = '立方';
+    if (typeId === 4) unitText = '件';
     
     return {
       billingTypeId: typeId,
@@ -681,7 +683,7 @@ export default function MobileProjectDashboardDetail() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">司机排行</CardTitle>
-                  <Select value={driverSortBy} onValueChange={(value: any) => setDriverSortBy(value)}>
+                  <Select value={driverSortBy} onValueChange={(value: 'daily' | 'total' | 'amount') => setDriverSortBy(value)}>
                     <SelectTrigger className="w-24">
                       <SelectValue />
                     </SelectTrigger>

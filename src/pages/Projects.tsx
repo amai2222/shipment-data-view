@@ -644,6 +644,7 @@ export default function Projects() {
                                   <option value="1">计吨</option>
                                   <option value="2">计车</option>
                                   <option value="3">计方</option>
+                                  <option value="4">计件</option>
                                 </select>
                               </div>
                             </div>

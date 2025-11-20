@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Cuboid, DollarSign, Banknote } from "lucide-react";
+import { BarChart3, TrendingUp, Truck, Package, Eye, RefreshCw, Search, ChevronLeft, ChevronRight, Cuboid, DollarSign, Banknote, Box } from "lucide-react";
 import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Project, LogisticsRecord } from "@/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -26,6 +26,7 @@ const BILLING_TYPE_MAP = {
   '1': { name: '计重', unit: '吨', icon: Truck, color: 'text-green-600', bgColor: 'bg-green-100' },
   '2': { name: '计车', unit: '车', icon: Package, color: 'text-sky-600', bgColor: 'bg-sky-100' },
   '3': { name: '计体积', unit: '立方', icon: Cuboid, color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  '4': { name: '计件', unit: '件', icon: Box, color: 'text-purple-600', bgColor: 'bg-purple-100' },
 };
 
 interface DailyStat { date: string; actualTransport: number; returns: number; }

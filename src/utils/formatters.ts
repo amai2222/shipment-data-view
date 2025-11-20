@@ -159,7 +159,7 @@ export function safeFormatDateTime(
 
 /**
  * 根据计费类型格式化数量显示
- * @param billingTypeId 计费类型ID (1: 计重, 2: 计车, 3: 计体积)
+ * @param billingTypeId 计费类型ID (1: 计重, 2: 计车, 3: 计体积, 4: 计件)
  * @param loadingWeight 装货重量
  * @param unloadingWeight 卸货重量
  * @returns 格式化后的数量字符串
@@ -180,6 +180,8 @@ export function formatQuantityByBillingType(
       return `1 车`;
     case 3: // 计体积
       return `${loading.toFixed(2)} / ${unloading.toFixed(2)} 立方`;
+    case 4: // 计件
+      return `${loading.toFixed(0)} / ${unloading.toFixed(0)} 件`;
     default:
       return '-';
   }
@@ -187,7 +189,7 @@ export function formatQuantityByBillingType(
 
 /**
  * 格式化单位配置
- * @param billingTypeId 计费类型ID
+ * @param billingTypeId 计费类型ID (1: 计重, 2: 计车, 3: 计体积, 4: 计件)
  * @returns 单位配置对象
  */
 export function getBillingTypeConfig(billingTypeId: number | null | undefined) {
@@ -200,6 +202,8 @@ export function getBillingTypeConfig(billingTypeId: number | null | undefined) {
       return { name: '计车', unit: '车' };
     case 3:
       return { name: '计体积', unit: '立方' };
+    case 4:
+      return { name: '计件', unit: '件' };
     default:
       return { name: '计重', unit: '吨' };
   }
