@@ -123,6 +123,20 @@ export function useLogisticsData() {
       
       const responseData = (data as LogisticsResponse) || { records: [], summary: INITIAL_SUMMARY, totalCount: 0 };
       
+      // 调试：检查返回的数据是否包含 unit_price
+      if (responseData.records && responseData.records.length > 0) {
+        const firstRecord = responseData.records[0];
+        console.log('查询返回的第一条记录:', {
+          id: firstRecord.id,
+          auto_number: firstRecord.auto_number,
+          unit_price: firstRecord.unit_price,
+          effective_quantity: firstRecord.effective_quantity,
+          calculation_mode: firstRecord.calculation_mode,
+          has_unit_price: 'unit_price' in firstRecord,
+          all_keys: Object.keys(firstRecord)
+        });
+      }
+      
       // 数据库已经排序，不需要前端再排序
       setRecords(responseData.records || []);
       setTotalSummary(responseData.summary || INITIAL_SUMMARY);

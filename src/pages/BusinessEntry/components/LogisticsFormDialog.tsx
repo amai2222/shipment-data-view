@@ -237,8 +237,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   useEffect(() => {
     if (isOpen) {
       if (editingRecord) {
+        // 调试：检查单价数据
+        console.log('编辑运单 - 从数据库读取的数据:', {
+          id: editingRecord.id,
+          unit_price: editingRecord.unit_price,
+          effective_quantity: editingRecord.effective_quantity,
+          calculation_mode: editingRecord.calculation_mode,
+          current_cost: editingRecord.current_cost,
+        });
+        
         // 直接使用数据库中的信息，不需要复杂的初始化
         const initialProjectId = editingRecord.project_id || '';
+        const unitPriceValue = editingRecord.unit_price?.toString() || '';
+        console.log('设置单价到表单:', unitPriceValue);
+        
         setFormData({
           projectId: initialProjectId,
           chainId: editingRecord.chain_id || '',
@@ -252,7 +264,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           loading_weight: editingRecord.loading_weight?.toString() || '',
           unloading_weight: editingRecord.unloading_weight?.toString() || '',
           transportType: editingRecord.transport_type || '实际运输',
-          unitPrice: editingRecord.unit_price?.toString() || '', // 从数据库读取单价
+          unitPrice: unitPriceValue, // 从数据库读取单价
           currentCost: editingRecord.current_cost?.toString() || '',
           extraCost: editingRecord.extra_cost?.toString() || '',
           remarks: editingRecord.remarks || '',
@@ -504,6 +516,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         const finalProjectId = formData.projectId || editingRecord.project_id;
         const finalDriverId = formData.driverId || editingRecord.driver_id;
         
+        const unitPriceParam = formData.unitPrice ? parseFloat(formData.unitPrice) : null;
+        console.log('保存运单 - 单价参数:', {
+          unitPrice: formData.unitPrice,
+          parsed: unitPriceParam,
+          recordId: editingRecord.id
+        });
+        
         const { error } = await supabase.rpc('update_logistics_record_via_recalc_1120', { 
           p_record_id: editingRecord.id, 
           p_project_id: finalProjectId,
@@ -517,7 +536,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : (editingRecord.loading_date ? formatChinaDateString(convertUTCDateToChinaDate(editingRecord.loading_date.split('T')[0])) : null),
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
-          p_unit_price: formData.unitPrice ? parseFloat(formData.unitPrice) : null, // 单价参数
+          p_unit_price: unitPriceParam, // 单价参数
           p_current_cost: parseFloat(formData.currentCost) || 0,
           p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_license_plate: formData.licensePlate,
@@ -529,7 +548,23 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         });
         
         // 更新可选字段
-        if (error) throw error;
+        if (error) {
+          console.error('保存运单失败:', error);
+          throw error;
+        }
+        
+        // 验证保存结果
+        const { data: savedRecord, error: verifyError } = await supabase
+          .from('logistics_records')
+          .select('unit_price, effective_quantity, calculation_mode, current_cost')
+          .eq('id', editingRecord.id)
+          .single();
+        
+        if (!verifyError && savedRecord) {
+          console.log('保存后的数据验证:', savedRecord);
+        } else if (verifyError) {
+          console.error('验证保存结果失败:', verifyError);
+        }
         
         // 更新平台运单信息
         if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
