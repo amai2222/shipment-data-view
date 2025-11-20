@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -118,37 +118,7 @@ export default function MobileBusinessEntryForm() {
     }).format(value);
   };
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (isEditing && id) {
-      loadRecordForEditing(id);
-    }
-  }, [isEditing, id]);
-
-  useEffect(() => {
-    if (formData.projectId) {
-      loadProjectSpecificData(formData.projectId);
-    } else {
-      setChains([]);
-      setDrivers([]);
-      setLocations([]);
-      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationId: '', unloadingLocationId: '' }));
-    }
-  }, [formData.projectId]);
-
-  useEffect(() => {
-    if (chains.length > 0 && !isEditing) {
-      const defaultChain = chains.find(c => c.is_default);
-      if (defaultChain) {
-        setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
-      }
-    }
-  }, [chains, isEditing]);
-
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -167,9 +137,9 @@ export default function MobileBusinessEntryForm() {
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [toast]);
 
-  const loadRecordForEditing = async (recordId: string) => {
+  const loadRecordForEditing = useCallback(async (recordId: string) => {
     try {
       const { data, error } = await supabase
         .from('logistics_records')
@@ -217,9 +187,9 @@ export default function MobileBusinessEntryForm() {
       });
       navigate('/m/business-entry');
     }
-  };
+  }, [navigate, toast]);
 
-  const loadProjectSpecificData = async (projectId: string) => {
+  const loadProjectSpecificData = useCallback(async (projectId: string) => {
     try {
       const [driversRes, locationsRes, chainsRes] = await Promise.all([
         supabase.from('drivers').select('*').limit(100),
@@ -242,7 +212,54 @@ export default function MobileBusinessEntryForm() {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  useEffect(() => {
+    if (isEditing && id) {
+      loadRecordForEditing(id);
+    }
+  }, [isEditing, id, loadRecordForEditing]);
+
+  useEffect(() => {
+    if (formData.projectId) {
+      loadProjectSpecificData(formData.projectId);
+    } else {
+      setChains([]);
+      setDrivers([]);
+      setLocations([]);
+      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationId: '', unloadingLocationId: '' }));
+    }
+  }, [formData.projectId, loadProjectSpecificData]);
+
+  useEffect(() => {
+    if (chains.length > 0 && !isEditing) {
+      const defaultChain = chains.find(c => c.is_default);
+      if (defaultChain) {
+        setFormData(prev => ({ ...prev, chainId: defaultChain.id }));
+      }
+    }
+  }, [chains, isEditing]);
+
+  useEffect(() => {
+    if (isEditing && id) {
+      loadRecordForEditing(id);
+    }
+  }, [isEditing, id, loadRecordForEditing]);
+
+  useEffect(() => {
+    if (formData.projectId) {
+      loadProjectSpecificData(formData.projectId);
+    } else {
+      setChains([]);
+      setDrivers([]);
+      setLocations([]);
+      setFormData(prev => ({ ...prev, chainId: '', driverId: '', loadingLocationId: '', unloadingLocationId: '' }));
+    }
+  }, [formData.projectId, loadProjectSpecificData]);
 
   const handleDriverSelect = (driverId: string) => {
     const driver = drivers.find(d => d.id === driverId);
@@ -270,12 +287,13 @@ export default function MobileBusinessEntryForm() {
 
     try {
       if (isEditing && id) {
-        // 使用数据库函数来更新运单并重新计算合作方成本
-        const { error } = await supabase.rpc('update_logistics_record_via_recalc', {
+        // 使用数据库函数来更新运单并重新计算合作方成本（✅ 修复：使用_1120版本并传递billing_type_id）
+        const { error } = await supabase.rpc('update_logistics_record_via_recalc_1120', {
           p_record_id: id,
           p_project_id: formData.projectId,
           p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
           p_chain_id: formData.chainId,
+          p_billing_type_id: selectedChain?.billing_type_id || 1,  // ✅ 新增：传递计费模式ID
           p_driver_id: formData.driverId,
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
@@ -284,11 +302,12 @@ export default function MobileBusinessEntryForm() {
           p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          p_unit_price: null,  // ✅ 移动端暂不支持单价输入，传null
           p_current_cost: parseFloat(formData.currentCost) || 0,
+          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_license_plate: formData.licensePlate,
           p_driver_phone: formData.driverPhone,
           p_transport_type: formData.transportType,
-          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
           // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
           p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
@@ -323,11 +342,12 @@ export default function MobileBusinessEntryForm() {
         const timeStr = Math.floor(Date.now() / 1000).toString().slice(-5);
         const autoNumber = `YDN${dateStr}-${timeStr}`;
 
-        // 使用数据库函数来添加运单并自动计算合作方成本
-        const { error } = await supabase.rpc('add_logistics_record_with_costs', {
+        // 使用数据库函数来添加运单并自动计算合作方成本（✅ 修复：使用_1120版本并传递billing_type_id）
+        const { error } = await supabase.rpc('add_logistics_record_with_costs_1120', {
           p_project_id: formData.projectId,
           p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
           p_chain_id: formData.chainId,
+          p_billing_type_id: selectedChain?.billing_type_id || 1,  // ✅ 新增：传递计费模式ID
           p_driver_id: formData.driverId,
           p_driver_name: drivers.find(d => d.id === formData.driverId)?.name || '',
           p_loading_location: locations.find(l => l.id === formData.loadingLocationId)?.name || '',
@@ -336,11 +356,12 @@ export default function MobileBusinessEntryForm() {
           p_loading_date: formData.loadingDate ? formatChinaDateString(formData.loadingDate) : null,
           p_loading_weight: parseFloat(formData.loading_weight) || 0,
           p_unloading_weight: parseFloat(formData.unloading_weight) || 0,
+          p_unit_price: null,  // ✅ 移动端暂不支持单价输入，传null
           p_current_cost: parseFloat(formData.currentCost) || 0,
+          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_license_plate: formData.licensePlate,
           p_driver_phone: formData.driverPhone,
           p_transport_type: formData.transportType,
-          p_extra_cost: parseFloat(formData.extraCost) || 0,
           p_remarks: formData.remarks,
           // 传递纯日期字符串（YYYY-MM-DD），函数内部会添加时区信息
           p_unloading_date: formData.unloadingDate ? formatChinaDateString(formData.unloadingDate) : null
@@ -379,11 +400,11 @@ export default function MobileBusinessEntryForm() {
       }
 
       navigate('/m/business-entry');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving record:', error);
       toast({
         title: "保存失败",
-        description: error.message,
+        description: error instanceof Error ? error.message : '无法保存运单',
         variant: "destructive",
       });
     } finally {
