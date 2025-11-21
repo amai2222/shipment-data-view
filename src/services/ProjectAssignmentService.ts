@@ -42,8 +42,23 @@ export class ProjectAssignmentService {
     }
   }
 
+  // ✅ 定义项目类型接口
+  export interface ProjectData {
+    id: string;
+    name: string;
+    description?: string;
+    project_status?: string;
+    manager?: string;
+    start_date?: string;
+    end_date?: string;
+    loading_address?: string;
+    unloading_address?: string;
+    created_at: string;
+    updated_at?: string;
+  }
+
   // 获取所有项目列表（按状态和时间排序）
-  static async getAllProjects(): Promise<any[]> {
+  static async getAllProjects(): Promise<ProjectData[]> {
     try {
       const { data, error } = await supabase
         .from('projects')

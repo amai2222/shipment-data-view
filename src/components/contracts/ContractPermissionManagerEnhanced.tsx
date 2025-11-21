@@ -87,11 +87,38 @@ export function ContractPermissionManager({
     description: ''
   });
   
+  // ✅ 定义严格类型
+  interface ContractData {
+    id: string;
+    name: string;
+    contract_number?: string;
+    status?: string;
+  }
+  
+  interface UserData {
+    id: string;
+    full_name: string;
+    email: string;
+    role?: string;
+  }
+  
+  interface RoleData {
+    id: string;
+    name: string;
+    permissions?: string[];
+  }
+  
+  interface DepartmentData {
+    id: string;
+    name: string;
+    description?: string;
+  }
+  
   // 参考数据
-  const [contracts, setContracts] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<ContractData[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [roles, setRoles] = useState<RoleData[]>([]);
+  const [departments, setDepartments] = useState<DepartmentData[]>([]);
 
   // 权限类型配置
   const permissionTypes = [

@@ -88,6 +88,8 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     // 优化构建性能
     minify: 'esbuild',
-    target: 'es2015',
+    // ✅ 改为 esnext 以支持现代浏览器（Chrome 80+, Edge, iOS 14+）
+    // 可以生成更小、更快的代码（使用原生 ES Modules）
+    target: 'esnext',
   },
 }));

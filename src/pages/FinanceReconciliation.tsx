@@ -26,6 +26,7 @@ import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDat
 import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
 import { VirtualizedTable } from "@/components/VirtualizedTable";
+import { VirtualizedFinanceTable } from "@/components/VirtualizedFinanceTable";
 import { PageHeader } from "@/components/PageHeader";
 import { PaginationControl, TableSkeleton } from "@/components/common";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
@@ -111,7 +112,7 @@ export default function FinanceReconciliation() {
   const { toast } = useToast();
   const { uiFilters, setUiFilters, activeFilters, setActiveFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_FINANCE_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(20); // 优化：降低默认分页大小以提升性能
   const [totalPages, setTotalPages] = useState(1);
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [selectedShipperId, setSelectedShipperId] = useState('all');
@@ -1411,149 +1412,58 @@ export default function FinanceReconciliation() {
                 </div>
             </CardHeader>
             <CardContent>
-              <div className="min-h-[400px] overflow-x-auto">
-                {loading ? (
+              {loading ? (
+                <div className="min-h-[400px] overflow-x-auto">
                   <TableSkeleton 
                     rowCount={pageSize} 
                     colCount={11 + displayedPartners.length} 
                     showCheckbox={true} 
                   />
-                ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox checked={selection.mode === 'all_filtered' || isAllOnPageSelected} onCheckedChange={handleSelectAllOnPage}/>
-                      </TableHead>
-                      <TableHead>运单编号</TableHead>
-                      <TableHead>项目</TableHead>
-                      <TableHead>司机</TableHead>
-                      <TableHead>路线</TableHead>
-                      <TableHead>日期</TableHead>
-                      <TableHead>装货数量</TableHead>
-                      <TableHead className="text-red-600">运费+额外费</TableHead>
-                      <TableHead className="text-green-600">司机应收</TableHead>
-                      {displayedPartners.map(p => (
-                        <TableHead key={p.id} className="text-center">
-                          {p.name}
-                          <div className="text-xs text-muted-foreground">({p.level}级)</div>
-                        </TableHead>
-                      ))}
-                      <TableHead>状态</TableHead>
-                      <TableHead className="w-24">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(reportData?.records || []).map((r) => {
-                      // 收集当前运单的所有合作方成本ID（用于批量对账）
-                      // 即使合作方列隐藏，也要能收集到所有 cost_id
-                      const costIds = (r.partner_costs || [])
-                        .map(cost => cost.cost_id)
-                        .filter((id): id is string => !!id);
-                      
-                      return (
-                        <TableRow key={r.id} data-state={selection.selectedIds.has(r.id) && "selected"} className="whitespace-nowrap">
-                          <TableCell>
-                            <Checkbox 
-                              checked={selection.mode === 'all_filtered' || selection.selectedIds.has(r.id)} 
-                              onCheckedChange={() => handleRecordSelect(r.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            {r.auto_number}
-                          </TableCell>
-                          <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            {r.project_name}
-                          </TableCell>
-                          <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            {r.driver_name}
-                          </TableCell>
-                          <TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            {`${r.loading_location?.substring(0, 2) || ''}→${r.unloading_location?.substring(0, 2) || ''}`}
-                          </TableCell>
-                          <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            {r.loading_date}
-                          </TableCell>
-                          <TableCell className="text-sm cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            {getQuantityDisplay(r)}
-                          </TableCell>
-                          <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            <div className="flex items-center gap-2">
-                              <CurrencyDisplay value={r.current_cost} className="text-red-600" />
-                              <span className="text-gray-400">/</span>
-                              <CurrencyDisplay value={r.extra_cost} className="text-black" />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-green-600 cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            <CurrencyDisplay value={r.payable_cost} className="text-green-600" />
-                          </TableCell>
-                          {displayedPartners.map(p => {
-                            const cost = (r.partner_costs || []).find((c) => c.partner_id === p.id);
-                            return (
-                              <TableCell key={p.id} className="text-center">
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="font-mono">
-                                    <CurrencyDisplay value={cost?.payable_amount} />
-                                  </div>
-                                  {cost && getReconciliationBadge(cost.reconciliation_status)}
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-                          <TableCell className="cursor-pointer" onClick={() => setViewingRecord(r)}>
-                            <Badge variant={r.current_cost ? "default" : "secondary"}>
-                              {r.current_cost ? "已计费" : "待计费"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {costIds.length > 0 && canReconcile && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openReconciliationDialog(costIds);
-                                }}
-                                className="h-7 text-xs"
-                              >
-                                <CheckCircle2 className="mr-1 h-3 w-3" />
-                                对账
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    <TableRow className="bg-muted/30 font-semibold border-t-2">
-                      <TableCell colSpan={7} className="text-right font-bold">合计</TableCell>
-                      <TableCell className="font-bold text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <CurrencyDisplay value={reportData?.overview?.total_freight} className="text-red-600" />
-                          <span className="text-gray-400">/</span>
-                          <CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-black" />
-                        </div>
-                        <div className="text-xs text-muted-foreground font-normal mt-1">(运费/额外费)</div>
-                      </TableCell>
-                      <TableCell className="text-center font-bold text-green-600">
-                        <div><CurrencyDisplay value={reportData?.overview?.total_driver_receivable} className="text-green-600" /></div>
-                        <div className="text-xs text-muted-foreground font-normal">(司机应收)</div>
-                      </TableCell>
-                      {displayedPartners.map(p => {
+                </div>
+              ) : (
+                <>
+                  {/* ✅ 使用虚拟化表格，大幅提升性能 */}
+                  <VirtualizedFinanceTable
+                    data={reportData?.records || []}
+                    displayedPartners={displayedPartners}
+                    selectedIds={selection.selectedIds}
+                    selectionMode={selection.mode}
+                    canReconcile={canReconcile}
+                    onRecordClick={setViewingRecord}
+                    onRecordSelect={handleRecordSelect}
+                    onReconcileClick={openReconciliationDialog}
+                    height={600}
+                    rowHeight={60}
+                  />
+
+                  {/* 汇总行 */}
+                  <div className="mt-4 border-t-2 bg-muted/30 p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-semibold">
+                      <div className="text-center">
+                        <div className="text-xs text-muted-foreground mb-1">运费</div>
+                        <CurrencyDisplay value={reportData?.overview?.total_freight} className="text-red-600" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-muted-foreground mb-1">额外费用</div>
+                        <CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-black" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-muted-foreground mb-1">司机应收</div>
+                        <CurrencyDisplay value={reportData?.overview?.total_driver_receivable} className="text-green-600" />
+                      </div>
+                      {displayedPartners.slice(0, 1).map(p => {
                         const total = (reportData?.partner_summary || []).find((pp) => pp.partner_id === p.id)?.total_payable || 0;
                         return (
-                          <TableCell key={p.id} className="text-center font-bold">
-                            <div><CurrencyDisplay value={total} /></div>
-                            <div className="text-xs text-muted-foreground font-normal">({p.name})</div>
-                          </TableCell>
+                          <div key={p.id} className="text-center">
+                            <div className="text-xs text-muted-foreground mb-1">{p.name} 应付</div>
+                            <CurrencyDisplay value={total} />
+                          </div>
                         );
                       })}
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-                )}
-              </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </>

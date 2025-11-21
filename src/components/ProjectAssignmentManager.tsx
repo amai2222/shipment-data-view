@@ -43,7 +43,8 @@ export function ProjectAssignmentManager({
   // 状态管理
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [projects, setProjects] = useState<any[]>([]);
+  // ✅ 使用严格类型定义
+  const [projects, setProjects] = useState<ProjectAssignmentService.ProjectData[]>([]);
   const [assignments, setAssignments] = useState<UserProjectAssignment[]>([]);
   const [stats, setStats] = useState<ProjectAssignmentStats>({
     totalProjects: 0,
