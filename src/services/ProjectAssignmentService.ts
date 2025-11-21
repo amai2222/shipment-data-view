@@ -24,6 +24,21 @@ export interface ProjectAssignmentStats {
   activeProjects: number;
 }
 
+// ✅ 项目数据类型接口（移到类外部）
+export interface ProjectData {
+  id: string;
+  name: string;
+  description?: string;
+  project_status?: string;
+  manager?: string;
+  start_date?: string;
+  end_date?: string;
+  loading_address?: string;
+  unloading_address?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export class ProjectAssignmentService {
   // 获取用户的项目分配
   static async getUserProjectAssignments(userId: string): Promise<UserProjectAssignment[]> {
@@ -40,21 +55,6 @@ export class ProjectAssignmentService {
       console.error('获取用户项目分配失败:', error);
       throw error;
     }
-  }
-
-  // ✅ 定义项目类型接口
-  export interface ProjectData {
-    id: string;
-    name: string;
-    description?: string;
-    project_status?: string;
-    manager?: string;
-    start_date?: string;
-    end_date?: string;
-    loading_address?: string;
-    unloading_address?: string;
-    created_at: string;
-    updated_at?: string;
   }
 
   // 获取所有项目列表（按状态和时间排序）
