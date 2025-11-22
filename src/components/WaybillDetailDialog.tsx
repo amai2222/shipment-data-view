@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye } from 'lucide-react';
+import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye, Receipt, CreditCard, FileText } from 'lucide-react';
 import { LogisticsRecord } from '@/types';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { CurrencyDisplay } from '@/components/CurrencyDisplay';
@@ -184,6 +184,53 @@ const getTransportTypeBadge = (transportType: string | null | undefined) => {
   );
 };
 
+// 获取付款状态徽章
+const getPaymentStatusBadge = (status?: string | null) => {
+  if (!status) {
+    return <Badge variant="secondary" className="bg-gray-100 text-gray-600">未付款</Badge>;
+  }
+  
+  switch (status) {
+    case 'Paid':
+      return <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">已付款</Badge>;
+    case 'Processing':
+      return <Badge variant="default" className="bg-blue-100 text-blue-700">付款中</Badge>;
+    case 'Unpaid':
+    default:
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-600">未付款</Badge>;
+  }
+};
+
+// 获取开票状态徽章
+const getInvoiceStatusBadge = (status?: string | null) => {
+  if (!status || status === 'Uninvoiced') {
+    return <Badge variant="secondary" className="bg-gray-100 text-gray-600">未开票</Badge>;
+  }
+  
+  switch (status) {
+    case 'Invoiced':
+      return <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">已开票</Badge>;
+    case 'Processing':
+      return <Badge variant="default" className="bg-blue-100 text-blue-700">开票中</Badge>;
+    default:
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-600">未开票</Badge>;
+  }
+};
+
+// 获取收款状态徽章
+const getReceiptStatusBadge = (status?: string | null) => {
+  if (!status || status === 'Unreceived') {
+    return <Badge variant="secondary" className="bg-gray-100 text-gray-600">未收款</Badge>;
+  }
+  
+  switch (status) {
+    case 'Received':
+      return <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300">已收款</Badge>;
+    default:
+      return <Badge variant="secondary" className="bg-gray-100 text-gray-600">未收款</Badge>;
+  }
+};
+
 export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDialogProps) {
   const [scaleRecords, setScaleRecords] = useState<ScaleRecord[]>([]);
   const [loadingScaleRecords, setLoadingScaleRecords] = useState(false);
@@ -240,20 +287,38 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                 <div className="text-sm font-normal text-gray-600">{record.auto_number}</div>
               </div>
             </div>
-            {scaleRecords.length > 0 && (
-              <Button
-                onClick={handleShowScaleImages}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <FileImage className="h-4 w-4" />
-                查看磅单
-                <Badge variant="secondary" className="ml-1">
-                  {scaleRecords.reduce((total, record) => total + (record.image_urls?.length || 0), 0)}
-                </Badge>
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              {/* 状态徽章 */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5" title="付款状态">
+                  <CreditCard className="h-4 w-4 text-gray-500" />
+                  {getPaymentStatusBadge(record.payment_status)}
+                </div>
+                <div className="flex items-center gap-1.5" title="开票状态">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  {getInvoiceStatusBadge(record.invoice_status)}
+                </div>
+                <div className="flex items-center gap-1.5" title="收款状态">
+                  <Receipt className="h-4 w-4 text-gray-500" />
+                  {getReceiptStatusBadge(record.receipt_status)}
+                </div>
+              </div>
+              {/* 查看磅单按钮 */}
+              {scaleRecords.length > 0 && (
+                <Button
+                  onClick={handleShowScaleImages}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <FileImage className="h-4 w-4" />
+                  查看磅单
+                  <Badge variant="secondary" className="ml-1">
+                    {scaleRecords.reduce((total, record) => total + (record.image_urls?.length || 0), 0)}
+                  </Badge>
+                </Button>
+              )}
+            </div>
           </DialogTitle>
         </DialogHeader>
         

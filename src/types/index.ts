@@ -87,6 +87,8 @@ export interface LogisticsRecord {
   created_by_user_id: string;
   billing_type_id?: number;
   payment_status?: 'Unpaid' | 'Processing' | 'Paid';
+  invoice_status?: 'Uninvoiced' | 'Processing' | 'Invoiced' | null;
+  receipt_status?: 'Unreceived' | 'Received' | null;
   cargo_type?: string;
   loading_location_ids?: string[];
   unloading_location_ids?: string[];
