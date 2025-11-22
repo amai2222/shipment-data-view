@@ -23,6 +23,7 @@ interface DriverPhotoUploadProps {
   licensePlate: string;
   existingPhotos?: DriverPhotos;
   onChange: (photos: DriverPhotos) => void;
+  driverId?: string; // 如果提供了driverId，上传后立即保存到数据库
 }
 
 type PhotoType = 'id_card' | 'driver_license' | 'qualification_certificate';
@@ -59,7 +60,8 @@ export function DriverPhotoUpload({
   driverName, 
   licensePlate, 
   existingPhotos,
-  onChange 
+  onChange,
+  driverId 
 }: DriverPhotoUploadProps) {
   const { toast } = useToast();
   const [photos, setPhotos] = useState<DriverPhotos>(existingPhotos || {
@@ -167,6 +169,23 @@ export function DriverPhotoUpload({
       setPhotos(newPhotos);
       onChange(newPhotos);
 
+      // 如果提供了driverId，立即保存到数据库
+      if (driverId) {
+        const { error: updateError } = await supabase
+          .from('drivers')
+          .update({
+            id_card_photos: newPhotos.id_card_photos,
+            driver_license_photos: newPhotos.driver_license_photos,
+            qualification_certificate_photos: newPhotos.qualification_certificate_photos
+          })
+          .eq('id', driverId);
+
+        if (updateError) {
+          console.error('保存照片到数据库失败:', updateError);
+          throw new Error('照片上传成功，但保存失败，请点击"更新司机信息"重试');
+        }
+      }
+
       // 清空已选文件
       setSelectedFiles(prev => ({
         ...prev,
@@ -175,7 +194,7 @@ export function DriverPhotoUpload({
 
       toast({
         title: "上传成功",
-        description: `${config.label}照片已上传`,
+        description: driverId ? `${config.label}照片已上传并保存` : `${config.label}照片已上传`,
       });
 
     } catch (error: any) {
@@ -191,7 +210,7 @@ export function DriverPhotoUpload({
   };
 
   // 删除照片
-  const handleDeletePhoto = (type: PhotoType, index: number) => {
+  const handleDeletePhoto = async (type: PhotoType, index: number) => {
     const config = PHOTO_TYPES[type];
     const newPhotos = {
       ...photos,
@@ -199,6 +218,38 @@ export function DriverPhotoUpload({
     };
     setPhotos(newPhotos);
     onChange(newPhotos);
+
+    // 如果提供了driverId，立即保存到数据库
+    if (driverId) {
+      try {
+        const { error: updateError } = await supabase
+          .from('drivers')
+          .update({
+            id_card_photos: newPhotos.id_card_photos,
+            driver_license_photos: newPhotos.driver_license_photos,
+            qualification_certificate_photos: newPhotos.qualification_certificate_photos
+          })
+          .eq('id', driverId);
+
+        if (updateError) {
+          console.error('删除照片失败:', updateError);
+          toast({
+            title: "删除失败",
+            description: "照片删除失败，请稍后重试",
+            variant: "destructive"
+          });
+          return;
+        }
+      } catch (error: any) {
+        console.error('删除照片失败:', error);
+        toast({
+          title: "删除失败",
+          description: error.message || "照片删除失败",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
 
     toast({
       title: "删除成功",
@@ -356,7 +407,12 @@ export function DriverPhotoUpload({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">司机证件照片</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold">司机证件照片</h3>
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            {driverName}
+          </Badge>
+        </div>
         <Badge variant="outline">
           共 {photos.id_card_photos.length + photos.driver_license_photos.length + photos.qualification_certificate_photos.length} 张照片
         </Badge>

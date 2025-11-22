@@ -22,6 +22,7 @@ interface VehiclePhotoUploadProps {
   licensePlate: string;
   existingPhotos?: VehiclePhotos;
   onChange: (photos: VehiclePhotos) => void;
+  driverId?: string; // 如果提供了driverId，上传后立即保存到数据库
 }
 
 type PhotoType = 'driving_license' | 'transport_license';
@@ -52,7 +53,8 @@ export function VehiclePhotoUpload({
   driverName, 
   licensePlate, 
   existingPhotos = { driving_license_photos: [], transport_license_photos: [] },
-  onChange 
+  onChange,
+  driverId 
 }: VehiclePhotoUploadProps) {
   const [photos, setPhotos] = useState<VehiclePhotos>(existingPhotos);
   const [selectedFiles, setSelectedFiles] = useState<Record<PhotoType, File[]>>({
@@ -157,6 +159,22 @@ export function VehiclePhotoUpload({
       setPhotos(newPhotos);
       onChange(newPhotos);
 
+      // 如果提供了driverId，立即保存到数据库
+      if (driverId) {
+        const { error: updateError } = await supabase
+          .from('drivers')
+          .update({
+            driving_license_photos: newPhotos.driving_license_photos,
+            transport_license_photos: newPhotos.transport_license_photos
+          })
+          .eq('id', driverId);
+
+        if (updateError) {
+          console.error('保存照片到数据库失败:', updateError);
+          throw new Error('照片上传成功，但保存失败，请点击"更新司机信息"重试');
+        }
+      }
+
       // 清空已选择的文件
       setSelectedFiles(prev => ({
         ...prev,
@@ -165,7 +183,7 @@ export function VehiclePhotoUpload({
 
       toast({
         title: "上传成功",
-        description: `已成功上传${files.length}张${config.label}照片`,
+        description: driverId ? `已成功上传${files.length}张${config.label}照片并保存` : `已成功上传${files.length}张${config.label}照片`,
       });
 
     } catch (error: any) {
@@ -181,7 +199,7 @@ export function VehiclePhotoUpload({
   };
 
   // 删除照片
-  const removePhoto = (type: PhotoType, index: number) => {
+  const removePhoto = async (type: PhotoType, index: number) => {
     const config = PHOTO_TYPES[type];
     const newPhotos = {
       ...photos,
@@ -189,6 +207,41 @@ export function VehiclePhotoUpload({
     };
     setPhotos(newPhotos);
     onChange(newPhotos);
+
+    // 如果提供了driverId，立即保存到数据库
+    if (driverId) {
+      try {
+        const { error: updateError } = await supabase
+          .from('drivers')
+          .update({
+            driving_license_photos: newPhotos.driving_license_photos,
+            transport_license_photos: newPhotos.transport_license_photos
+          })
+          .eq('id', driverId);
+
+        if (updateError) {
+          console.error('删除照片失败:', updateError);
+          toast({
+            title: "删除失败",
+            description: "照片删除失败，请稍后重试",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        toast({
+          title: "删除成功",
+          description: `${config.label}照片已删除`,
+        });
+      } catch (error: any) {
+        console.error('删除照片失败:', error);
+        toast({
+          title: "删除失败",
+          description: error.message || "照片删除失败",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   // 删除选中的文件
@@ -206,9 +259,14 @@ export function VehiclePhotoUpload({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Truck className="h-5 w-5 text-orange-600" />
-        <h3 className="text-lg font-medium">车辆证件照片</h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <Truck className="h-5 w-5 text-orange-600" />
+          <h3 className="text-lg font-medium">车辆证件照片</h3>
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+            {licensePlate}
+          </Badge>
+        </div>
       </div>
 
       {Object.entries(PHOTO_TYPES).map(([type, config]) => (
@@ -263,48 +321,47 @@ export function VehiclePhotoUpload({
 
             {/* 选中的文件 */}
             {selectedFiles[type as PhotoType].length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">待上传文件</Label>
-                <div className="space-y-2">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">待上传照片</Label>
+                <div className="grid grid-cols-2 gap-2">
                   {selectedFiles[type as PhotoType].map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-2">
+                    <div key={index} className="relative bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
                         <FileImage className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm">{file.name}</span>
-                        <span className="text-xs text-gray-500">
-                          ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => uploadToQiniu(type as PhotoType)}
-                          disabled={uploading[type as PhotoType]}
-                        >
-                          {uploading[type as PhotoType] ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              上传中
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-3 w-3 mr-1" />
-                              上传
-                            </>
-                          )}
-                        </Button>
+                        <span className="text-sm truncate flex-1">{file.name}</span>
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-6 w-6 p-0"
                           onClick={() => removeSelectedFile(type as PhotoType, index)}
                         >
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
+                      <span className="text-xs text-gray-500">
+                        {(file.size / 1024).toFixed(1)} KB
+                      </span>
                     </div>
                   ))}
                 </div>
+                <Button
+                  onClick={() => uploadToQiniu(type as PhotoType)}
+                  disabled={uploading[type as PhotoType]}
+                  className="w-full"
+                  size="sm"
+                >
+                  {uploading[type as PhotoType] ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      上传中...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      上传 {selectedFiles[type as PhotoType].length} 张照片
+                    </>
+                  )}
+                </Button>
               </div>
             )}
 

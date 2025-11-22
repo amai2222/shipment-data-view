@@ -600,6 +600,7 @@ export default function Drivers() {
                       licensePlate={formData.licensePlate || '未知车牌'}
                       existingPhotos={driverPhotos}
                       onChange={setDriverPhotos}
+                      driverId={editingDriver?.id}
                     />
                     <div className="flex justify-end space-x-2 pt-4 border-t">
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>关闭</Button>
@@ -618,6 +619,7 @@ export default function Drivers() {
                       licensePlate={formData.licensePlate || '未知车牌'}
                       existingPhotos={vehiclePhotos}
                       onChange={setVehiclePhotos}
+                      driverId={editingDriver?.id}
                     />
                     <div className="flex justify-end space-x-2 pt-4 border-t">
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>关闭</Button>
