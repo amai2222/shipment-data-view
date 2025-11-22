@@ -192,11 +192,27 @@ export class SupabaseStorage {
   }
 
   // 司机相关
-  static async getDrivers(filter: string, page: number, pageSize: number): Promise<{ drivers: Driver[], totalCount: number }> {
+  static async getDrivers(
+    filter: string, 
+    page: number, 
+    pageSize: number,
+    filters?: {
+      projectId?: string | null;
+      photoStatus?: string | null;
+      driverNames?: string | null;
+      licensePlates?: string | null;
+      phoneNumbers?: string | null;
+    }
+  ): Promise<{ drivers: Driver[], totalCount: number }> {
     const { data, error } = await supabase.rpc('get_drivers_paginated_1122', {
       p_page_number: page,
       p_page_size: pageSize,
-      p_search_text: filter,
+      p_search_text: filter || '',
+      p_project_id: filters?.projectId || null,
+      p_photo_status: filters?.photoStatus || null,
+      p_driver_names: filters?.driverNames || null,
+      p_license_plates: filters?.licensePlates || null,
+      p_phone_numbers: filters?.phoneNumbers || null,
     });
 
     if (error) {
@@ -217,6 +233,7 @@ export class SupabaseStorage {
           qualification_certificate_photos: d.qualification_certificate_photos || [],
           driving_license_photos: d.driving_license_photos || [],
           transport_license_photos: d.transport_license_photos || [],
+          photoStatus: d.photo_status, // 新增：照片状态
           createdAt: d.created_at
         })),
         totalCount: data[0].total_records || 0,

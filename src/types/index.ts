@@ -28,6 +28,7 @@ export interface Driver {
   qualification_certificate_photos?: string[]; // 从业资格证照片URL数组
   driving_license_photos?: string[]; // 行驶证照片URL数组
   transport_license_photos?: string[]; // 道路运输许可证照片URL数组
+  photoStatus?: string; // 照片状态：'complete'完整, 'incomplete'不完整
   createdAt: string;
 }
 

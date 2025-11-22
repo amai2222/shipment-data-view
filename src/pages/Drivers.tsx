@@ -21,6 +21,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { Badge } from "@/components/ui/badge";
 import { DriverPhotoUpload, DriverPhotos } from "@/components/DriverPhotoUpload";
 import { VehiclePhotoUpload, VehiclePhotos } from "@/components/VehiclePhotoUpload";
+import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
+import { BatchInputDialog } from "@/components/ui/BatchInputDialog";
 
 export default function Drivers() {
   const { toast } = useToast();
@@ -29,8 +31,22 @@ export default function Drivers() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [quickFilter, setQuickFilter] = useState("");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  
+  // 新增筛选状态
+  const [selectedShipperId, setSelectedShipperId] = useState('all');
+  const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [availableProjects, setAvailableProjects] = useState<Array<{id: string, name: string}>>([]);
+  const [photoStatus, setPhotoStatus] = useState<string>('all'); // 'all', 'complete', 'incomplete'
+  const [advancedFilters, setAdvancedFilters] = useState({
+    driverNames: '',
+    licensePlates: '',
+    phoneNumbers: '',
+  });
+  const [batchDialog, setBatchDialog] = useState<{
+    isOpen: boolean;
+    type: 'driver' | 'license' | 'phone' | null;
+  }>({ isOpen: false, type: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -62,22 +78,30 @@ export default function Drivers() {
   const [associatePreview, setAssociatePreview] = useState<any>(null);
   const [isAssociating, setIsAssociating] = useState(false);
 
-  // 客户端筛选驱动列表
-  const filteredDrivers = useMemo(() => {
-    if (projectFilter === "all") {
-      return drivers;
-    }
-    return drivers.filter(driver => 
-      driver.projectIds && driver.projectIds.includes(projectFilter)
-    );
-  }, [drivers, projectFilter]);
+  // 计算活跃筛选器数量
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (quickFilter) count++;
+    if (selectedShipperId !== 'all') count++;
+    if (selectedProjectId !== 'all') count++;
+    if (photoStatus !== 'all') count++;
+    if (advancedFilters.driverNames) count++;
+    if (advancedFilters.licensePlates) count++;
+    if (advancedFilters.phoneNumbers) count++;
+    return count;
+  }, [quickFilter, selectedShipperId, selectedProjectId, photoStatus, advancedFilters]);
 
   const clearFilters = () => {
     setQuickFilter("");
-    setProjectFilter("all");
+    setSelectedShipperId('all');
+    setSelectedProjectId('all');
+    setPhotoStatus('all');
+    setAdvancedFilters({
+      driverNames: '',
+      licensePlates: '',
+      phoneNumbers: '',
+    });
   };
-
-  const activeFiltersCount = (quickFilter ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
   const loadData = useCallback(async (page: number, filter: string, currentPageSize: number = pageSize) => {
     setIsLoading(true);
@@ -93,9 +117,40 @@ export default function Drivers() {
         }
       }
       
+      // 准备筛选参数
+      let projectIdParam: string | null = null;
+      
+      // 如果只选择了项目（没有选择货主），直接使用项目ID
+      if (selectedProjectId && selectedProjectId !== 'all' && (!selectedShipperId || selectedShipperId === 'all')) {
+        projectIdParam = selectedProjectId;
+      }
+      // 如果选择了货主
+      else if (selectedShipperId && selectedShipperId !== 'all') {
+        if (selectedProjectId === 'all' && availableProjects.length > 0) {
+          // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
+          projectIdParam = availableProjects.map(p => p.id).join(',');
+        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          // 选择具体项目时，传递该项目ID
+          projectIdParam = selectedProjectId;
+        }
+      }
+      
+      const photoStatusParam = photoStatus === 'all' ? null : photoStatus;
+      
       // 尝试使用RPC函数加载司机数据
       try {
-        const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(filter, page, currentPageSize);
+        const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(
+          filter, 
+          page, 
+          currentPageSize,
+          {
+            projectId: projectIdParam,
+            photoStatus: photoStatusParam,
+            driverNames: advancedFilters.driverNames || null,
+            licensePlates: advancedFilters.licensePlates || null,
+            phoneNumbers: advancedFilters.phoneNumbers || null,
+          }
+        );
         
         setDrivers(loadedDrivers || []);
         setTotalCount(loadedTotalCount);
@@ -168,7 +223,7 @@ export default function Drivers() {
     } finally {
       setIsLoading(false);
     }
-  }, [projects.length, toast, pageSize]);
+  }, [projects.length, toast, pageSize, selectedShipperId, selectedProjectId, availableProjects, photoStatus, advancedFilters]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -178,7 +233,7 @@ export default function Drivers() {
     return () => {
       clearTimeout(handler);
     };
-  }, [quickFilter, loadData]);
+  }, [quickFilter, selectedShipperId, selectedProjectId, photoStatus, advancedFilters, loadData]);
 
   useEffect(() => {
     loadData(1, "");
@@ -671,38 +726,121 @@ export default function Drivers() {
               </Button>
 
               {activeFiltersCount > 0 && (
-                <>
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    <X className="h-4 w-4 mr-1" />
-                    清除筛选
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    显示 {filteredDrivers.length} / {drivers.length} 条
-                  </span>
-                </>
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-1" />
+                  清除筛选
+                </Button>
               )}
             </div>
 
             {/* 筛选选项 */}
             {showFilters && (
               <Card className="bg-blue-50/30 border-blue-200 rounded-lg">
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>按项目筛选</Label>
-                      <Select value={projectFilter} onValueChange={setProjectFilter}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">全部项目</SelectItem>
-                          {projects.map(project => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <CardContent className="pt-4 space-y-4">
+                  {/* 货主项目级联筛选 */}
+                  <div className="space-y-2">
+                    <Label>货主-项目</Label>
+                    <ShipperProjectCascadeFilter
+                      selectedShipperId={selectedShipperId}
+                      selectedProjectId={selectedProjectId}
+                      onShipperChange={(id) => {
+                        setSelectedShipperId(id);
+                        setSelectedProjectId('all');
+                        setAvailableProjects([]);
+                      }}
+                      onProjectChange={(id) => {
+                        setSelectedProjectId(id);
+                      }}
+                      onProjectsChange={(projects) => {
+                        setAvailableProjects(projects);
+                      }}
+                    />
+                  </div>
+
+                  {/* 照片状态筛选 */}
+                  <div className="space-y-2">
+                    <Label>照片状态</Label>
+                    <Select value={photoStatus} onValueChange={setPhotoStatus}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部</SelectItem>
+                        <SelectItem value="has">有照片</SelectItem>
+                        <SelectItem value="none">没有照片</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 高级筛选：司机姓名、车牌、电话 */}
+                  <div className="space-y-3 pt-2 border-t">
+                    <Label className="text-sm font-semibold">高级筛选</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* 司机姓名 */}
+                      <div className="space-y-2">
+                        <Label htmlFor="driverName" className="text-sm">司机姓名</Label>
+                        <div className="relative">
+                          <Input
+                            id="driverName"
+                            placeholder="多个用逗号/空格分隔..."
+                            value={advancedFilters.driverNames}
+                            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, driverNames: e.target.value }))}
+                            className="pr-8"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                            onClick={() => setBatchDialog({ isOpen: true, type: 'driver' })}
+                          >
+                            <span className="text-lg">+</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 车牌号 */}
+                      <div className="space-y-2">
+                        <Label htmlFor="licensePlate" className="text-sm">车牌号</Label>
+                        <div className="relative">
+                          <Input
+                            id="licensePlate"
+                            placeholder="多个用逗号/空格分隔..."
+                            value={advancedFilters.licensePlates}
+                            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, licensePlates: e.target.value }))}
+                            className="pr-8"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                            onClick={() => setBatchDialog({ isOpen: true, type: 'license' })}
+                          >
+                            <span className="text-lg">+</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 电话 */}
+                      <div className="space-y-2">
+                        <Label htmlFor="phoneNumber" className="text-sm">电话</Label>
+                        <div className="relative">
+                          <Input
+                            id="phoneNumber"
+                            placeholder="多个用逗号/空格分隔..."
+                            value={advancedFilters.phoneNumbers}
+                            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, phoneNumbers: e.target.value }))}
+                            className="pr-8"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                            onClick={() => setBatchDialog({ isOpen: true, type: 'phone' })}
+                          >
+                            <span className="text-lg">+</span>
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -746,6 +884,7 @@ export default function Drivers() {
                    <TableHead>车牌号</TableHead>
                    <TableHead>司机电话</TableHead>
                    <TableHead>关联项目</TableHead>
+                   <TableHead>照片状态</TableHead>
                    <TableHead>创建时间</TableHead>
                    <TableHead>操作</TableHead>
                 </TableRow>
@@ -753,15 +892,15 @@ export default function Drivers() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={isBatchSelecting ? 7 : 6} className="text-center py-8">
+                    <TableCell colSpan={isBatchSelecting ? 8 : 7} className="text-center py-8">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
                         正在加载数据...
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : filteredDrivers.length > 0 ? (
-                  filteredDrivers.map((driver) => (
+                ) : drivers.length > 0 ? (
+                  drivers.map((driver) => (
                     <TableRow 
                       key={driver.id}
                       data-state={selectedDrivers.includes(driver.id) && "selected"}
@@ -798,6 +937,13 @@ export default function Drivers() {
                           '未关联特定项目'
                         }
                       </TableCell>
+                      <TableCell>
+                        {driver.photoStatus === 'has' ? (
+                          <Badge variant="default" className="bg-green-500">有</Badge>
+                        ) : (
+                          <Badge variant="secondary">没有</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
@@ -827,7 +973,7 @@ export default function Drivers() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={isBatchSelecting ? 7 : 6} className="h-24 text-center">
+                    <TableCell colSpan={isBatchSelecting ? 8 : 7} className="h-24 text-center">
                       <Truck className="mx-auto h-12 w-12 text-muted-foreground" />
                       <p className="mt-2 text-muted-foreground">
                         {activeFiltersCount > 0 ? '当前筛选条件下无数据' : '暂无司机数据'}
@@ -1017,6 +1163,39 @@ export default function Drivers() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 批量输入对话框 */}
+      <BatchInputDialog
+        isOpen={batchDialog.isOpen}
+        onClose={() => setBatchDialog({ isOpen: false, type: null })}
+        onConfirm={(values) => {
+          const value = values.join(',');
+          const type = batchDialog.type;
+          if (type === 'driver') {
+            setAdvancedFilters(prev => ({ ...prev, driverNames: value }));
+          } else if (type === 'license') {
+            setAdvancedFilters(prev => ({ ...prev, licensePlates: value }));
+          } else if (type === 'phone') {
+            setAdvancedFilters(prev => ({ ...prev, phoneNumbers: value }));
+          }
+        }}
+        title={
+          batchDialog.type === 'driver' ? '批量输入司机姓名' :
+          batchDialog.type === 'license' ? '批量输入车牌号' :
+          batchDialog.type === 'phone' ? '批量输入电话号码' : ''
+        }
+        description={
+          batchDialog.type === 'driver' ? '支持批量输入多个司机姓名' :
+          batchDialog.type === 'license' ? '支持批量输入多个车牌号' :
+          batchDialog.type === 'phone' ? '支持批量输入多个电话号码' : ''
+        }
+        placeholder="请粘贴内容，用换行或逗号分隔..."
+        initialValue={
+          batchDialog.type === 'driver' ? advancedFilters.driverNames.split(',').filter(v => v.trim()) :
+          batchDialog.type === 'license' ? advancedFilters.licensePlates.split(',').filter(v => v.trim()) :
+          batchDialog.type === 'phone' ? advancedFilters.phoneNumbers.split(',').filter(v => v.trim()) : []
+        }
+      />
       </div>
     </div>
   );
