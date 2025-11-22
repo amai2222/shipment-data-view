@@ -946,7 +946,13 @@ export default function FinanceReconciliation() {
                 }}
               />
             </div>
-            <div className="flex-none w-64 space-y-2"><Label>日期范围</Label><DateRangePicker date={dateRangeValue} setDate={handleDateChange} /></div>
+            <div className="flex-none w-64 space-y-2">
+              <Label>日期范围</Label>
+              <DateRangePicker 
+                date={dateRangeValue} 
+                setDate={handleDateChange} 
+              />
+            </div>
             <div className="flex-none w-40 space-y-2"><Label>合作方</Label><Select value={uiFilters.partnerId} onValueChange={(v) => handleFilterChange('partnerId', v)}><SelectTrigger className="h-10"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">全部</SelectItem>{allPartners.map(p => (<SelectItem key={p.id} value={p.id}>{p.name} ({p.level}级)</SelectItem>))}</SelectContent></Select></div>
             <div className="flex-none w-36 space-y-2"><Label>对账状态</Label><Select value={uiFilters.reconciliationStatus || 'all'} onValueChange={(v) => handleFilterChange('reconciliationStatus', v)}><SelectTrigger className="h-10"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">全部</SelectItem><SelectItem value="Unreconciled">未对账</SelectItem><SelectItem value="Reconciled">已对账</SelectItem><SelectItem value="Exception">异常</SelectItem></SelectContent></Select></div>
             <Button onClick={handleSearch} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"><Search className="mr-2 h-4 w-4"/>搜索</Button>

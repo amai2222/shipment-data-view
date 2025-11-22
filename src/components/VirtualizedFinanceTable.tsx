@@ -162,6 +162,16 @@ const VirtualRow = memo(({
         {record.project_name}
       </div>
 
+      {/* 合作链路 */}
+      <div 
+        className="flex-shrink-0 px-2 cursor-pointer truncate"
+        style={{ width: '120px' }}
+        onClick={() => onRecordClick(record)}
+        title={record.chain_name || '未设置'}
+      >
+        {record.chain_name || '-'}
+      </div>
+
       {/* 司机 */}
       <div 
         className="flex-shrink-0 px-2 cursor-pointer"
@@ -297,7 +307,7 @@ export function VirtualizedFinanceTable({
 
   // 计算表格总宽度
   const tableWidth = useMemo(() => {
-    const fixedColumnsWidth = 1290; // 固定列总宽度
+    const fixedColumnsWidth = 1328; // 固定列总宽度（包含合作链路列120px）
     const partnerColumnsWidth = displayedPartners.length * 140; // 每个合作方列 140px
     return fixedColumnsWidth + partnerColumnsWidth;
   }, [displayedPartners.length]);
@@ -341,6 +351,7 @@ export function VirtualizedFinanceTable({
           <div className="flex-shrink-0 w-12 px-2 py-3">选择</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }}>运单编号</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '150px' }}>项目</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }}>合作链路</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>司机</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>路线</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>日期</div>
