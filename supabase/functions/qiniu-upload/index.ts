@@ -1,7 +1,10 @@
 // 文件路径: supabase/functions/qiniu-upload/index.ts
-// 版本: V7 (指定存储类型为归档直读)
-// 描述: 在上传策略(putPolicy)中添加 "fileType: 4"，确保文件以“归档直读”模式存储。
-//      同时保留了 V6 版本的所有功能。
+// 版本: V9 (完整支持所有上传类型)
+// 描述: 支持所有上传类型：磅单、合同、司机费用、司机证件、车辆照片、收款回单、货主回单
+//      继续保留归档直读存储类型和所有其他功能。
+// 最后更新: 2025-11-22
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - Edge Function运行在Deno环境
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,10 +44,15 @@ serve(async (req)=>{
     });
   }
   try {
+    // @ts-expect-error - Deno环境变量
     const QINIU_ACCESS_KEY = Deno.env.get('QINIU_ACCESS_KEY');
+    // @ts-expect-error - Deno环境变量
     const QINIU_SECRET_KEY = Deno.env.get('QINIU_SECRET_KEY');
+    // @ts-expect-error - Deno环境变量
     const QINIU_BUCKET = Deno.env.get('QINIU_BUCKET');
+    // @ts-expect-error - Deno环境变量
     const QINIU_DOMAIN = Deno.env.get('QINIU_DOMAIN');
+    // @ts-expect-error - Deno环境变量
     const QINIU_UPLOAD_URL = Deno.env.get('QINIU_UPLOAD_URL');
     if (!QINIU_ACCESS_KEY || !QINIU_SECRET_KEY || !QINIU_BUCKET || !QINIU_DOMAIN || !QINIU_UPLOAD_URL) {
       throw new Error('Qiniu environment variables are not fully configured in Supabase Secrets.');
@@ -53,33 +61,74 @@ serve(async (req)=>{
     if (!files || !Array.isArray(files) || files.length === 0) {
       throw new Error('Files array is required and cannot be empty.');
     }
-    // 支持三种命名模式：磅单、合同、司机费用
+    // 支持七种命名模式：磅单、合同、司机费用、司机证件、车辆照片、收款回单、货主回单
     const isContractUpload = namingParams?.projectName === 'hetong';
     const isExpenseUpload = namingParams?.projectName === 'feiyong';
+    const isDriverPhotoUpload = namingParams?.projectName === 'driver';
+    const isTruckPhotoUpload = namingParams?.projectName === 'Truck';
+    const isInvoiceReceiptUpload = namingParams?.projectName === 'InvoiceReceipt';
+    const isShipperReceiptUpload = namingParams?.projectName === 'ShipperReceipt';
     
-    if (!isContractUpload && !isExpenseUpload && (!namingParams || !namingParams.projectName || !namingParams.date || !namingParams.licensePlate || !namingParams.tripNumber)) {
+    // 需要 customName 的上传类型
+    const customNameTypes = [
+      isContractUpload, 
+      isExpenseUpload, 
+      isDriverPhotoUpload, 
+      isTruckPhotoUpload, 
+      isInvoiceReceiptUpload, 
+      isShipperReceiptUpload
+    ];
+    const hasCustomNameType = customNameTypes.some(type => type);
+    
+    // 验证参数
+    if (!hasCustomNameType && (!namingParams || !namingParams.projectName || !namingParams.date || !namingParams.licensePlate || !namingParams.tripNumber)) {
       throw new Error('For scale records: namingParams object with projectName, date, licensePlate, and tripNumber is required.');
     }
-    if (isContractUpload && (!namingParams || !namingParams.customName)) {
-      throw new Error('For contracts: namingParams object with customName is required.');
+    if (hasCustomNameType && (!namingParams || !namingParams.customName)) {
+      const typeMap = {
+        [isContractUpload ? 'true' : 'false']: 'contracts',
+        [isExpenseUpload ? 'true' : 'false']: 'expenses',
+        [isDriverPhotoUpload ? 'true' : 'false']: 'driver photos',
+        [isTruckPhotoUpload ? 'true' : 'false']: 'truck photos',
+        [isInvoiceReceiptUpload ? 'true' : 'false']: 'invoice receipts',
+        [isShipperReceiptUpload ? 'true' : 'false']: 'shipper receipts'
+      };
+      throw new Error(`namingParams object with customName is required for this upload type.`);
     }
-    if (isExpenseUpload && (!namingParams || !namingParams.customName)) {
-      throw new Error('For expenses: namingParams object with customName is required.');
-    }
-    const uploadedUrls = [];
+    const uploadedUrls: string[] = [];
     for (const [index, file] of files.entries()){
       const { fileName, fileData } = file;
       let qiniuKey;
       if (isContractUpload) {
-        // 合同文件命名
+        // 合同文件命名 - 存储到 hetong/
         const { customName } = namingParams;
         const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
         qiniuKey = `hetong/${customName}${fileExtension}`;
       } else if (isExpenseUpload) {
-        // ✅ 司机费用凭证命名 - 存储到 other/siji/feiyong/
+        // 司机费用凭证命名 - 存储到 other/siji/feiyong/
         const { customName } = namingParams;
         const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
         qiniuKey = `other/siji/feiyong/${customName}${fileExtension}`;
+      } else if (isDriverPhotoUpload) {
+        // 司机证件照片命名 - 存储到 driver/
+        const { customName } = namingParams;
+        const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+        qiniuKey = `driver/${customName}${fileExtension}`;
+      } else if (isTruckPhotoUpload) {
+        // 车辆照片命名 - 存储到 Truck/
+        const { customName } = namingParams;
+        const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+        qiniuKey = `Truck/${customName}${fileExtension}`;
+      } else if (isInvoiceReceiptUpload) {
+        // 收款回单命名 - 存储到 receipt/invoice/
+        const { customName } = namingParams;
+        const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+        qiniuKey = `receipt/invoice/${customName}${fileExtension}`;
+      } else if (isShipperReceiptUpload) {
+        // 货主回单命名 - 存储到 receipt/shipper/
+        const { customName } = namingParams;
+        const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+        qiniuKey = `receipt/shipper/${customName}${fileExtension}`;
       } else {
         // 磅单文件命名（原有逻辑）
         const { projectName, date, licensePlate, tripNumber } = namingParams;

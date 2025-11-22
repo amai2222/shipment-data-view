@@ -193,7 +193,7 @@ export class SupabaseStorage {
 
   // 司机相关
   static async getDrivers(filter: string, page: number, pageSize: number): Promise<{ drivers: Driver[], totalCount: number }> {
-    const { data, error } = await supabase.rpc('get_drivers_paginated', {
+    const { data, error } = await supabase.rpc('get_drivers_paginated_1122', {
       p_page_number: page,
       p_page_size: pageSize,
       p_search_text: filter,
@@ -212,6 +212,11 @@ export class SupabaseStorage {
           licensePlate: d.license_plate,
           phone: d.phone,
           projectIds: d.project_ids,
+          id_card_photos: d.id_card_photos || [],
+          driver_license_photos: d.driver_license_photos || [],
+          qualification_certificate_photos: d.qualification_certificate_photos || [],
+          driving_license_photos: d.driving_license_photos || [],
+          transport_license_photos: d.transport_license_photos || [],
           createdAt: d.created_at
         })),
         totalCount: data[0].total_records || 0,
@@ -231,7 +236,12 @@ export class SupabaseStorage {
         user_id: user.id, 
         name: driver.name, 
         license_plate: driver.licensePlate, 
-        phone: driver.phone
+        phone: driver.phone,
+        id_card_photos: driver.id_card_photos || [],
+        driver_license_photos: driver.driver_license_photos || [],
+        qualification_certificate_photos: driver.qualification_certificate_photos || [],
+        driving_license_photos: driver.driving_license_photos || [],
+        transport_license_photos: driver.transport_license_photos || []
       }])
       .select().single();
 
@@ -264,7 +274,12 @@ export class SupabaseStorage {
       .update({ 
         name: updates.name, 
         license_plate: updates.licensePlate, 
-        phone: updates.phone
+        phone: updates.phone,
+        id_card_photos: updates.id_card_photos,
+        driver_license_photos: updates.driver_license_photos,
+        qualification_certificate_photos: updates.qualification_certificate_photos,
+        driving_license_photos: updates.driving_license_photos,
+        transport_license_photos: updates.transport_license_photos
       })
       .eq('id', id);
     if (error) throw error;

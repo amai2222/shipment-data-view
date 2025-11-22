@@ -108,7 +108,7 @@ export default function Drivers() {
         // 如果RPC函数失败，尝试直接查询
         const { data: directData, error: directError } = await supabase
           .from('drivers')
-          .select('id, name, license_plate, phone, created_at')
+          .select('id, name, license_plate, phone, created_at, id_card_photos, driver_license_photos, qualification_certificate_photos, driving_license_photos, transport_license_photos')
           .limit(currentPageSize)
           .range((page - 1) * currentPageSize, page * currentPageSize - 1);
         
