@@ -239,8 +239,8 @@ export default function FinanceReconciliation() {
       
       const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', {
         p_project_id: projectIdParam,
-        p_start_date: activeFilters.startDate || null,
-        p_end_date: activeFilters.endDate || null,
+        p_start_date: activeFilters.startDate && activeFilters.startDate.trim() ? activeFilters.startDate : null,
+        p_end_date: activeFilters.endDate && activeFilters.endDate.trim() ? activeFilters.endDate : null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_page_number: currentPage,
         p_page_size: pageSize,
@@ -853,8 +853,8 @@ export default function FinanceReconciliation() {
                   // 获取所有筛选条件下的运单（不分页）
                   const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', {
                     p_project_id: projectIdParam,
-                    p_start_date: activeFilters.startDate || null,
-                    p_end_date: activeFilters.endDate || null,
+                    p_start_date: activeFilters.startDate && activeFilters.startDate.trim() ? activeFilters.startDate : null,
+                    p_end_date: activeFilters.endDate && activeFilters.endDate.trim() ? activeFilters.endDate : null,
                     p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
                     p_page_number: 1,
                     p_page_size: 10000, // 获取所有数据

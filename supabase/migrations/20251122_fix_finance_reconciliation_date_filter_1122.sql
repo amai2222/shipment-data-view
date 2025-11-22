@@ -8,8 +8,8 @@
 CREATE OR REPLACE FUNCTION public.get_finance_reconciliation_by_partner_1122(
     -- 常规筛选参数
     p_project_id text DEFAULT NULL,  -- ✅ 支持逗号分隔的多个 UUID
-    p_start_date date DEFAULT NULL,
-    p_end_date date DEFAULT NULL,
+    p_start_date text DEFAULT NULL,  -- ✅ 改为 text 类型，与运单管理一致，支持空字符串
+    p_end_date text DEFAULT NULL,    -- ✅ 改为 text 类型，与运单管理一致，支持空字符串
     p_partner_id uuid DEFAULT NULL,
     
     -- 分页参数
@@ -243,5 +243,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_finance_reconciliation_by_partner_1122 IS '财务对账函数（1122版本）- 支持对账状态筛选，日期筛选使用 +08:00 时区转换（与运单管理一致）';
+COMMENT ON FUNCTION public.get_finance_reconciliation_by_partner_1122(
+    text, text, text, uuid, integer, integer, text, text, text, text, text, text
+) IS '财务对账函数（1122版本）- 支持对账状态筛选，日期筛选使用 +08:00 时区转换（与运单管理一致）';
 
