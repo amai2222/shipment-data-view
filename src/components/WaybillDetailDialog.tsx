@@ -7,6 +7,7 @@ import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Buildi
 import { LogisticsRecord } from '@/types';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { CurrencyDisplay } from '@/components/CurrencyDisplay';
+import { DriverDetailDialog } from '@/components/DriverDetailDialog';
 
 interface WaybillDetailDialogProps {
   isOpen: boolean;
@@ -184,14 +185,10 @@ const getTransportTypeBadge = (transportType: string | null | undefined) => {
 };
 
 export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDialogProps) {
-  if (!record) return null;
-
   const [scaleRecords, setScaleRecords] = useState<ScaleRecord[]>([]);
   const [loadingScaleRecords, setLoadingScaleRecords] = useState(false);
   const [showScaleImages, setShowScaleImages] = useState(false);
-
-  const loadingLocations = parseLocations(record.loading_location);
-  const unloadingLocations = parseLocations(record.unloading_location);
+  const [showDriverDetail, setShowDriverDetail] = useState(false);
 
   const loadScaleRecords = useCallback(async () => {
     if (!record?.auto_number) return;
@@ -219,11 +216,17 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
     }
   }, [isOpen, record?.auto_number, loadScaleRecords]);
 
+  if (!record) return null;
+
+  const loadingLocations = parseLocations(record.loading_location);
+  const unloadingLocations = parseLocations(record.unloading_location);
+
   const handleShowScaleImages = () => {
     setShowScaleImages(true);
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader className="border-b pb-4">
@@ -307,7 +310,13 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white p-3 rounded-lg border border-purple-100">
                 <Label className="text-xs text-purple-600 font-medium">司机姓名</Label>
-                <p className="font-semibold text-gray-800 mt-1">{record.driver_name}</p>
+                <button 
+                  onClick={() => setShowDriverDetail(true)}
+                  className="font-semibold text-gray-800 mt-1 hover:text-blue-600 hover:underline cursor-pointer flex items-center gap-1 transition-colors"
+                >
+                  {record.driver_name}
+                  <User className="h-3 w-3" />
+                </button>
               </div>
               <div className="bg-white p-3 rounded-lg border border-purple-100">
                 <Label className="text-xs text-purple-600 font-medium">车牌号</Label>
@@ -460,11 +469,18 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                       {(() => {
                         // 解析平台名称和运单号的对应关系
                         const platformNames = record.other_platform_names || [];
-                        const trackingNumbers = record.external_tracking_numbers || [];
+                        const trackingNumbers = (record.external_tracking_numbers || []) as unknown[];
                         
                         return platformNames.map((platformName, index) => {
-                          const trackingItem = trackingNumbers[index] as string | undefined;
-                          const platformTrackingNumbers: string[] = typeof trackingItem === 'string' ? trackingItem.split('|') : [];
+                          const trackingItem = trackingNumbers?.[index];
+                          let platformTrackingNumbers: string[] = [];
+                          if (typeof trackingItem === 'string') {
+                            platformTrackingNumbers = trackingItem.split('|');
+                          } else if (Array.isArray(trackingItem)) {
+                            platformTrackingNumbers = trackingItem.map(String);
+                          } else if (trackingItem) {
+                            platformTrackingNumbers = [String(trackingItem)];
+                          }
                           
                           return (
                             <div key={index} className="space-y-1">
@@ -573,5 +589,14 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
         </DialogContent>
       </Dialog>
     </Dialog>
+
+    {/* 司机详情对话框 */}
+    <DriverDetailDialog
+      isOpen={showDriverDetail}
+      onClose={() => setShowDriverDetail(false)}
+      driverName={record.driver_name}
+      licensePlate={record.license_plate}
+    />
+  </>
   );
 }
