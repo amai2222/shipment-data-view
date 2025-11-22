@@ -180,50 +180,10 @@ export default function Drivers() {
         setCurrentPage(page);
         
       } catch (rpcError: unknown) {
-        console.warn('RPC函数调用失败，尝试直接查询:', rpcError);
-        
-        // 如果RPC函数失败，尝试直接查询
-        const { data: directData, error: directError } = await supabase
-          .from('drivers')
-          .select('id, name, license_plate, phone, created_at, id_card_photos, driver_license_photos, qualification_certificate_photos, driving_license_photos, transport_license_photos')
-          .limit(currentPageSize)
-          .range((page - 1) * currentPageSize, page * currentPageSize - 1);
-        
-        if (directError) {
-          throw directError;
-        }
-        
-        // 转换数据格式
-        interface DriverDataFromDB {
-          id: string;
-          name: string;
-          license_plate: string;
-          phone: string;
-          created_at: string;
-          id_card_photos?: string[];
-          driver_license_photos?: string[];
-          qualification_certificate_photos?: string[];
-          driving_license_photos?: string[];
-          transport_license_photos?: string[];
-        }
-        const convertedDrivers = (directData || []).map((d: DriverDataFromDB) => ({
-          id: d.id,
-          name: d.name,
-          licensePlate: d.license_plate,
-          phone: d.phone,
-          projectIds: [],
-          id_card_photos: d.id_card_photos || [],
-          driver_license_photos: d.driver_license_photos || [],
-          qualification_certificate_photos: d.qualification_certificate_photos || [],
-          driving_license_photos: d.driving_license_photos || [],
-          transport_license_photos: d.transport_license_photos || [],
-          createdAt: d.created_at
-        }));
-        
-        setDrivers(convertedDrivers);
-        setTotalCount(convertedDrivers.length);
-        setTotalPages(1);
-        setCurrentPage(1);
+        console.error('RPC函数调用失败:', rpcError);
+        // 如果RPC函数失败，直接抛出错误，不要使用fallback查询
+        // 因为fallback查询无法正确处理筛选条件和项目关联
+        throw rpcError;
       }
 
     } catch (error: unknown) {

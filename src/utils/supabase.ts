@@ -222,21 +222,38 @@ export class SupabaseStorage {
     
     if (data && Array.isArray(data) && data.length > 0) {
       return {
-        drivers: data.map((d: any) => ({
-          id: d.id,
-          name: d.name,
-          licensePlate: d.license_plate,
-          phone: d.phone,
-          projectIds: d.project_ids,
-          id_card_photos: d.id_card_photos || [],
-          driver_license_photos: d.driver_license_photos || [],
-          qualification_certificate_photos: d.qualification_certificate_photos || [],
-          driving_license_photos: d.driving_license_photos || [],
-          transport_license_photos: d.transport_license_photos || [],
-          photoStatus: d.photo_status, // 新增：照片状态
-          createdAt: d.created_at
-        })),
-        totalCount: data[0].total_records || 0,
+        drivers: data.map((d: any) => {
+          // 处理project_ids：确保是数组格式
+          let projectIds: string[] = [];
+          if (d.project_ids) {
+            if (Array.isArray(d.project_ids)) {
+              projectIds = d.project_ids;
+            } else if (typeof d.project_ids === 'string') {
+              // 如果是字符串，尝试解析
+              try {
+                projectIds = JSON.parse(d.project_ids);
+              } catch {
+                projectIds = [];
+              }
+            }
+          }
+          
+          return {
+            id: d.id,
+            name: d.name,
+            licensePlate: d.license_plate,
+            phone: d.phone,
+            projectIds: projectIds,
+            id_card_photos: Array.isArray(d.id_card_photos) ? d.id_card_photos : (d.id_card_photos ? JSON.parse(d.id_card_photos) : []),
+            driver_license_photos: Array.isArray(d.driver_license_photos) ? d.driver_license_photos : (d.driver_license_photos ? JSON.parse(d.driver_license_photos) : []),
+            qualification_certificate_photos: Array.isArray(d.qualification_certificate_photos) ? d.qualification_certificate_photos : (d.qualification_certificate_photos ? JSON.parse(d.qualification_certificate_photos) : []),
+            driving_license_photos: Array.isArray(d.driving_license_photos) ? d.driving_license_photos : (d.driving_license_photos ? JSON.parse(d.driving_license_photos) : []),
+            transport_license_photos: Array.isArray(d.transport_license_photos) ? d.transport_license_photos : (d.transport_license_photos ? JSON.parse(d.transport_license_photos) : []),
+            photoStatus: d.photo_status, // 新增：照片状态
+            createdAt: d.created_at
+          };
+        }),
+        totalCount: data[0]?.total_records || 0,
       };
     }
     
