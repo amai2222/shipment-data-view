@@ -174,7 +174,7 @@ export default function Drivers() {
         setTotalPages(Math.ceil(loadedTotalCount / currentPageSize));
         setCurrentPage(page);
         
-      } catch (rpcError) {
+      } catch (rpcError: unknown) {
         console.warn('RPC函数调用失败，尝试直接查询:', rpcError);
         
         // 如果RPC函数失败，尝试直接查询
@@ -221,20 +221,21 @@ export default function Drivers() {
         setCurrentPage(1);
       }
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error loading data:', error);
       
       // 提供更详细的错误信息
       let errorMessage = "无法加载司机数据";
-      if (error?.message) {
-        if (error.message.includes('permission')) {
+      if (error && typeof error === 'object' && 'message' in error) {
+        const errorObj = error as { message: string };
+        if (errorObj.message.includes('permission')) {
           errorMessage = "权限不足，无法访问司机数据";
-        } else if (error.message.includes('function')) {
+        } else if (errorObj.message.includes('function')) {
           errorMessage = "数据库函数不存在，请联系管理员";
-        } else if (error.message.includes('connection')) {
+        } else if (errorObj.message.includes('connection')) {
           errorMessage = "数据库连接失败，请检查网络";
         } else {
-          errorMessage = `加载失败: ${error.message}`;
+          errorMessage = `加载失败: ${errorObj.message}`;
         }
       }
       
@@ -331,7 +332,8 @@ export default function Drivers() {
       await loadData(currentPage, '');
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error('保存失败:', error);
       toast({ title: "保存失败", variant: "destructive" });
     }
   };
@@ -345,7 +347,8 @@ export default function Drivers() {
         await loadData(currentPage, '');
       }
       toast({ title: "删除成功" });
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error('删除失败:', error);
       toast({ title: "删除失败", variant: "destructive" });
     }
   };
@@ -467,7 +470,7 @@ export default function Drivers() {
       const allDriverIds = allDrivers.map(driver => driver.id);
       setSelectedDrivers(allDriverIds);
       setIsSelectAll(true);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('获取所有司机失败:', error);
       toast({ title: "获取所有司机失败", variant: "destructive" });
     }
@@ -506,14 +509,14 @@ export default function Drivers() {
         throw error;
       }
 
-      setAssociatePreview(data);
+      setAssociatePreview(data as typeof associatePreview);
       setShowAssociateDialog(true);
       
       // 添加调试信息
       console.log('预览数据:', data);
-      console.log('司机数量:', data?.drivers?.length);
-      console.log('汇总信息:', data?.summary);
-    } catch (error) {
+      console.log('司机数量:', (data as typeof associatePreview)?.drivers?.length);
+      console.log('汇总信息:', (data as typeof associatePreview)?.summary);
+    } catch (error: unknown) {
       console.error('预览关联失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       toast({ 
@@ -553,7 +556,7 @@ export default function Drivers() {
       setSelectedDrivers([]);
       setIsSelectAll(false);
       setShowAssociateDialog(false);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('自动关联失败:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       toast({ 
@@ -1140,7 +1143,7 @@ export default function Drivers() {
               <div className="space-y-2">
                 <h3 className="font-medium">司机详情</h3>
                 <div className="max-h-60 overflow-y-auto border rounded-lg">
-                  {associatePreview.drivers.map((driver, index: number) => (
+                  {associatePreview.drivers.map((driver, index) => (
                     <div key={index} className="p-3 border-b last:border-b-0">
                       <div className="flex items-center justify-between">
                         <div>
