@@ -100,20 +100,20 @@ BEGIN
         -- 司机姓名筛选（支持多选，OR逻辑）
         AND (v_driver_name_array IS NULL OR 
              EXISTS (
-                 SELECT 1 FROM unnest(v_driver_name_array) AS driver_name
-                 WHERE d.name ILIKE '%' || driver_name || '%'
+                 SELECT 1 FROM unnest(v_driver_name_array) AS dn_val
+                 WHERE d.name ILIKE '%' || dn_val || '%'
              ))
         -- 车牌号筛选（支持多选，OR逻辑）
         AND (v_license_plate_array IS NULL OR 
              EXISTS (
-                 SELECT 1 FROM unnest(v_license_plate_array) AS license_plate
-                 WHERE d.license_plate ILIKE '%' || license_plate || '%'
+                 SELECT 1 FROM unnest(v_license_plate_array) AS lp_val
+                 WHERE d.license_plate ILIKE '%' || lp_val || '%'
              ))
         -- 电话筛选（支持多选，OR逻辑）
         AND (v_phone_array IS NULL OR 
              EXISTS (
-                 SELECT 1 FROM unnest(v_phone_array) AS phone
-                 WHERE d.phone ILIKE '%' || phone || '%'
+                 SELECT 1 FROM unnest(v_phone_array) AS ph_val
+                 WHERE d.phone ILIKE '%' || ph_val || '%'
              ))
         -- 照片状态筛选
         AND (
@@ -188,20 +188,20 @@ BEGIN
         -- 司机姓名筛选（支持多选，OR逻辑）
         AND (v_driver_name_array IS NULL OR 
              EXISTS (
-                 SELECT 1 FROM unnest(v_driver_name_array) AS driver_name
-                 WHERE d.name ILIKE '%' || driver_name || '%'
+                 SELECT 1 FROM unnest(v_driver_name_array) AS dn_val
+                 WHERE d.name ILIKE '%' || dn_val || '%'
              ))
         -- 车牌号筛选（支持多选，OR逻辑）
         AND (v_license_plate_array IS NULL OR 
              EXISTS (
-                 SELECT 1 FROM unnest(v_license_plate_array) AS license_plate
-                 WHERE d.license_plate ILIKE '%' || license_plate || '%'
+                 SELECT 1 FROM unnest(v_license_plate_array) AS lp_val
+                 WHERE d.license_plate ILIKE '%' || lp_val || '%'
              ))
         -- 电话筛选（支持多选，OR逻辑）
         AND (v_phone_array IS NULL OR 
              EXISTS (
-                 SELECT 1 FROM unnest(v_phone_array) AS phone
-                 WHERE d.phone ILIKE '%' || phone || '%'
+                 SELECT 1 FROM unnest(v_phone_array) AS ph_val
+                 WHERE d.phone ILIKE '%' || ph_val || '%'
              ))
         -- 照片状态筛选
         AND (
