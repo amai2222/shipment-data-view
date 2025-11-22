@@ -365,13 +365,24 @@ export default function FinanceReconciliation() {
     setActiveFilters(prev => ({ ...prev, partnerId: newPartnerId }));
   }, [activeFilters.partnerId, setUiFilters, setActiveFilters]);
   const handleDateChange = (dateRange: DateRange | undefined) => { 
+    const newStartDate = dateRange?.from ? formatChinaDateString(dateRange.from) : '';
+    const newEndDate = dateRange?.to ? formatChinaDateString(dateRange.to) : '';
+    
+    // 更新UI筛选器
     setUiFilters(prev => ({ 
       ...prev, 
       // 存储中国时区的日期字符串（用于显示）
       // 在查询时会转换为UTC日期字符串
-      startDate: dateRange?.from ? formatChinaDateString(dateRange.from) : '', 
-      endDate: dateRange?.to ? formatChinaDateString(dateRange.to) : '' 
-    })); 
+      startDate: newStartDate, 
+      endDate: newEndDate
+    }));
+    
+    // ✅ 日期变化时自动更新activeFilters并触发搜索
+    setActiveFilters(prev => ({
+      ...prev,
+      startDate: newStartDate,
+      endDate: newEndDate
+    }));
   };
 
   // 批量输入对话框处理
