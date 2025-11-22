@@ -133,7 +133,7 @@ export default function PaymentInvoiceDetail() {
       setRequestData(requestData);
 
       // Get the logistics records data for this request
-      const { data: recordsData, error: recordsError } = await supabase.rpc('get_payment_request_data_v2', {
+      const { data: recordsData, error: recordsError } = await supabase.rpc('get_payment_request_data_v2_1122', {
         p_record_ids: requestData.logistics_record_ids,
       });
 

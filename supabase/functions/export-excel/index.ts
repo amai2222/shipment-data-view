@@ -90,10 +90,10 @@ serve(async (req)=>{
       }>;
     }
     
-    const { data: v2Data, error: rpcError } = await userClient.rpc<PaymentRequestDataV2>('get_payment_request_data_v2', {
+    const { data: v2Data, error: rpcError } = await userClient.rpc<PaymentRequestDataV2>('get_payment_request_data_v2_1122', {
       p_record_ids: ids,
     });
-    if (rpcError) throw new Error(`RPC get_payment_request_data_v2 failed: ${(rpcError instanceof Error ? rpcError.message : String(rpcError))}`);
+    if (rpcError) throw new Error(`RPC get_payment_request_data_v2_1122 failed: ${(rpcError instanceof Error ? rpcError.message : String(rpcError))}`);
     const records = Array.isArray(v2Data?.records) ? v2Data.records : [];
 
     interface SheetData {

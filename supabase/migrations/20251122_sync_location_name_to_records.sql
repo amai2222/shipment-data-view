@@ -19,34 +19,74 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
 DECLARE
-    v_updated_count INTEGER;
+    v_updated_loading_count INTEGER := 0;
+    v_updated_unloading_count INTEGER := 0;
 BEGIN
+    -- ============================================================
+    -- 触发逻辑说明：
+    -- 1. 当 locations 表的 name 字段更新时，触发器自动执行
+    -- 2. 使用 OLD.name（旧名称）来查找所有使用该名称的运单
+    -- 3. 通过 WHERE TRIM(loading_location) = TRIM(OLD.name) 完全精确匹配
+    -- 4. ✅ 完全匹配：使用 = 操作符，不能多也不能少
+    -- 5. ✅ 去除空格：使用 TRIM() 处理前后空格，确保精确匹配
+    -- 6. 将匹配到的运单的地点名称更新为 TRIM(NEW.name)（新名称，去除空格）
+    -- ============================================================
+    
     -- 只有当地点名称发生变化时才执行同步
     IF OLD.name IS DISTINCT FROM NEW.name THEN
         
-        RAISE NOTICE '地点名称变更: "%" → "%"', OLD.name, NEW.name;
+        RAISE NOTICE '========================================';
+        RAISE NOTICE '地点名称变更触发同步';
+        RAISE NOTICE '  地点ID: %', NEW.id;
+        RAISE NOTICE '  旧名称: "%"', OLD.name;
+        RAISE NOTICE '  新名称: "%"', NEW.name;
+        RAISE NOTICE '========================================';
         
-        -- 更新所有使用该地点的运单记录（装货地点）
+        -- ============================================================
+        -- 步骤1：更新装货地点
+        -- ============================================================
+        -- 查找逻辑：通过 OLD.name 完全精确匹配 logistics_records.loading_location 字段
+        -- ✅ 使用 TRIM() 确保完全匹配，不受前后空格影响
+        -- ✅ 使用 = 操作符确保完全匹配，不能多也不能少
         UPDATE public.logistics_records
-        SET loading_location = NEW.name,
+        SET loading_location = TRIM(NEW.name),  -- 确保新名称也没有空格
             updated_at = NOW()
-        WHERE loading_location = OLD.name
-          AND loading_location != NEW.name;  -- 只更新名称不一致的记录
+        WHERE TRIM(loading_location) = TRIM(OLD.name)  -- ✅ 完全精确匹配：去除空格后完全相等
+          AND TRIM(loading_location) != TRIM(NEW.name);  -- 避免重复更新
         
-        GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+        GET DIAGNOSTICS v_updated_loading_count = ROW_COUNT;
         
-        RAISE NOTICE '已同步更新 % 条运单记录的装货地点', v_updated_count;
+        IF v_updated_loading_count > 0 THEN
+            RAISE NOTICE '✅ 已同步更新 % 条运单记录的装货地点（从 "%" 更新为 "%"）', 
+                v_updated_loading_count, OLD.name, NEW.name;
+        END IF;
         
-        -- 更新所有使用该地点的运单记录（卸货地点）
+        -- ============================================================
+        -- 步骤2：更新卸货地点
+        -- ============================================================
+        -- 查找逻辑：通过 OLD.name 完全精确匹配 logistics_records.unloading_location 字段
+        -- ✅ 使用 TRIM() 确保完全匹配，不受前后空格影响
+        -- ✅ 使用 = 操作符确保完全匹配，不能多也不能少
         UPDATE public.logistics_records
-        SET unloading_location = NEW.name,
+        SET unloading_location = TRIM(NEW.name),  -- 确保新名称也没有空格
             updated_at = NOW()
-        WHERE unloading_location = OLD.name
-          AND unloading_location != NEW.name;  -- 只更新名称不一致的记录
+        WHERE TRIM(unloading_location) = TRIM(OLD.name)  -- ✅ 完全精确匹配：去除空格后完全相等
+          AND TRIM(unloading_location) != TRIM(NEW.name);  -- 避免重复更新
         
-        GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+        GET DIAGNOSTICS v_updated_unloading_count = ROW_COUNT;
         
-        RAISE NOTICE '已同步更新 % 条运单记录的卸货地点', v_updated_count;
+        IF v_updated_unloading_count > 0 THEN
+            RAISE NOTICE '✅ 已同步更新 % 条运单记录的卸货地点（从 "%" 更新为 "%"）', 
+                v_updated_unloading_count, OLD.name, NEW.name;
+        END IF;
+        
+        -- ============================================================
+        -- 总结
+        -- ============================================================
+        RAISE NOTICE '========================================';
+        RAISE NOTICE '同步完成：装货地点 % 条，卸货地点 % 条', 
+            v_updated_loading_count, v_updated_unloading_count;
+        RAISE NOTICE '========================================';
     END IF;
     
     RETURN NEW;

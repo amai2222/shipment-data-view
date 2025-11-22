@@ -45,6 +45,7 @@ import { BatchInputDialog } from '@/pages/BusinessEntry/components/BatchInputDia
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 import { LogisticsRecord, PlatformTracking } from '@/types';
 import { RouteDisplay } from '@/components/RouteDisplay';
+import { formatQuantityByBillingType } from '@/utils/formatters';
 
 // --- 类型定义 ---
 interface PaymentRequest {
@@ -168,7 +169,7 @@ export default function PaymentRequestsList() {
         requestsData.map(async (item) => {
           try {
             // 获取申请单的详细数据
-            const { data: detailData } = await supabase.rpc('get_payment_request_data_v2', {
+            const { data: detailData } = await supabase.rpc('get_payment_request_data_v2_1122', {
               p_record_ids: item.logistics_record_ids
             });
             
@@ -580,7 +581,7 @@ export default function PaymentRequestsList() {
       setExportingId(req.id);
       
       // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
-      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2', {
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
         p_record_ids: req.logistics_record_ids
       });
 
@@ -854,7 +855,7 @@ export default function PaymentRequestsList() {
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机电话</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">车牌号</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">吨位</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;" id="quantity-header">数量</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机运费</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">承运人运费</th>
                     <th colspan="4" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">收款人信息</th>
@@ -868,12 +869,18 @@ export default function PaymentRequestsList() {
                 </thead>
                 <tbody>
                   ${sorted.map((item: unknown, index: number) => {
-                    const itemData = item as { record: { unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; payable_cost?: number; payable_amount?: number }; payable_amount?: number };
+                    const itemData = item as { record: { unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; unloading_weight?: number; billing_type_id?: number; payable_cost?: number; payable_amount?: number }; payable_amount?: number };
                     const rec = itemData.record;
                     let finalUnloadingDate = rec.unloading_date;
                     if (!finalUnloadingDate) {
                       finalUnloadingDate = rec.loading_date;
                     }
+                    // 根据billing_type_id格式化数量显示
+                    const quantityDisplay = formatQuantityByBillingType(
+                      rec.billing_type_id,
+                      rec.loading_weight,
+                      rec.unloading_weight
+                    );
                     return `
                       <tr class="data-row">
                         <td class="serial-number">${index + 1}</td>
@@ -885,7 +892,7 @@ export default function PaymentRequestsList() {
                         <td>${rec.driver_name || ''}</td>
                         <td>${rec.driver_phone || ''}</td>
                         <td>${rec.license_plate || ''}</td>
-                        <td>${rec.loading_weight || ''}</td>
+                        <td>${quantityDisplay}</td>
                         <td class="amount-cell">${(rec.payable_cost || 0).toFixed(2)}</td>
                         <td class="amount-cell">${(itemData.payable_amount || 0).toFixed(2)}</td>
                         <td>${payingPartnerName}</td>
@@ -1159,7 +1166,7 @@ export default function PaymentRequestsList() {
     setTotalPartnerAmount(0);
 
     try {
-      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2', {
+      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
         p_record_ids: request.logistics_record_ids,
       });
 

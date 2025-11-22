@@ -1,17 +1,15 @@
 -- ============================================================================
--- 创建付款申请数据函数 _1120 版本
--- 创建日期：2025-11-20
--- 功能：基于 _1116 版本创建 _1120 版本的付款申请数据函数
+-- 重命名付款申请相关函数：_1120 → _1122
+-- 创建时间: 2025-11-22
+-- 说明：将函数后缀从 _1120 改为 _1122，统一版本号
 -- ============================================================================
 
 -- ============================================================================
--- 1. get_payment_request_data_1120
--- ============================================================================
--- 支持多个 project_id（逗号分隔的 UUID 字符串）
+-- 1. 创建 get_payment_request_data_1122（基于 _1120 版本）
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION public.get_payment_request_data_1120(
-    p_project_id text DEFAULT NULL::text,  -- ✅ 改为 TEXT，支持逗号分隔的多个 UUID
+CREATE OR REPLACE FUNCTION public.get_payment_request_data_1122(
+    p_project_id text DEFAULT NULL::text,
     p_start_date text DEFAULT NULL::text, 
     p_end_date text DEFAULT NULL::text, 
     p_payment_status_array text[] DEFAULT NULL::text[], 
@@ -36,11 +34,11 @@ DECLARE
     v_driver_array text[];
     v_license_array text[];
     v_phone_array text[];
-    v_project_ids uuid[];  -- ✅ 新增：存储解析后的项目ID数组
+    v_project_ids uuid[];
 BEGIN
     v_offset := (p_page_number - 1) * p_page_size;
     
-    -- ✅ 解析项目ID（支持逗号分隔的多个UUID）
+    -- 解析项目ID（支持逗号分隔的多个UUID）
     IF p_project_id IS NOT NULL AND p_project_id != '' THEN
         v_project_ids := string_to_array(p_project_id, ',')::uuid[];
         -- 移除空值
@@ -76,9 +74,7 @@ BEGIN
         FROM public.logistics_records lr
         LEFT JOIN public.partner_chains pc ON lr.chain_id = pc.id
         WHERE 1=1
-            -- ✅ 修改：项目筛选（支持多个项目ID）
             AND (v_project_ids IS NULL OR array_length(v_project_ids, 1) IS NULL OR lr.project_id = ANY(v_project_ids))
-            -- ✅ 修改：使用 +08:00 时区转换
             AND (p_start_date IS NULL OR p_start_date = '' OR 
                  lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz)
             AND (p_end_date IS NULL OR p_end_date = '' OR 
@@ -97,6 +93,10 @@ BEGIN
             ))
             AND (v_license_array IS NULL OR lr.license_plate = ANY(v_license_array))
             AND (v_phone_array IS NULL OR lr.driver_phone = ANY(v_phone_array))
+            AND (p_partner_id IS NULL OR EXISTS (
+                SELECT 1 FROM public.logistics_partner_costs lpc
+                WHERE lpc.logistics_record_id = lr.id AND lpc.partner_id = p_partner_id
+            ))
             ORDER BY lr.auto_number DESC
             LIMIT p_page_size
             OFFSET v_offset
@@ -105,9 +105,7 @@ BEGIN
         SELECT COUNT(DISTINCT lr.id) AS count
         FROM public.logistics_records lr
         WHERE 1=1
-            -- ✅ 修改：项目筛选（支持多个项目ID）
             AND (v_project_ids IS NULL OR array_length(v_project_ids, 1) IS NULL OR lr.project_id = ANY(v_project_ids))
-            -- ✅ 修改：使用 +08:00 时区转换
             AND (p_start_date IS NULL OR p_start_date = '' OR 
                  lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz)
             AND (p_end_date IS NULL OR p_end_date = '' OR 
@@ -126,6 +124,10 @@ BEGIN
             ))
             AND (v_license_array IS NULL OR lr.license_plate = ANY(v_license_array))
             AND (v_phone_array IS NULL OR lr.driver_phone = ANY(v_phone_array))
+            AND (p_partner_id IS NULL OR EXISTS (
+                SELECT 1 FROM public.logistics_partner_costs lpc
+                WHERE lpc.logistics_record_id = lr.id AND lpc.partner_id = p_partner_id
+            ))
     ),
     total_payable_cost AS (
         SELECT COALESCE(SUM(payable_cost), 0) AS total FROM filtered_records
@@ -183,6 +185,7 @@ BEGIN
                     'cargo_type', r.cargo_type,
                     'loading_weight', r.loading_weight,
                     'unloading_weight', r.unloading_weight,
+                    'billing_type_id', r.billing_type_id,
                     'remarks', r.remarks,
                     'chain_name', r.chain_name,
                     'chain_id', r.chain_id,
@@ -216,16 +219,14 @@ BEGIN
 END;
 $function$;
 
-COMMENT ON FUNCTION public.get_payment_request_data_1120 IS '获取付款申请数据，支持多个 project_id（逗号分隔的 UUID 字符串）- 1120版本';
+COMMENT ON FUNCTION public.get_payment_request_data_1122 IS '获取付款申请数据，支持多个 project_id（逗号分隔的 UUID 字符串）- 1122版本';
 
 -- ============================================================================
--- 2. get_filtered_unpaid_ids_1120
--- ============================================================================
--- 支持多个 project_id（逗号分隔的 UUID 字符串）
+-- 2. 创建 get_filtered_unpaid_ids_1122（基于 _1120 版本）
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION public.get_filtered_unpaid_ids_1120(
-    p_project_id text DEFAULT NULL,  -- ✅ 改为 TEXT，支持逗号分隔的多个 UUID
+CREATE OR REPLACE FUNCTION public.get_filtered_unpaid_ids_1122(
+    p_project_id text DEFAULT NULL,
     p_start_date date DEFAULT NULL::date,
     p_end_date date DEFAULT NULL::date,
     p_partner_id uuid DEFAULT NULL::uuid,
@@ -246,9 +247,9 @@ DECLARE
     v_driver_array text[];
     v_license_array text[];
     v_phone_array text[];
-    v_project_ids uuid[];  -- ✅ 新增：存储解析后的项目ID数组
+    v_project_ids uuid[];
 BEGIN
-    -- ✅ 解析项目ID（支持逗号分隔的多个UUID）
+    -- 解析项目ID（支持逗号分隔的多个UUID）
     IF p_project_id IS NOT NULL AND p_project_id != '' THEN
         v_project_ids := string_to_array(p_project_id, ',')::uuid[];
         -- 移除空值
@@ -282,7 +283,6 @@ BEGIN
     JOIN public.logistics_records lr ON v.id = lr.id
     WHERE
         lr.payment_status = 'Unpaid' AND
-        -- ✅ 修改：项目筛选（支持多个项目ID）
         (v_project_ids IS NULL OR array_length(v_project_ids, 1) IS NULL OR v.project_id = ANY(v_project_ids)) AND
         (p_start_date IS NULL OR v.loading_date::date >= p_start_date) AND
         (p_end_date IS NULL OR v.loading_date::date <= p_end_date) AND
@@ -328,22 +328,10 @@ BEGIN
 END;
 $function$;
 
-COMMENT ON FUNCTION public.get_filtered_unpaid_ids_1120 IS '获取未付款运单ID列表，支持多个 project_id（逗号分隔的 UUID 字符串）- 1120版本';
+COMMENT ON FUNCTION public.get_filtered_unpaid_ids_1122 IS '获取未付款运单ID列表，支持多个 project_id（逗号分隔的 UUID 字符串）- 1122版本';
 
 -- ============================================================================
--- 验证
+-- 完成
 -- ============================================================================
-DO $$
-BEGIN
-    RAISE NOTICE '';
-    RAISE NOTICE '========================================';
-    RAISE NOTICE '✅ 付款申请数据函数已创建（_1120版本）';
-    RAISE NOTICE '========================================';
-    RAISE NOTICE '';
-    RAISE NOTICE '已创建的函数：';
-    RAISE NOTICE '  • get_payment_request_data_1120';
-    RAISE NOTICE '  • get_filtered_unpaid_ids_1120';
-    RAISE NOTICE '';
-    RAISE NOTICE '========================================';
-END $$;
 
+SELECT '✅ 函数已创建：get_payment_request_data_1122 和 get_filtered_unpaid_ids_1122' AS status;

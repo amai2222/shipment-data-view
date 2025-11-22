@@ -354,7 +354,7 @@ export default function MobilePaymentRequestsList() {
       setExportingId(req.id);
       
       // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
-      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2', {
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
         p_record_ids: req.logistics_record_ids
       });
 
@@ -766,7 +766,7 @@ export default function MobilePaymentRequestsList() {
     setPartnerTotals([]);
 
     try {
-      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2', {
+      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
         p_record_ids: request.logistics_record_ids,
       });
 
