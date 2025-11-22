@@ -134,9 +134,10 @@ const VirtualRow = memo(({
     <div 
       style={style}
       className="flex items-center border-b hover:bg-muted/50 text-sm"
+      role="row"
     >
       {/* 复选框列 */}
-      <div className="flex-shrink-0 w-12 px-2">
+      <div className="flex-shrink-0 w-12 px-2" role="cell">
         <Checkbox 
           checked={isSelected} 
           onCheckedChange={() => onRecordSelect(record.id)}
@@ -148,6 +149,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 font-mono cursor-pointer hover:text-primary"
         style={{ width: '120px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         {record.auto_number}
       </div>
@@ -158,6 +160,7 @@ const VirtualRow = memo(({
         style={{ width: '150px' }}
         onClick={() => onRecordClick(record)}
         title={record.project_name}
+        role="cell"
       >
         {record.project_name}
       </div>
@@ -168,6 +171,7 @@ const VirtualRow = memo(({
         style={{ width: '120px' }}
         onClick={() => onRecordClick(record)}
         title={record.chain_name || '未设置'}
+        role="cell"
       >
         {record.chain_name || '-'}
       </div>
@@ -177,6 +181,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '100px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         {record.driver_name}
       </div>
@@ -186,6 +191,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '100px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         {`${record.loading_location?.substring(0, 2) || ''}→${record.unloading_location?.substring(0, 2) || ''}`}
       </div>
@@ -195,6 +201,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '100px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         {record.loading_date}
       </div>
@@ -204,6 +211,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '120px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         {getQuantityDisplay(record)}
       </div>
@@ -213,6 +221,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '150px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         <div className="flex items-center gap-2">
           <CurrencyDisplay value={record.current_cost} className="text-red-600 text-xs" />
@@ -226,6 +235,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '120px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         <CurrencyDisplay value={record.payable_cost} className="text-green-600 text-xs" />
       </div>
@@ -238,6 +248,7 @@ const VirtualRow = memo(({
             key={partner.id}
             className="flex-shrink-0 px-2 text-center"
             style={{ width: '140px' }}
+            role="cell"
           >
             <div className="flex flex-col items-center gap-1">
               <div className="font-mono text-xs">
@@ -254,6 +265,7 @@ const VirtualRow = memo(({
         className="flex-shrink-0 px-2 cursor-pointer"
         style={{ width: '100px' }}
         onClick={() => onRecordClick(record)}
+        role="cell"
       >
         <Badge variant={record.current_cost ? "default" : "secondary"} className="text-xs">
           {record.current_cost ? "已计费" : "待计费"}
@@ -261,7 +273,7 @@ const VirtualRow = memo(({
       </div>
 
       {/* 操作 */}
-      <div className="flex-shrink-0 px-2" style={{ width: '100px' }}>
+      <div className="flex-shrink-0 px-2" style={{ width: '100px' }} role="cell">
         {costIds.length > 0 && canReconcile && (
           <Button
             variant="outline"
@@ -341,38 +353,39 @@ export function VirtualizedFinanceTable({
   }
 
   return (
-    <div className="border rounded-md overflow-hidden">
+    <div className="border rounded-md overflow-hidden" role="table" aria-label="运单财务明细表格">
       {/* 表头（固定） */}
       <div 
         className="flex items-center bg-muted/50 font-medium border-b text-sm overflow-x-auto"
         style={{ width: '100%' }}
+        role="rowgroup"
       >
-        <div className="flex" style={{ minWidth: `${tableWidth}px` }}>
-          <div className="flex-shrink-0 w-12 px-2 py-3">选择</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }}>运单编号</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '150px' }}>项目</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }}>合作链路</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>司机</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>路线</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>日期</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }}>装货数量</div>
-          <div className="flex-shrink-0 px-2 py-3 text-red-600" style={{ width: '150px' }}>运费+额外费</div>
-          <div className="flex-shrink-0 px-2 py-3 text-green-600" style={{ width: '120px' }}>司机应收</div>
+        <div className="flex" style={{ minWidth: `${tableWidth}px` }} role="row">
+          <div className="flex-shrink-0 w-12 px-2 py-3" role="columnheader">选择</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }} role="columnheader">运单编号</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '150px' }} role="columnheader">项目</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }} role="columnheader">合作链路</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }} role="columnheader">司机</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }} role="columnheader">路线</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }} role="columnheader">日期</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }} role="columnheader">装货数量</div>
+          <div className="flex-shrink-0 px-2 py-3 text-red-600" style={{ width: '150px' }} role="columnheader">运费+额外费</div>
+          <div className="flex-shrink-0 px-2 py-3 text-green-600" style={{ width: '120px' }} role="columnheader">司机应收</div>
           
           {displayedPartners.map(partner => (
-            <div key={partner.id} className="flex-shrink-0 px-2 py-3 text-center" style={{ width: '140px' }}>
+            <div key={partner.id} className="flex-shrink-0 px-2 py-3 text-center" style={{ width: '140px' }} role="columnheader">
               {partner.name}
               <div className="text-xs text-muted-foreground">({partner.level}级)</div>
             </div>
           ))}
           
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>状态</div>
-          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }}>操作</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }} role="columnheader">状态</div>
+          <div className="flex-shrink-0 px-2 py-3" style={{ width: '100px' }} role="columnheader">操作</div>
         </div>
       </div>
 
       {/* 虚拟化内容区域（只渲染可见行） */}
-      <div style={{ width: '100%', overflowX: 'auto' }}>
+      <div style={{ width: '100%', overflowX: 'auto' }} role="rowgroup">
         <List
           ref={listRef}
           height={height}
@@ -386,9 +399,9 @@ export function VirtualizedFinanceTable({
         </List>
       </div>
 
-      {/* 数据统计 */}
-      <div className="px-4 py-2 text-xs text-muted-foreground border-t bg-muted/30">
-        共 {data.length} 条记录
+      {/* 数据统计（作为表格的一部分） */}
+      <div className="px-4 py-2 text-xs text-muted-foreground border-t bg-muted/30" role="row">
+        <div role="cell">共 {data.length} 条记录</div>
       </div>
     </div>
   );

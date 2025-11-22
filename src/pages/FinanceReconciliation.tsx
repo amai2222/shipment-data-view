@@ -22,7 +22,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { convertChinaDateToUTCDate, convertChinaEndDateToUTCDate, formatChinaDateString } from "@/utils/dateUtils";
+import { formatChinaDateString } from "@/utils/dateUtils";
 import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
 import { VirtualizedTable } from "@/components/VirtualizedTable";
@@ -216,17 +216,7 @@ export default function FinanceReconciliation() {
     const startTime = performance.now();
     setLoading(true);
     try {
-      // 注意：get_finance_reconciliation_by_partner 不是我们要修改的函数，保持原有转换逻辑
-      const utcStartDate = activeFilters.startDate ? (() => {
-        const [year, month, day] = activeFilters.startDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        return convertChinaDateToUTCDate(chinaDate);
-      })() : null;
-      const utcEndDate = activeFilters.endDate ? (() => {
-        const [year, month, day] = activeFilters.endDate.split('-').map(Number);
-        const chinaDate = new Date(year, month - 1, day);
-        return convertChinaEndDateToUTCDate(chinaDate);
-      })() : null;
+      // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换（与运单管理一致）
       
       // 使用优化的分页函数，包含billing_type_id和高级筛选
       // ✅ 修改：支持多个 project_id（逗号分隔）
@@ -247,10 +237,10 @@ export default function FinanceReconciliation() {
         }
       }
       
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1120', {
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', {
         p_project_id: projectIdParam,
-        p_start_date: utcStartDate,
-        p_end_date: utcEndDate,
+        p_start_date: activeFilters.startDate || null,
+        p_end_date: activeFilters.endDate || null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_page_number: currentPage,
         p_page_size: pageSize,
@@ -859,22 +849,12 @@ export default function FinanceReconciliation() {
                     }
                   }
                   
-                  const utcStartDate = activeFilters.startDate ? (() => {
-                    const [year, month, day] = activeFilters.startDate.split('-').map(Number);
-                    const chinaDate = new Date(year, month - 1, day);
-                    return convertChinaDateToUTCDate(chinaDate);
-                  })() : null;
-                  const utcEndDate = activeFilters.endDate ? (() => {
-                    const [year, month, day] = activeFilters.endDate.split('-').map(Number);
-                    const chinaDate = new Date(year, month - 1, day);
-                    return convertChinaEndDateToUTCDate(chinaDate);
-                  })() : null;
-                  
+                  // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换（与运单管理一致）
                   // 获取所有筛选条件下的运单（不分页）
-                  const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1120', {
+                  const { data: allData, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', {
                     p_project_id: projectIdParam,
-                    p_start_date: utcStartDate,
-                    p_end_date: utcEndDate,
+                    p_start_date: activeFilters.startDate || null,
+                    p_end_date: activeFilters.endDate || null,
                     p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
                     p_page_number: 1,
                     p_page_size: 10000, // 获取所有数据
@@ -1453,8 +1433,8 @@ export default function FinanceReconciliation() {
                     rowHeight={60}
                   />
 
-                  {/* 汇总行 */}
-                  <div className="mt-4 border-t-2 bg-muted/30 p-4">
+                  {/* 汇总行 - 作为表格的一部分 */}
+                  <div className="border-t-2 border-t-primary/20 bg-muted/20 p-3 -mt-px">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-semibold">
                       <div className="text-center">
                         <div className="text-xs text-muted-foreground mb-1">运费</div>

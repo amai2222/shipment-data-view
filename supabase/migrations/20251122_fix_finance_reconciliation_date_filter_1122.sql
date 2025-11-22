@@ -1,10 +1,11 @@
 -- ============================================================================
--- 创建财务对账函数 _1120 版本
--- 创建日期：2025-11-20
--- 功能：基于 _1116 版本创建 _1120 版本的财务对账函数，支持对账状态筛选
+-- 修复财务对账函数日期筛选逻辑并重命名为 _1122 版本
+-- 创建日期：2025-11-22
+-- 功能：创建 get_finance_reconciliation_by_partner_1122 函数，
+--       日期筛选逻辑与运单管理页面一致，使用 +08:00 时区转换
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION public.get_finance_reconciliation_by_partner_1120(
+CREATE OR REPLACE FUNCTION public.get_finance_reconciliation_by_partner_1122(
     -- 常规筛选参数
     p_project_id text DEFAULT NULL,  -- ✅ 支持逗号分隔的多个 UUID
     p_start_date date DEFAULT NULL,
@@ -43,10 +44,13 @@ DECLARE
 BEGIN
     v_offset := (p_page_number - 1) * p_page_size;
     
-    -- ✅ 解析项目ID（支持逗号分隔的多个UUID）
+    -- 解析项目ID（支持逗号分隔的多个UUID）
     IF p_project_id IS NOT NULL AND p_project_id != '' THEN
-        v_project_ids := string_to_array(p_project_id, ',')::uuid[];
-        -- 移除空值
+        v_project_ids := ARRAY(
+            SELECT uuid_val::uuid
+            FROM unnest(string_to_array(p_project_id, ',')) AS uuid_val
+            WHERE uuid_val::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        );
         v_project_ids := array_remove(v_project_ids, NULL);
     END IF;
     
@@ -79,8 +83,11 @@ BEGIN
             -- 基础筛选
             -- ✅ 修改：项目筛选（支持多个项目ID）
             (v_project_ids IS NULL OR array_length(v_project_ids, 1) IS NULL OR lr.project_id = ANY(v_project_ids))
-            AND (p_start_date IS NULL OR lr.loading_date::date >= p_start_date)
-            AND (p_end_date IS NULL OR lr.loading_date::date <= p_end_date)
+            -- ✅ 修改：日期筛选 - 使用 +08:00 时区转换（与运单管理一致）
+            AND (p_start_date IS NULL OR p_start_date = '' OR 
+                 lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz)
+            AND (p_end_date IS NULL OR p_end_date = '' OR 
+                 lr.loading_date < ((p_end_date || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second'))
             AND (p_partner_id IS NULL OR EXISTS (
                 SELECT 1 FROM public.logistics_partner_costs lpc
                 WHERE lpc.logistics_record_id = lr.id 
@@ -152,7 +159,7 @@ BEGIN
                         'unloading_location', lr.unloading_location,
                         'loading_date', TO_CHAR(lr.loading_date AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD'),
                         'unloading_date', CASE WHEN lr.unloading_date IS NOT NULL 
-                            THEN TO_CHAR(lr.unloading_date AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') 
+                            THEN TO_CHAR(lr.unloading_date AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')
                             ELSE NULL END,
                         'loading_weight', lr.loading_weight,
                         'unloading_weight', lr.unloading_weight,
@@ -194,83 +201,47 @@ BEGIN
                 '[]'::jsonb
             ),
             'overview', jsonb_build_object(
-                'total_records', (SELECT count FROM total_count_cte),
-                'total_freight', COALESCE(
-                    (SELECT SUM(lr.current_cost)
-                     FROM filtered_records fr
-                     JOIN public.logistics_records lr ON fr.id = lr.id),
-                    0
-                ),
-                'total_extra_cost', COALESCE(
-                    (SELECT SUM(lr.extra_cost)
-                     FROM filtered_records fr
-                     JOIN public.logistics_records lr ON fr.id = lr.id),
-                    0
-                ),
-                'total_driver_receivable', COALESCE(
-                    (SELECT SUM(lr.payable_cost)
-                     FROM filtered_records fr
-                     JOIN public.logistics_records lr ON fr.id = lr.id),
-                    0
-                )
+                'total_records', COALESCE((SELECT count FROM total_count_cte), 0),
+                'total_freight', COALESCE((
+                    SELECT SUM(lr.current_cost)
+                    FROM filtered_records fr
+                    JOIN public.logistics_records lr ON fr.id = lr.id
+                ), 0),
+                'total_extra_cost', COALESCE((
+                    SELECT SUM(lr.extra_cost)
+                    FROM filtered_records fr
+                    JOIN public.logistics_records lr ON fr.id = lr.id
+                ), 0),
+                'total_driver_receivable', COALESCE((
+                    SELECT SUM(lr.payable_cost)
+                    FROM filtered_records fr
+                    JOIN public.logistics_records lr ON fr.id = lr.id
+                ), 0)
             ),
-            'partner_summary', COALESCE(
-                (SELECT jsonb_agg(
+            'partner_summary', COALESCE((
+                SELECT jsonb_agg(
                     jsonb_build_object(
-                        'partner_id', partner_id,
-                        'partner_name', partner_name,
-                        'level', level,
-                        'records_count', records_count,
-                        'total_payable', total_payable
+                        'partner_id', lpc.partner_id,
+                        'partner_name', p.name,
+                        'level', lpc.level,
+                        'total_payable', SUM(lpc.payable_amount),
+                        'records_count', COUNT(DISTINCT lpc.logistics_record_id)
                     )
                 )
-                FROM (
-                    SELECT 
-                        lpc.partner_id,
-                        p.name as partner_name,
-                        pp.level,
-                        COUNT(DISTINCT lpc.logistics_record_id) as records_count,
-                        SUM(lpc.payable_amount) as total_payable
-                    FROM filtered_records fr
-                    JOIN public.logistics_partner_costs lpc ON fr.id = lpc.logistics_record_id
-                    JOIN public.partners p ON lpc.partner_id = p.id
-                    LEFT JOIN public.project_partners pp ON lpc.partner_id = pp.partner_id 
-                        AND EXISTS (SELECT 1 FROM public.logistics_records lr2 WHERE lr2.id = lpc.logistics_record_id AND lr2.project_id = pp.project_id)
-                    GROUP BY lpc.partner_id, p.name, pp.level
-                ) partner_stats),
-                '[]'::jsonb
-            ),
-            'count', (SELECT count FROM total_count_cte),
-            'total_pages', CEIL((SELECT count FROM total_count_cte)::numeric / NULLIF(p_page_size, 1))
+                FROM filtered_records fr
+                JOIN public.logistics_partner_costs lpc ON fr.id = lpc.logistics_record_id
+                JOIN public.partners p ON lpc.partner_id = p.id
+                GROUP BY lpc.partner_id, p.name, lpc.level
+                ORDER BY lpc.level, p.name
+            ), '[]'::jsonb),
+            'count', COALESCE((SELECT count FROM total_count_cte), 0),
+            'total_pages', CEIL(COALESCE((SELECT count FROM total_count_cte), 0)::numeric / NULLIF(p_page_size, 0))
         )
     INTO v_result;
-
+    
     RETURN v_result;
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_finance_reconciliation_by_partner_1120 IS 
-'获取运费对账数据，支持多个 project_id（逗号分隔的 UUID 字符串）、高级筛选和对账状态筛选（_1120版本）';
-
--- ============================================================================
--- 验证
--- ============================================================================
-DO $$
-BEGIN
-    RAISE NOTICE '';
-    RAISE NOTICE '========================================';
-    RAISE NOTICE '✅ 财务对账函数 _1120 版本已创建';
-    RAISE NOTICE '========================================';
-    RAISE NOTICE '';
-    RAISE NOTICE '已创建函数：';
-    RAISE NOTICE '  • get_finance_reconciliation_by_partner_1120';
-    RAISE NOTICE '';
-    RAISE NOTICE '功能特性：';
-    RAISE NOTICE '  • 支持多个 project_id（逗号分隔）';
-    RAISE NOTICE '  • 支持高级筛选（司机、车牌、电话、运单号、平台）';
-    RAISE NOTICE '  • 支持对账状态筛选';
-    RAISE NOTICE '  • 返回对账状态相关字段';
-    RAISE NOTICE '';
-    RAISE NOTICE '========================================';
-END $$;
+COMMENT ON FUNCTION public.get_finance_reconciliation_by_partner_1122 IS '财务对账函数（1122版本）- 支持对账状态筛选，日期筛选使用 +08:00 时区转换（与运单管理一致）';
 
