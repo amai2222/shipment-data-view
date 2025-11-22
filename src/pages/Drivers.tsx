@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link, ChevronDown } from "lucide-react";
+import { Plus, Edit, Trash2, Truck, Upload, Download, Search, Loader2, Filter, X, FileImage, CheckSquare, Square, Link, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Driver, Project } from "@/types";
@@ -30,8 +30,7 @@ export default function Drivers() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [quickFilter, setQuickFilter] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // 新增筛选状态
   const [selectedShipperId, setSelectedShipperId] = useState('all');
@@ -75,13 +74,26 @@ export default function Drivers() {
   const [isSelectAll, setIsSelectAll] = useState(false); // 默认为false，非选择状态
   const [isBatchSelecting, setIsBatchSelecting] = useState(false); // 新增：是否处于批量选择模式
   const [showAssociateDialog, setShowAssociateDialog] = useState(false);
-  const [associatePreview, setAssociatePreview] = useState<any>(null);
+  const [associatePreview, setAssociatePreview] = useState<{
+    summary: {
+      total_drivers: number;
+      drivers_with_projects: number;
+      drivers_without_projects: number;
+      total_records: number;
+    };
+    drivers: Array<{
+      driver_name: string;
+      license_plate: string;
+      record_count: number;
+      has_projects: boolean;
+      project_names: string[];
+    }>;
+  } | null>(null);
   const [isAssociating, setIsAssociating] = useState(false);
 
   // 计算活跃筛选器数量
   const activeFiltersCount = useMemo(() => {
     let count = 0;
-    if (quickFilter) count++;
     if (selectedShipperId !== 'all') count++;
     if (selectedProjectId !== 'all') count++;
     if (photoStatus !== 'all') count++;
@@ -89,10 +101,9 @@ export default function Drivers() {
     if (advancedFilters.licensePlates) count++;
     if (advancedFilters.phoneNumbers) count++;
     return count;
-  }, [quickFilter, selectedShipperId, selectedProjectId, photoStatus, advancedFilters]);
+  }, [selectedShipperId, selectedProjectId, photoStatus, advancedFilters]);
 
   const clearFilters = () => {
-    setQuickFilter("");
     setSelectedShipperId('all');
     setSelectedProjectId('all');
     setPhotoStatus('all');
@@ -101,9 +112,15 @@ export default function Drivers() {
       licensePlates: '',
       phoneNumbers: '',
     });
+    // 清除后自动搜索
+    loadData(1, '');
   };
 
-  const loadData = useCallback(async (page: number, filter: string, currentPageSize: number = pageSize) => {
+  const handleSearch = () => {
+    loadData(1, '');
+  };
+
+  const loadData = useCallback(async (page: number, searchText: string = '', currentPageSize: number = pageSize) => {
     setIsLoading(true);
     try {
       // 先尝试加载项目数据
@@ -140,7 +157,7 @@ export default function Drivers() {
       // 尝试使用RPC函数加载司机数据
       try {
         const { drivers: loadedDrivers, totalCount: loadedTotalCount } = await SupabaseStorage.getDrivers(
-          filter, 
+          searchText, 
           page, 
           currentPageSize,
           {
@@ -172,7 +189,19 @@ export default function Drivers() {
         }
         
         // 转换数据格式
-        const convertedDrivers = (directData || []).map((d: any) => ({
+        interface DriverDataFromDB {
+          id: string;
+          name: string;
+          license_plate: string;
+          phone: string;
+          created_at: string;
+          id_card_photos?: string[];
+          driver_license_photos?: string[];
+          qualification_certificate_photos?: string[];
+          driving_license_photos?: string[];
+          transport_license_photos?: string[];
+        }
+        const convertedDrivers = (directData || []).map((d: DriverDataFromDB) => ({
           id: d.id,
           name: d.name,
           licensePlate: d.license_plate,
@@ -226,29 +255,20 @@ export default function Drivers() {
   }, [projects.length, toast, pageSize, selectedShipperId, selectedProjectId, availableProjects, photoStatus, advancedFilters]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      loadData(1, quickFilter);
-    }, 500);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [quickFilter, selectedShipperId, selectedProjectId, photoStatus, advancedFilters, loadData]);
-
-  useEffect(() => {
-    loadData(1, "");
+    loadData(1, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && !isLoading) {
-      loadData(newPage, quickFilter);
+      loadData(newPage, '');
     }
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1); // 重置到第一页
-    loadData(1, quickFilter, newPageSize);
+    loadData(1, '', newPageSize);
   };
 
   const resetForm = () => {
@@ -308,7 +328,7 @@ export default function Drivers() {
         await SupabaseStorage.addDriver(driverDataWithPhotos);
         toast({ title: "添加成功" });
       }
-      await loadData(currentPage, quickFilter);
+      await loadData(currentPage, '');
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -320,9 +340,9 @@ export default function Drivers() {
     try {
       await SupabaseStorage.deleteDriver(id);
       if (drivers.length === 1 && currentPage > 1) {
-        await loadData(currentPage - 1, quickFilter);
+        await loadData(currentPage - 1, '');
       } else {
-        await loadData(currentPage, quickFilter);
+        await loadData(currentPage, '');
       }
       toast({ title: "删除成功" });
     } catch (error) {
@@ -344,7 +364,12 @@ export default function Drivers() {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         let importedCount = 0;
-        for (const row of jsonData as any[]) {
+        interface ExcelRow {
+          '司机姓名'?: string;
+          '车牌号'?: string;
+          '司机电话'?: string;
+        }
+        for (const row of jsonData as ExcelRow[]) {
           const driverData = {
             name: String(row['司机姓名'] || '').trim(),
             licensePlate: String(row['车牌号'] || '').trim(),
@@ -360,7 +385,7 @@ export default function Drivers() {
           description: `成功导入 ${importedCount} 个司机`,
         });
 
-        await loadData(1, "");
+        await loadData(1, '');
       } catch (error) {
         toast({ title: "导入失败", variant: "destructive" });
       }
@@ -419,7 +444,26 @@ export default function Drivers() {
   const handleSelectAllRecords = async () => {
     try {
       // 获取所有司机的ID（不分页）
-      const { drivers: allDrivers } = await SupabaseStorage.getDrivers(quickFilter, 1, totalCount);
+      // 准备筛选参数（与loadData中的逻辑一致）
+      let projectIdParam: string | null = null;
+      if (selectedProjectId && selectedProjectId !== 'all' && (!selectedShipperId || selectedShipperId === 'all')) {
+        projectIdParam = selectedProjectId;
+      } else if (selectedShipperId && selectedShipperId !== 'all') {
+        if (selectedProjectId === 'all' && availableProjects.length > 0) {
+          projectIdParam = availableProjects.map(p => p.id).join(',');
+        } else if (selectedProjectId && selectedProjectId !== 'all') {
+          projectIdParam = selectedProjectId;
+        }
+      }
+      const photoStatusParam = photoStatus === 'all' ? null : photoStatus;
+      
+      const { drivers: allDrivers } = await SupabaseStorage.getDrivers('', 1, totalCount, {
+        projectId: projectIdParam,
+        photoStatus: photoStatusParam,
+        driverNames: advancedFilters.driverNames || null,
+        licensePlates: advancedFilters.licensePlates || null,
+        phoneNumbers: advancedFilters.phoneNumbers || null,
+      });
       const allDriverIds = allDrivers.map(driver => driver.id);
       setSelectedDrivers(allDriverIds);
       setIsSelectAll(true);
@@ -469,11 +513,12 @@ export default function Drivers() {
       console.log('预览数据:', data);
       console.log('司机数量:', data?.drivers?.length);
       console.log('汇总信息:', data?.summary);
-    } catch (error: any) {
+    } catch (error) {
       console.error('预览关联失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({ 
         title: "预览关联失败", 
-        description: error.message || "请检查数据库连接或联系管理员",
+        description: errorMessage || "请检查数据库连接或联系管理员",
         variant: "destructive" 
       });
     } finally {
@@ -502,17 +547,18 @@ export default function Drivers() {
       });
 
       // 重新加载数据
-      await loadData(currentPage, quickFilter);
+      await loadData(currentPage, '');
       
       // 清空选择
       setSelectedDrivers([]);
       setIsSelectAll(false);
       setShowAssociateDialog(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('自动关联失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({ 
         title: "自动关联失败", 
-        description: error.message || "请检查数据库连接或联系管理员",
+        description: errorMessage || "请检查数据库连接或联系管理员",
         variant: "destructive" 
       });
     } finally {
@@ -701,152 +747,139 @@ export default function Drivers() {
               <Button variant="outline" onClick={handleExcelExport} className="flex items-center space-x-2"><Download className="h-4 w-4" /><span>导出Excel</span></Button>
             </div>
           </div>
-          <div className="mt-4 space-y-3">
-            {/* 搜索框 */}
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="按姓名、车牌、电话模糊搜索..." value={quickFilter} onChange={(e) => setQuickFilter(e.target.value)} className="pl-10" />
+          {/* ===== 筛选器区域 ===== */}
+          <CardContent className="p-4">
+            {/* 常规筛选区域 - 一行布局 */}
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="flex-none" style={{width: '480px'}}>
+                <ShipperProjectCascadeFilter
+                  selectedShipperId={selectedShipperId}
+                  selectedProjectId={selectedProjectId}
+                  onShipperChange={(id) => {
+                    setSelectedShipperId(id);
+                    setSelectedProjectId('all');
+                    setAvailableProjects([]);
+                  }}
+                  onProjectChange={(id) => {
+                    setSelectedProjectId(id);
+                  }}
+                  onProjectsChange={(projects) => {
+                    setAvailableProjects(projects);
+                  }}
+                />
+              </div>
+              
+              <div className="flex-none w-36 space-y-2">
+                <Label>照片状态</Label>
+                <Select value={photoStatus} onValueChange={setPhotoStatus}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="has">有照片</SelectItem>
+                    <SelectItem value="none">没有照片</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <Button variant="outline" onClick={clearFilters} className="h-10">清除</Button>
+              <Button onClick={handleSearch} className="h-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white">
+                <Search className="mr-2 h-4 w-4"/>搜索
+              </Button>
+              <Button variant="outline" onClick={() => setShowAdvanced(!showAdvanced)} className="h-10">
+                {showAdvanced ? <><ChevronUp className="mr-1 h-4 w-4" />收起</> : <><ChevronDown className="mr-1 h-4 w-4" />高级</>}
+              </Button>
             </div>
             
-            {/* 筛选器 */}
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="relative"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                高级筛选
-                {activeFiltersCount > 0 && (
-                  <Badge variant="destructive" className="ml-2 h-5 min-w-[20px] px-1">
-                    {activeFiltersCount}
-                  </Badge>
-                )}
-              </Button>
-
-              {activeFiltersCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  <X className="h-4 w-4 mr-1" />
-                  清除筛选
-                </Button>
-              )}
-            </div>
-
-            {/* 筛选选项 */}
-            {showFilters && (
-              <Card className="bg-blue-50/30 border-blue-200 rounded-lg">
-                <CardContent className="pt-4 space-y-4">
-                  {/* 货主项目级联筛选 */}
+            {/* 高级筛选区域 */}
+            {showAdvanced && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* 司机姓名筛选 */}
                   <div className="space-y-2">
-                    <Label>货主-项目</Label>
-                    <ShipperProjectCascadeFilter
-                      selectedShipperId={selectedShipperId}
-                      selectedProjectId={selectedProjectId}
-                      onShipperChange={(id) => {
-                        setSelectedShipperId(id);
-                        setSelectedProjectId('all');
-                        setAvailableProjects([]);
-                      }}
-                      onProjectChange={(id) => {
-                        setSelectedProjectId(id);
-                      }}
-                      onProjectsChange={(projects) => {
-                        setAvailableProjects(projects);
-                      }}
-                    />
-                  </div>
-
-                  {/* 照片状态筛选 */}
-                  <div className="space-y-2">
-                    <Label>照片状态</Label>
-                    <Select value={photoStatus} onValueChange={setPhotoStatus}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部</SelectItem>
-                        <SelectItem value="has">有照片</SelectItem>
-                        <SelectItem value="none">没有照片</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* 高级筛选：司机姓名、车牌、电话 */}
-                  <div className="space-y-3 pt-2 border-t">
-                    <Label className="text-sm font-semibold">高级筛选</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* 司机姓名 */}
-                      <div className="space-y-2">
-                        <Label htmlFor="driverName" className="text-sm">司机姓名</Label>
-                        <div className="relative">
-                          <Input
-                            id="driverName"
-                            placeholder="多个用逗号/空格分隔..."
-                            value={advancedFilters.driverNames}
-                            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, driverNames: e.target.value }))}
-                            className="pr-8"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                            onClick={() => setBatchDialog({ isOpen: true, type: 'driver' })}
-                          >
-                            <span className="text-lg">+</span>
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* 车牌号 */}
-                      <div className="space-y-2">
-                        <Label htmlFor="licensePlate" className="text-sm">车牌号</Label>
-                        <div className="relative">
-                          <Input
-                            id="licensePlate"
-                            placeholder="多个用逗号/空格分隔..."
-                            value={advancedFilters.licensePlates}
-                            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, licensePlates: e.target.value }))}
-                            className="pr-8"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                            onClick={() => setBatchDialog({ isOpen: true, type: 'license' })}
-                          >
-                            <span className="text-lg">+</span>
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* 电话 */}
-                      <div className="space-y-2">
-                        <Label htmlFor="phoneNumber" className="text-sm">电话</Label>
-                        <div className="relative">
-                          <Input
-                            id="phoneNumber"
-                            placeholder="多个用逗号/空格分隔..."
-                            value={advancedFilters.phoneNumbers}
-                            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, phoneNumbers: e.target.value }))}
-                            className="pr-8"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                            onClick={() => setBatchDialog({ isOpen: true, type: 'phone' })}
-                          >
-                            <span className="text-lg">+</span>
-                          </Button>
-                        </div>
-                      </div>
+                    <Label htmlFor="driverName" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Truck className="h-4 w-4" />
+                      司机姓名
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="driverName"
+                        type="text"
+                        placeholder="司机姓名，多个用逗号分隔..."
+                        value={advancedFilters.driverNames}
+                        onChange={(e) => setAdvancedFilters(prev => ({ ...prev, driverNames: e.target.value }))}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBatchDialog({ isOpen: true, type: 'driver' })}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  
+                  {/* 车牌号筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="licensePlate" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Truck className="h-4 w-4" />
+                      车牌号
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="licensePlate"
+                        type="text"
+                        placeholder="车牌号，多个用逗号分隔..."
+                        value={advancedFilters.licensePlates}
+                        onChange={(e) => setAdvancedFilters(prev => ({ ...prev, licensePlates: e.target.value }))}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBatchDialog({ isOpen: true, type: 'license' })}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* 电话筛选 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber" className="text-sm font-medium text-purple-800 flex items-center gap-1">
+                      <Truck className="h-4 w-4" />
+                      电话
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id="phoneNumber"
+                        type="text"
+                        placeholder="电话号码，多个用逗号分隔..."
+                        value={advancedFilters.phoneNumbers}
+                        onChange={(e) => setAdvancedFilters(prev => ({ ...prev, phoneNumbers: e.target.value }))}
+                        className="h-10 flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBatchDialog({ isOpen: true, type: 'phone' })}
+                        className="h-10 px-2"
+                        title="批量输入"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
-          </div>
+          </CardContent>
         </CardHeader>
         <CardContent>
           <div className="rounded-xl border border-gray-200 overflow-hidden">
@@ -1107,7 +1140,7 @@ export default function Drivers() {
               <div className="space-y-2">
                 <h3 className="font-medium">司机详情</h3>
                 <div className="max-h-60 overflow-y-auto border rounded-lg">
-                  {associatePreview.drivers.map((driver: any, index: number) => (
+                  {associatePreview.drivers.map((driver, index: number) => (
                     <div key={index} className="p-3 border-b last:border-b-0">
                       <div className="flex items-center justify-between">
                         <div>
