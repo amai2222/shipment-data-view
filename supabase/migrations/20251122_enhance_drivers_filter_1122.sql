@@ -89,11 +89,14 @@ BEGIN
          d.license_plate ILIKE '%' || p_search_text || '%' OR
          d.phone ILIKE '%' || p_search_text || '%')
         -- 项目筛选（支持多个项目ID）
-        AND (v_project_ids IS NULL OR array_length(v_project_ids, 1) IS NULL OR 
-             EXISTS (
-                 SELECT 1 FROM driver_projects dp 
-                 WHERE dp.driver_id = d.id AND dp.project_id = ANY(v_project_ids)
-             ))
+        AND (
+            v_project_ids IS NULL 
+            OR array_length(v_project_ids, 1) IS NULL 
+            OR EXISTS (
+                SELECT 1 FROM driver_projects dp 
+                WHERE dp.driver_id = d.id AND dp.project_id = ANY(v_project_ids)
+            )
+        )
         -- 司机姓名筛选（支持多选，OR逻辑）
         AND (v_driver_name_array IS NULL OR 
              EXISTS (
@@ -174,11 +177,14 @@ BEGIN
          d.license_plate ILIKE '%' || p_search_text || '%' OR
          d.phone ILIKE '%' || p_search_text || '%')
         -- 项目筛选（支持多个项目ID）
-        AND (v_project_ids IS NULL OR array_length(v_project_ids, 1) IS NULL OR 
-             EXISTS (
-                 SELECT 1 FROM driver_projects dp 
-                 WHERE dp.driver_id = d.id AND dp.project_id = ANY(v_project_ids)
-             ))
+        AND (
+            v_project_ids IS NULL 
+            OR array_length(v_project_ids, 1) IS NULL 
+            OR EXISTS (
+                SELECT 1 FROM driver_projects dp 
+                WHERE dp.driver_id = d.id AND dp.project_id = ANY(v_project_ids)
+            )
+        )
         -- 司机姓名筛选（支持多选，OR逻辑）
         AND (v_driver_name_array IS NULL OR 
              EXISTS (

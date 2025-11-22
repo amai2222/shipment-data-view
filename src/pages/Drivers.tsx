@@ -68,6 +68,7 @@ export default function Drivers() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [pageSize, setPageSize] = useState(30); // 添加页面大小状态
+  const [showAll, setShowAll] = useState(false); // 是否显示全部记录
 
   // 批量选择和自动关联项目相关状态
   const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
@@ -113,7 +114,7 @@ export default function Drivers() {
       phoneNumbers: '',
     });
     // 清除后自动搜索
-    loadData(1, '');
+    loadData(1, '', showAll ? (totalCount || 1000) : pageSize);
   };
 
   const handleSearch = () => {
@@ -137,20 +138,20 @@ export default function Drivers() {
       // 准备筛选参数
       let projectIdParam: string | null = null;
       
-      // 如果只选择了项目（没有选择货主），直接使用项目ID
-      if (selectedProjectId && selectedProjectId !== 'all' && (!selectedShipperId || selectedShipperId === 'all')) {
-        projectIdParam = selectedProjectId;
-      }
-      // 如果选择了货主
-      else if (selectedShipperId && selectedShipperId !== 'all') {
-        if (selectedProjectId === 'all' && availableProjects.length > 0) {
-          // 选择"所有项目"时，传递所有可用项目的ID（逗号分隔）
-          projectIdParam = availableProjects.map(p => p.id).join(',');
-        } else if (selectedProjectId && selectedProjectId !== 'all') {
-          // 选择具体项目时，传递该项目ID
+      // 只有在明确选择了项目时才传递项目ID
+      // 如果选择了"所有项目"或没有选择项目，则不传递项目ID（返回所有司机）
+      if (selectedProjectId && selectedProjectId !== 'all') {
+        // 如果只选择了项目（没有选择货主），直接使用项目ID
+        if (!selectedShipperId || selectedShipperId === 'all') {
+          projectIdParam = selectedProjectId;
+        }
+        // 如果选择了货主，也使用项目ID
+        else if (selectedShipperId && selectedShipperId !== 'all') {
           projectIdParam = selectedProjectId;
         }
       }
+      // 如果选择了货主但没有选择具体项目（选择了"所有项目"），则不传递项目ID
+      // 这样会返回所有司机，不管他们是否有关联项目
       
       const photoStatusParam = photoStatus === 'all' ? null : photoStatus;
       
@@ -171,6 +172,10 @@ export default function Drivers() {
         
         setDrivers(loadedDrivers || []);
         setTotalCount(loadedTotalCount);
+        // 如果选择了"全部"，更新pageSize为总数
+        if (showAll && loadedTotalCount > 0) {
+          setPageSize(loadedTotalCount);
+        }
         setTotalPages(Math.ceil(loadedTotalCount / currentPageSize));
         setCurrentPage(page);
         
@@ -253,7 +258,7 @@ export default function Drivers() {
     } finally {
       setIsLoading(false);
     }
-  }, [projects.length, toast, pageSize, selectedShipperId, selectedProjectId, availableProjects, photoStatus, advancedFilters]);
+  }, [projects.length, toast, pageSize, selectedShipperId, selectedProjectId, availableProjects, photoStatus, advancedFilters, showAll]);
 
   useEffect(() => {
     loadData(1, '');
@@ -449,15 +454,20 @@ export default function Drivers() {
       // 获取所有司机的ID（不分页）
       // 准备筛选参数（与loadData中的逻辑一致）
       let projectIdParam: string | null = null;
-      if (selectedProjectId && selectedProjectId !== 'all' && (!selectedShipperId || selectedShipperId === 'all')) {
-        projectIdParam = selectedProjectId;
-      } else if (selectedShipperId && selectedShipperId !== 'all') {
-        if (selectedProjectId === 'all' && availableProjects.length > 0) {
-          projectIdParam = availableProjects.map(p => p.id).join(',');
-        } else if (selectedProjectId && selectedProjectId !== 'all') {
+      // 只有在明确选择了项目时才传递项目ID
+      // 如果选择了"所有项目"或没有选择项目，则不传递项目ID（返回所有司机）
+      if (selectedProjectId && selectedProjectId !== 'all') {
+        // 如果只选择了项目（没有选择货主），直接使用项目ID
+        if (!selectedShipperId || selectedShipperId === 'all') {
+          projectIdParam = selectedProjectId;
+        }
+        // 如果选择了货主，也使用项目ID
+        else if (selectedShipperId && selectedShipperId !== 'all') {
           projectIdParam = selectedProjectId;
         }
       }
+      // 如果选择了货主但没有选择具体项目（选择了"所有项目"），则不传递项目ID
+      // 这样会返回所有司机，不管他们是否有关联项目
       const photoStatusParam = photoStatus === 'all' ? null : photoStatus;
       
       const { drivers: allDrivers } = await SupabaseStorage.getDrivers('', 1, totalCount, {
@@ -1045,8 +1055,16 @@ export default function Drivers() {
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-slate-600">每页显示</span>
                 <select
-                  value={pageSize}
-                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  value={showAll ? 'all' : pageSize}
+                  onChange={(e) => {
+                    if (e.target.value === 'all') {
+                      setShowAll(true);
+                      handlePageSizeChange(totalCount || 1000);
+                    } else {
+                      setShowAll(false);
+                      handlePageSizeChange(Number(e.target.value));
+                    }
+                  }}
                   className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
                   <option value={10}>10</option>
@@ -1054,6 +1072,9 @@ export default function Drivers() {
                   <option value={30}>30</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
+                  <option value={200}>200</option>
+                  <option value={500}>500</option>
+                  {totalCount > 0 && <option value="all">全部 ({totalCount})</option>}
                 </select>
                 <span className="text-sm text-slate-600">条</span>
               </div>
