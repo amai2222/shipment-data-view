@@ -237,23 +237,36 @@ export default function FinanceReconciliation() {
         }
       }
       
-      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', {
+      // 记录请求参数（用于调试）
+      const requestParams = {
         p_project_id: projectIdParam,
         p_start_date: activeFilters.startDate && activeFilters.startDate.trim() ? activeFilters.startDate : null,
         p_end_date: activeFilters.endDate && activeFilters.endDate.trim() ? activeFilters.endDate : null,
         p_partner_id: activeFilters.partnerId === 'all' ? null : activeFilters.partnerId,
         p_page_number: currentPage,
         p_page_size: pageSize,
-        // 高级筛选参数
         p_driver_name: activeFilters.driverName || null,
         p_license_plate: activeFilters.licensePlate || null,
         p_driver_phone: activeFilters.driverPhone || null,
         p_waybill_numbers: activeFilters.waybillNumbers || null,
         p_other_platform_name: activeFilters.otherPlatformName || null,
-        // 对账状态筛选（新增）
         p_reconciliation_status: activeFilters.reconciliationStatus === 'all' ? null : activeFilters.reconciliationStatus || null,
-      });
-      if (error) throw error;
+      };
+      
+      console.log('调用 get_finance_reconciliation_by_partner_1122，参数:', requestParams);
+      
+      const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', requestParams);
+      
+      if (error) {
+        console.error('RPC 调用错误详情:', {
+          error,
+          code: (error as any)?.code,
+          message: (error as any)?.message,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+        });
+        throw error;
+      }
       
       setReportData(data as FinanceReconciliationResponse);
       setTotalPages((data as FinanceReconciliationResponse)?.total_pages || 1);
@@ -264,8 +277,31 @@ export default function FinanceReconciliation() {
       
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({ title: "错误", description: `加载财务对账数据失败: ${errorMessage}`, variant: "destructive" });
+      
+      // 处理 Supabase 错误对象
+      let errorMessage = '未知错误';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object') {
+        // Supabase 错误对象通常有 message 或 details 属性
+        const supabaseError = error as any;
+        errorMessage = supabaseError.message || supabaseError.details || supabaseError.hint || JSON.stringify(error);
+      } else {
+        errorMessage = String(error);
+      }
+      
+      console.error("详细错误信息:", {
+        error,
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      toast({ 
+        title: "错误", 
+        description: `加载财务对账数据失败: ${errorMessage}`, 
+        variant: "destructive",
+        duration: 10000
+      });
     } finally {
       setLoading(false);
     }
