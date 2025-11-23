@@ -25,7 +25,6 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatChinaDateString } from "@/utils/dateUtils";
 import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
-import { VirtualizedTable } from "@/components/VirtualizedTable";
 import { VirtualizedFinanceTable } from "@/components/VirtualizedFinanceTable";
 import { PageHeader } from "@/components/PageHeader";
 import { PaginationControl, TableSkeleton } from "@/components/common";
@@ -381,7 +380,11 @@ export default function FinanceReconciliation() {
 
   // 计算本页合计
   const pageSummary = useMemo(() => {
-    const records = reportData?.records || [];
+    if (!reportData?.records || reportData.records.length === 0) {
+      return undefined;
+    }
+    
+    const records = reportData.records;
     const pageTotals = {
       total_freight: records.reduce((sum, r) => sum + (r.current_cost || 0), 0),
       total_extra_cost: records.reduce((sum, r) => sum + (r.extra_cost || 0), 0),
@@ -401,12 +404,18 @@ export default function FinanceReconciliation() {
   }, [reportData?.records, displayedPartners]);
 
   // 计算全部合计
-  const allSummary = useMemo(() => ({
-    total_freight: reportData?.overview?.total_freight || 0,
-    total_extra_cost: reportData?.overview?.total_extra_cost || 0,
-    total_driver_receivable: reportData?.overview?.total_driver_receivable || 0,
-    partner_summary: reportData?.partner_summary || []
-  }), [reportData?.overview, reportData?.partner_summary]);
+  const allSummary = useMemo(() => {
+    if (!reportData?.overview && !reportData?.partner_summary) {
+      return undefined;
+    }
+    
+    return {
+      total_freight: reportData?.overview?.total_freight || 0,
+      total_extra_cost: reportData?.overview?.total_extra_cost || 0,
+      total_driver_receivable: reportData?.overview?.total_driver_receivable || 0,
+      partner_summary: reportData?.partner_summary || []
+    };
+  }, [reportData?.overview, reportData?.partner_summary]);
 
   // --- 事件处理器 ---
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
@@ -1485,20 +1494,26 @@ export default function FinanceReconciliation() {
               ) : (
                 <div className="p-6">
                   {/* ✅ 使用虚拟化表格，大幅提升性能 */}
-                  <VirtualizedFinanceTable
-                    data={reportData?.records || []}
-                    displayedPartners={displayedPartners}
-                    selectedIds={selection.selectedIds}
-                    selectionMode={selection.mode}
-                    canReconcile={canReconcile}
-                    onRecordClick={setViewingRecord}
-                    onRecordSelect={handleRecordSelect}
-                    onReconcileClick={openReconciliationDialog}
-                    height={600}
-                    rowHeight={60}
-                    pageSummary={pageSummary}
-                    allSummary={allSummary}
-                  />
+                  {reportData?.records && reportData.records.length > 0 ? (
+                    <VirtualizedFinanceTable
+                      data={reportData.records}
+                      displayedPartners={displayedPartners}
+                      selectedIds={selection.selectedIds}
+                      selectionMode={selection.mode}
+                      canReconcile={canReconcile}
+                      onRecordClick={setViewingRecord}
+                      onRecordSelect={handleRecordSelect}
+                      onReconcileClick={openReconciliationDialog}
+                      height={600}
+                      rowHeight={60}
+                      pageSummary={pageSummary}
+                      allSummary={allSummary}
+                    />
+                  ) : (
+                    <div className="text-center py-10 text-muted-foreground">
+                      暂无数据
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

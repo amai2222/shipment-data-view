@@ -8,9 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X, Eye, FileImage, Loader2, Truck } from 'lucide-react';
+import { Upload, X, Eye, FileImage, Loader2, Truck, Trash2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
 export interface VehiclePhotos {
   driving_license_photos: string[]; // 行驶证照片
@@ -287,34 +293,33 @@ export function VehiclePhotoUpload({
             {photos[config.key].length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {photos[config.key].map((url, index) => (
-                  <div key={index} className="relative group">
-                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                      <img
-                        src={url}
-                        alt={`${config.label} ${index + 1}`}
-                        className="w-full h-full object-cover cursor-pointer"
-                        onClick={() => previewPhoto(url)}
-                      />
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removePhoto(type as PhotoType, index)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                    <div className="absolute bottom-1 left-1">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => previewPhoto(url)}
+                  <ContextMenu key={index}>
+                    <ContextMenuTrigger asChild>
+                      <div className="relative">
+                        <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                          <img
+                            src={url}
+                            alt={`${config.label} ${index + 1}`}
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => previewPhoto(url)}
+                          />
+                        </div>
+                      </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={() => previewPhoto(url)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        查看照片
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => removePhoto(type as PhotoType, index)}
+                        className="text-destructive focus:text-destructive"
                       >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        删除照片
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ))}
               </div>
             )}

@@ -8,9 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X, Eye, FileImage, Loader2 } from 'lucide-react';
+import { Upload, X, Eye, FileImage, Loader2, Trash2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
 export interface DriverPhotos {
   id_card_photos: string[];
@@ -317,30 +323,31 @@ export function DriverPhotoUpload({
               <Label className="text-sm text-muted-foreground mb-2 block">已上传照片</Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {currentPhotos.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={url}
-                      alt={`${config.label}-${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => setPreviewImage(url)}
-                    />
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDeletePhoto(type, index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute bottom-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setPreviewImage(url)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <ContextMenu key={index}>
+                    <ContextMenuTrigger asChild>
+                      <div className="relative">
+                        <img
+                          src={url}
+                          alt={`${config.label}-${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setPreviewImage(url)}
+                        />
+                      </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={() => setPreviewImage(url)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        查看照片
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => handleDeletePhoto(type, index)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        删除照片
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ))}
               </div>
             </div>
