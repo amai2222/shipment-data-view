@@ -376,7 +376,7 @@ export function VirtualizedFinanceTable({
   }
 
   return (
-    <div className="border rounded-md overflow-hidden" role="table" aria-label="运单财务明细表格">
+    <div className="rounded-xl border border-gray-200 shadow-lg overflow-hidden bg-white" role="table" aria-label="运单财务明细表格">
       {/* 表头（固定） */}
       <div 
         className="flex items-center bg-muted/50 font-medium border-b text-sm overflow-x-auto"

@@ -1497,7 +1497,7 @@ export default function FinanceReconciliation() {
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="min-h-[400px] overflow-x-auto p-6">
+                <div className="min-h-[400px] overflow-x-auto">
                   <TableSkeleton 
                     rowCount={pageSize} 
                     colCount={11 + displayedPartners.length} 
@@ -1505,7 +1505,7 @@ export default function FinanceReconciliation() {
                   />
                 </div>
               ) : (
-                <div className="p-6">
+                <>
                   {/* ✅ 使用虚拟化表格，大幅提升性能 */}
                   {(() => {
                     try {
@@ -1554,7 +1554,7 @@ export default function FinanceReconciliation() {
                       );
                     }
                   })()}
-                </div>
+                </>
               )}
             </CardContent>
           </Card>
