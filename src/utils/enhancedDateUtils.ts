@@ -66,11 +66,12 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
         console.warn('无效的Date对象');
         return null;
       }
-      // 使用本地时区格式化日期（不使用toISOString，避免UTC转换）
-      // Excel数据已经是中国时区，直接按中国时区格式化即可
-      const year = excelDate.getFullYear();
-      const month = String(excelDate.getMonth() + 1).padStart(2, '0');
-      const day = String(excelDate.getDate()).padStart(2, '0');
+      // ✅ 修复：使用UTC方法获取年月日，确保日期准确（不受系统时区影响）
+      // 与标准版保持一致，避免时区转换导致的日期偏差
+      // Excel数据已经是中国时区的日期，但我们需要确保解析的日期准确
+      const year = excelDate.getUTCFullYear();
+      const month = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(excelDate.getUTCDate()).padStart(2, '0');
       const result = `${year}-${month}-${day}`;
       console.log('Date对象解析成功:', result);
       return result;

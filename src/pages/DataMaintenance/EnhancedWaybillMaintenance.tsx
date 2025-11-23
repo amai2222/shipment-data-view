@@ -51,7 +51,7 @@ import {
 
 // 增强导入预览结果类型
 interface EnhancedImportPreview {
-  new_records: Array<{ record: Record<string, unknown> }>;
+  new_records: Array<{ record: Record<string, unknown>; excelRowNumber?: number }>;
   duplicate_records: Array<{ record: Record<string, unknown> }>;
   total_count: number;
   valid_count: number;
@@ -289,7 +289,7 @@ export default function EnhancedWaybillMaintenance() {
       }
 
       // 处理数据行
-      const validRows: ExcelRowData[] = [];
+      const validRows: Array<ExcelRowData & { _excelRowNumber?: number }> = [];
       for (let i = 1; i < jsonData.length; i++) {
         // Excel实际行号：i=1 对应 Excel 第2行（第1条数据），i=2 对应 Excel 第3行（第2条数据）
         const excelRowNumber = i + 1; // Excel行号从2开始（第1行是表头）
@@ -351,9 +351,15 @@ export default function EnhancedWaybillMaintenance() {
         }
 
         // 映射字段名 - 参考正常版本的逻辑，保持中文字段名用于验证
+        // ✅ 修复：确保合作链路字段正确映射（支持多种字段名）
+        const chainName = rowData['合作链路(可选)'] || rowData['合作链路'] || '';
+        if (chainName) {
+          logger.info(`第${excelRowNumber}行合作链路: ${chainName}`);
+        }
+        
         const mappedData = {
           '项目名称': rowData['项目名称'],
-          '合作链路': rowData['合作链路(可选)'] || rowData['合作链路'],
+          '合作链路': chainName, // 使用处理后的值
           '司机姓名': rowData['司机姓名'],
           '车牌号': rowData['车牌号'],
           '司机电话': rowData['司机电话(可选)'] || rowData['司机电话'],
@@ -368,7 +374,8 @@ export default function EnhancedWaybillMaintenance() {
           '运输类型': rowData['运输类型(可选)'] || rowData['运输类型'] || '实际运输',
           '备注': rowData['备注(可选)'] || rowData['备注'],
           'external_tracking_numbers': rowData['external_tracking_numbers'] || [],
-          'other_platform_names': rowData['other_platform_names'] || []
+          'other_platform_names': rowData['other_platform_names'] || [],
+          '_excelRowNumber': excelRowNumber // 保存Excel行号用于预览显示
         };
 
         validRows.push(mappedData);
@@ -392,25 +399,46 @@ export default function EnhancedWaybillMaintenance() {
       }
 
       // 将中文字段名转换为英文字段名，用于数据库导入
-      const recordsForImport = processedResult.processedRows.map(record => ({
-        project_name: record['项目名称'],
-        chain_name: record['合作链路'],
-        driver_name: record['司机姓名'],
-        license_plate: record['车牌号'],
-        driver_phone: record['司机电话'],
-        loading_location: record['装货地点'],
-        unloading_location: record['卸货地点'],
-        loading_date: record['装货日期'],
-        unloading_date: record['卸货日期'],
-        loading_weight: record['装货数量'],
-        unloading_weight: record['卸货数量'],
-        current_cost: record['运费金额'],
-        extra_cost: record['额外费用'],
-        transport_type: record['运输类型'],
-        remarks: record['备注'],
-        external_tracking_numbers: record['external_tracking_numbers'],
-        other_platform_names: record['other_platform_names']
-      }));
+      const recordsForImport = processedResult.processedRows.map((record, index) => {
+        // 从原始数据中获取Excel行号
+        const originalRow = validRows.find((r, idx) => {
+          // 通过比较关键字段找到对应的原始行
+          return r['项目名称'] === record['项目名称'] &&
+                 r['司机姓名'] === record['司机姓名'] &&
+                 r['车牌号'] === record['车牌号'] &&
+                 r['装货日期'] === record['装货日期'];
+        });
+        const excelRowNumber = originalRow?._excelRowNumber || (index + 2); // 默认使用索引+2（第1行是表头）
+        
+        // ✅ 修复：确保合作链路字段正确提取（支持多种字段名）
+        const chainName = record['合作链路(可选)'] || record['合作链路'] || null;
+        if (chainName) {
+          logger.info(`准备导入第${excelRowNumber}行，合作链路: ${chainName}`);
+        } else {
+          logger.warn(`第${excelRowNumber}行合作链路为空，将使用null`);
+        }
+        
+        return {
+          project_name: record['项目名称'],
+          chain_name: chainName,
+          driver_name: record['司机姓名'],
+          license_plate: record['车牌号'],
+          driver_phone: record['司机电话'],
+          loading_location: record['装货地点'],
+          unloading_location: record['卸货地点'],
+          loading_date: record['装货日期'],
+          unloading_date: record['卸货日期'],
+          loading_weight: record['装货数量'],
+          unloading_weight: record['卸货数量'],
+          current_cost: record['运费金额'],
+          extra_cost: record['额外费用'],
+          transport_type: record['运输类型'],
+          remarks: record['备注'],
+          external_tracking_numbers: record['external_tracking_numbers'],
+          other_platform_names: record['other_platform_names'],
+          _excelRowNumber: excelRowNumber // 保存Excel行号
+        };
+      });
 
       // 保存所有有效记录（用于行数范围过滤）
       setAllValidRecords(recordsForImport);
@@ -432,9 +460,16 @@ export default function EnhancedWaybillMaintenance() {
         });
       }
 
-      // 设置预览数据
+      // 设置预览数据（包含Excel行号）
       setImportPreview({
-        new_records: filteredRecords.map(record => ({ record })),
+        new_records: filteredRecords.map(record => ({ 
+          record: (() => {
+            // 移除内部字段_excelRowNumber，只保留数据库需要的字段
+            const { _excelRowNumber, ...dbRecord } = record as Record<string, unknown> & { _excelRowNumber?: number };
+            return dbRecord;
+          })(),
+          excelRowNumber: (record as Record<string, unknown> & { _excelRowNumber?: number })._excelRowNumber
+        })),
         duplicate_records: [],
         total_count: filteredRecords.length,
         valid_count: filteredRecords.length,
@@ -531,9 +566,10 @@ export default function EnhancedWaybillMaintenance() {
       let filteredRecords = allValidRecords;
       if (rowRangeInput.trim()) {
         const rowRange = parseRowRange(rowRangeInput, totalDataRows);
-        filteredRecords = allValidRecords.filter((_, index) => {
-          // index + 2 对应Excel行号（index=0对应Excel第2行，index=1对应Excel第3行...）
-          return rowRange.has(index + 2);
+        filteredRecords = allValidRecords.filter((record, index) => {
+          // 从记录中获取Excel行号，如果没有则使用索引+2
+          const excelRowNumber = (record as Record<string, unknown> & { _excelRowNumber?: number })._excelRowNumber || (index + 2);
+          return rowRange.has(excelRowNumber);
         });
         logger.info('行数范围已更新，重新应用过滤', { 
           input: rowRangeInput,
@@ -542,7 +578,13 @@ export default function EnhancedWaybillMaintenance() {
       }
 
       setImportPreview({
-        new_records: filteredRecords.map(record => ({ record })),
+        new_records: filteredRecords.map(record => {
+          const { _excelRowNumber, ...dbRecord } = record as Record<string, unknown> & { _excelRowNumber?: number };
+          return {
+            record: dbRecord,
+            excelRowNumber: _excelRowNumber || 0
+          };
+        }),
         duplicate_records: [],
         total_count: filteredRecords.length,
         valid_count: filteredRecords.length,
@@ -917,7 +959,7 @@ export default function EnhancedWaybillMaintenance() {
               {importStep === 'preview' && importPreview && (
                 <div className="mb-4">
                   <h3 className="text-sm font-medium mb-2">导入预览</h3>
-                  <div className="bg-blue-50 rounded p-3">
+                  <div className="bg-blue-50 rounded p-3 mb-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Info className="h-4 w-4 text-blue-600" />
                       <span className="text-sm text-blue-800">
@@ -935,6 +977,52 @@ export default function EnhancedWaybillMaintenance() {
                       • 智能字段验证和清理
                     </div>
                   </div>
+                  
+                  {/* 预览记录列表（显示Excel行号） */}
+                  {importPreview.new_records.length > 0 && (
+                    <div className="border rounded-lg max-h-64 overflow-y-auto">
+                      <div className="p-2 bg-gray-50 border-b sticky top-0">
+                        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700">
+                          <div className="col-span-1">行号</div>
+                          <div className="col-span-2">项目</div>
+                          <div className="col-span-2">司机</div>
+                          <div className="col-span-2">车牌</div>
+                          <div className="col-span-2">装货地点</div>
+                          <div className="col-span-2">装货日期</div>
+                          <div className="col-span-1">数量</div>
+                        </div>
+                      </div>
+                      <div className="divide-y">
+                        {importPreview.new_records.map((item, index) => (
+                          <div key={index} className="p-2 hover:bg-gray-50">
+                            <div className="grid grid-cols-12 gap-2 text-xs">
+                              <div className="col-span-1 font-medium text-blue-600">
+                                {item.excelRowNumber || index + 2}
+                              </div>
+                              <div className="col-span-2 truncate" title={String(item.record.project_name || '')}>
+                                {String(item.record.project_name || '')}
+                              </div>
+                              <div className="col-span-2 truncate" title={String(item.record.driver_name || '')}>
+                                {String(item.record.driver_name || '')}
+                              </div>
+                              <div className="col-span-2 truncate" title={String(item.record.license_plate || '')}>
+                                {String(item.record.license_plate || '')}
+                              </div>
+                              <div className="col-span-2 truncate" title={String(item.record.loading_location || '')}>
+                                {String(item.record.loading_location || '')}
+                              </div>
+                              <div className="col-span-2">
+                                {String(item.record.loading_date || '')}
+                              </div>
+                              <div className="col-span-1">
+                                {String(item.record.loading_weight || '')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

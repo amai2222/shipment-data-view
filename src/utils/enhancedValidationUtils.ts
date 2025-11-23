@@ -167,6 +167,30 @@ export const validateRowData = (rowData: any, rowIndex: number): ValidationResul
       }
     }
   });
+
+  // ✅ 修复：保留所有原始字段，不仅仅是验证规则中的字段
+  // 这样可以保留"合作链路"、"external_tracking_numbers"、"other_platform_names"等字段
+  Object.keys(rowData).forEach(key => {
+    // 如果字段不在验证规则中，直接保留原始值（经过清理）
+    const isInValidationRules = WAYBILL_VALIDATION_RULES.some(rule => rule.field === key);
+    if (!isInValidationRules && cleanedData[key] === undefined) {
+      // 对于非验证规则字段，进行基本清理
+      const value = rowData[key];
+      if (value !== null && value !== undefined) {
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          // 即使是空字符串，也保留（因为可能是有效的空值）
+          cleanedData[key] = trimmed;
+        } else if (Array.isArray(value)) {
+          cleanedData[key] = value; // 保留数组类型（如 external_tracking_numbers, other_platform_names）
+        } else {
+          cleanedData[key] = value;
+        }
+      } else if (value === null || value === undefined) {
+        cleanedData[key] = null; // 保留 null 值
+      }
+    }
+  });
   
   // 验证外部平台数据
   const platformErrors = validateExternalPlatformData(rowData);
