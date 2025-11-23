@@ -9,6 +9,7 @@ import { Combobox } from '@/components/ui/combobox';
 interface Location {
   id: string;
   name: string;
+  nickname?: string | null;
 }
 
 interface MultiLocationInputProps {
@@ -93,7 +94,7 @@ export function MultiLocationInput({
               className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-md text-sm"
             >
               <MapPin className="h-3 w-3" />
-              <span>{location.name}</span>
+              <span>{location.nickname ? `${location.nickname}（${location.name}）` : location.name}</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -126,10 +127,17 @@ export function MultiLocationInput({
                 setComboboxValue('');
               }
             } : undefined}
-            options={availableLocations.map(loc => ({ 
-              value: loc.id, 
-              label: loc.name 
-            }))}
+            options={availableLocations.map(loc => {
+              // 显示名称，如果有昵称则显示昵称（名称）
+              const displayName = loc.nickname 
+                ? `${loc.nickname}（${loc.name}）` 
+                : loc.name;
+              return {
+                value: loc.id,
+                label: displayName,
+                searchText: `${loc.name} ${loc.nickname || ''}`.trim() // 用于搜索的文本（包含名称和昵称）
+              };
+            })}
             placeholder={availableLocations.length > 0 ? placeholder : "搜索或添加地点..."}
             searchPlaceholder="搜索地点..."
             createLabel="创建地点"

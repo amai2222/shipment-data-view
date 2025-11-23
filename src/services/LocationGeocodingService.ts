@@ -11,6 +11,7 @@ export interface LocationWithGeocoding {
   id: string;
   name: string;
   nickname?: string;
+  projectIds?: string[]; // 关联的项目ID数组
   address?: string;
   latitude?: number;
   longitude?: number;
@@ -115,15 +116,16 @@ export class LocationGeocodingService {
         data: updatedLocation as LocationWithGeocoding
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('地理编码失败:', error);
       
       // 更新失败状态
-      await this.updateGeocodingStatus(locationId, 'failed', error.message);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      await this.updateGeocodingStatus(locationId, 'failed', errorMessage);
 
       return {
         success: false,
-        error: error.message
+        error: errorMessage
       };
     }
   }
@@ -203,11 +205,11 @@ export class LocationGeocodingService {
 
       return geocodingResult;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('自动地理编码失败:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : '未知错误'
       };
     }
   }
@@ -225,7 +227,7 @@ export class LocationGeocodingService {
       }
 
       return data || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('获取待地理编码地点失败:', error);
       return [];
     }
@@ -250,7 +252,7 @@ export class LocationGeocodingService {
       }
 
       return data || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('搜索地点失败:', error);
       return [];
     }
@@ -293,14 +295,15 @@ export class LocationGeocodingService {
       }
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('批量更新地理编码失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       return {
         success: 0,
         failed: locations.length,
         errors: locations.map(loc => ({
           location_id: loc.id,
-          error: error.message
+          error: errorMessage
         }))
       };
     }
@@ -330,12 +333,13 @@ export class LocationGeocodingService {
       const locationIds = failedLocations.map(loc => loc.id);
       return await this.batchGeocodeLocations(locationIds);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('重试失败的地理编码失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       return {
         success: 0,
         failed: 0,
-        errors: [{ location_id: '', error: error.message }]
+        errors: [{ location_id: '', error: errorMessage }]
       };
     }
   }
@@ -385,7 +389,7 @@ export class LocationGeocodingService {
       });
 
       return stats;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('获取地理编码统计失败:', error);
       return {
         total: 0,

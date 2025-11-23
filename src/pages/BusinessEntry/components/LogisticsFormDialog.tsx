@@ -14,6 +14,7 @@ import { LogisticsRecord, Project, PlatformTracking } from '../types';
 import { PlatformTrackingInput } from '@/components/PlatformTrackingInput';
 import { MultiLocationInput } from '@/components/MultiLocationInput';
 import { DriverComboInput } from '@/components/DriverComboInput';
+import { LocationEditDialog } from '@/components/LocationEditDialog';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ import { zhCN } from "date-fns/locale";
 import { formatChinaDateString, convertUTCDateToChinaDate } from "@/utils/dateUtils";
 
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
-interface Location { id: string; name: string; }
+interface Location { id: string; name: string; nickname?: string | null; }
 interface PartnerChain { id: string; chain_name: string; billing_type_id: number | null; is_default: boolean; }
 interface LogisticsFormDialogProps { isOpen: boolean; onClose: () => void; editingRecord?: LogisticsRecord | null; projects: Project[]; onSubmitSuccess: () => void; }
 
@@ -80,6 +81,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [taxIncludedPrice, setTaxIncludedPrice] = useState(''); // 含税单价
   const [taxRate, setTaxRate] = useState(''); // 税点
   const [costCalculationMode, setCostCalculationMode] = useState<'manual' | 'auto'>('manual'); // 费用计算模式
+  
+  // 地点编辑对话框状态
+  const [locationEditDialogOpen, setLocationEditDialogOpen] = useState(false);
+  const [locationEditInitialName, setLocationEditInitialName] = useState('');
+  const [locationEditType, setLocationEditType] = useState<'loading' | 'unloading'>('loading'); // 用于区分是装货还是卸货地点
   
   // 使用 ref 跟踪是否已经初始化，避免重复初始化导致表单重置
   const isInitializedRef = useRef(false);
@@ -248,11 +254,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
 
       const locationIds = [...new Set((locationProjects || []).map(lp => lp.location_id))];
 
-      // 5. 根据地点ID查询地点详情
+      // 5. 根据地点ID查询地点详情（包含 nickname 字段）
       if (locationIds.length > 0) {
         const { data: locationsData, error: locationsError } = await supabase
           .from('locations')
-          .select('*')
+          .select('id, name, nickname')
           .in('id', locationIds)
           .order('name');
 
@@ -947,67 +953,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 placeholder="选择装货地点"
                 maxLocations={5}
                 allowCustomInput={true}
-                onCustomLocationAdd={async (locationName) => {
-                  try {
-                    if (!formData.projectId) {
-                      toast({ 
-                        title: "错误", 
-                        description: "请先选择项目", 
-                        variant: "destructive" 
-                      });
-                      return;
-                    }
-
-                    // 1. 使用数据库函数获取或创建地点
-                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
-                      p_location_string: locationName
-                    });
-                    
-                    if (error) throw error;
-                    
-                    if (data && data.length > 0) {
-                      const newLocationId = data[0];
-                      
-                      // 2. 将新地点关联到当前项目
-                      const { data: { user } } = await supabase.auth.getUser();
-                      const { error: linkError } = await supabase
-                        .from('location_projects')
-                        .insert({
-                          location_id: newLocationId,
-                          project_id: formData.projectId,
-                          user_id: user?.id
-                        })
-                        .select()
-                        .single();
-                      
-                      // 如果关联已存在，忽略错误
-                      if (linkError && !linkError.message.includes('duplicate') && !linkError.message.includes('unique')) {
-                        throw linkError;
-                      }
-                      
-                      // 3. 重新加载项目关联的地点列表
-                      await loadProjectSpecificData(formData.projectId);
-                      
-                      // 4. 自动选择新添加的地点
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        loadingLocationIds: [...prev.loadingLocationIds, newLocationId] 
-                      }));
-
-                      toast({ 
-                        title: "成功", 
-                        description: "地点已添加并关联到项目" 
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Error adding custom location:', error);
-                    const errorMessage = error instanceof Error ? error.message : "添加自定义地点失败";
-                    toast({ 
-                      title: "错误", 
-                      description: errorMessage, 
-                      variant: "destructive" 
-                    });
-                  }
+                onCustomLocationAdd={(locationName) => {
+                  // 打开地点编辑对话框
+                  setLocationEditInitialName(locationName);
+                  setLocationEditType('loading');
+                  setLocationEditDialogOpen(true);
                 }}
               />
             </div>
@@ -1039,67 +989,11 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 placeholder="选择卸货地点"
                 maxLocations={5}
                 allowCustomInput={true}
-                onCustomLocationAdd={async (locationName) => {
-                  try {
-                    if (!formData.projectId) {
-                      toast({ 
-                        title: "错误", 
-                        description: "请先选择项目", 
-                        variant: "destructive" 
-                      });
-                      return;
-                    }
-
-                    // 1. 使用数据库函数获取或创建地点
-                    const { data, error } = await supabase.rpc('get_or_create_locations_from_string', {
-                      p_location_string: locationName
-                    });
-                    
-                    if (error) throw error;
-                    
-                    if (data && data.length > 0) {
-                      const newLocationId = data[0];
-                      
-                      // 2. 将新地点关联到当前项目
-                      const { data: { user } } = await supabase.auth.getUser();
-                      const { error: linkError } = await supabase
-                        .from('location_projects')
-                        .insert({
-                          location_id: newLocationId,
-                          project_id: formData.projectId,
-                          user_id: user?.id
-                        })
-                        .select()
-                        .single();
-                      
-                      // 如果关联已存在，忽略错误
-                      if (linkError && !linkError.message.includes('duplicate') && !linkError.message.includes('unique')) {
-                        throw linkError;
-                      }
-                      
-                      // 3. 重新加载项目关联的地点列表
-                      await loadProjectSpecificData(formData.projectId);
-                      
-                      // 4. 自动选择新添加的地点
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        unloadingLocationIds: [...prev.unloadingLocationIds, newLocationId] 
-                      }));
-
-                      toast({ 
-                        title: "成功", 
-                        description: "地点已添加并关联到项目" 
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Error adding custom location:', error);
-                    const errorMessage = error instanceof Error ? error.message : "添加自定义地点失败";
-                    toast({ 
-                      title: "错误", 
-                      description: errorMessage, 
-                      variant: "destructive" 
-                    });
-                  }
+                onCustomLocationAdd={(locationName) => {
+                  // 打开地点编辑对话框
+                  setLocationEditInitialName(locationName);
+                  setLocationEditType('unloading');
+                  setLocationEditDialogOpen(true);
                 }}
               />
             </div>
@@ -1390,6 +1284,33 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           </div>
         </form>
       </DialogContent>
+      
+      {/* 地点编辑对话框 */}
+      <LocationEditDialog
+        isOpen={locationEditDialogOpen}
+        onClose={() => setLocationEditDialogOpen(false)}
+        onSuccess={async (locationId) => {
+          // 重新加载项目关联的地点列表
+          if (formData.projectId) {
+            await loadProjectSpecificData(formData.projectId);
+            
+            // 自动选择新添加的地点
+            if (locationEditType === 'loading') {
+              setFormData(prev => ({ 
+                ...prev, 
+                loadingLocationIds: [...prev.loadingLocationIds, locationId] 
+              }));
+            } else {
+              setFormData(prev => ({ 
+                ...prev, 
+                unloadingLocationIds: [...prev.unloadingLocationIds, locationId] 
+              }));
+            }
+          }
+        }}
+        projectId={formData.projectId}
+        initialName={locationEditInitialName}
+      />
     </Dialog>
   );
 }

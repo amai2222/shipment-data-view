@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { FormEvent, ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,11 +61,7 @@ export default function Locations() {
   const activeFiltersCount = (searchQuery ? 1 : 0) + (projectFilter !== "all" ? 1 : 0);
 
   // 加载地点数据
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [loadedLocations, loadedProjects] = await Promise.all([
         SupabaseStorage.getLocations(),
@@ -81,7 +77,12 @@ export default function Locations() {
         variant: "destructive",
       });
     }
-  }
+  }, [toast]);
+
+  // 加载地点数据
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // 重置表单
   const resetForm = () => {
@@ -181,7 +182,14 @@ export default function Locations() {
         let importedCount = 0;
         let duplicateCount = 0;
 
-        for (const row of jsonData as any[]) {
+        // Excel 行数据接口
+        interface ExcelRow {
+          '地点名称'?: string;
+          '昵称'?: string;
+          [key: string]: unknown;
+        }
+
+        for (const row of jsonData as ExcelRow[]) {
           // 检查是否已存在相同地点名称
           const existingLocation = locations.find(l => l.name === row['地点名称']);
           
@@ -456,6 +464,7 @@ export default function Locations() {
             <Table>
               <TableHeader>
                  <TableRow>
+                   <TableHead>昵称</TableHead>
                    <TableHead>地点名称</TableHead>
                    <TableHead>关联项目</TableHead>
                    <TableHead>创建时间</TableHead>
@@ -465,7 +474,7 @@ export default function Locations() {
               <TableBody>
                 {filteredLocations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       <MapPin className="mx-auto h-12 w-12 text-muted-foreground" />
                       <p className="mt-2 text-muted-foreground">
                         {activeFiltersCount > 0 ? '当前筛选条件下无数据' : '暂无地点数据'}
@@ -484,6 +493,7 @@ export default function Locations() {
                   </TableRow>
                 ) : filteredLocations.map((location) => (
                    <TableRow key={location.id}>
+                    <TableCell>{location.nickname || '-'}</TableCell>
                     <TableCell className="font-medium">{location.name}</TableCell>
                     <TableCell>
                       {location.projectIds && location.projectIds.length > 0 ? 
@@ -522,7 +532,7 @@ export default function Locations() {
                 ))}
                  {locations.length === 0 && (
                    <TableRow>
-                     <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                        暂无地点数据
                      </TableCell>
                    </TableRow>

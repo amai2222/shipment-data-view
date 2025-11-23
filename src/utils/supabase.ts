@@ -4,6 +4,76 @@ import { Project, Driver, Location, LogisticsRecord } from '@/types';
 // 重新导出supabase
 export { supabase };
 
+// Dashboard 统计数据接口
+interface DashboardStats {
+  overview: {
+    totalRecords: number;
+    totalWeight: number;
+    totalVolume: number;
+    totalTrips: number;
+    totalCost: number;
+    actualTransportCount: number;
+    returnCount: number;
+    weightRecordsCount: number;
+    tripRecordsCount: number;
+    volumeRecordsCount: number;
+  };
+  dailyTransportStats: unknown[];
+  dailyTripStats: unknown[];
+  dailyVolumeStats: unknown[];
+  dailyCostStats: unknown[];
+  dailyCountStats: unknown[];
+}
+
+// RPC 返回的司机原始数据接口
+interface DriverRawData {
+  id: string;
+  name: string;
+  license_plate: string | null;
+  phone: string | null;
+  project_ids: string[] | string | null;
+  id_card_photos: string[] | string | null;
+  driver_license_photos: string[] | string | null;
+  qualification_certificate_photos: string[] | string | null;
+  driving_license_photos: string[] | string | null;
+  transport_license_photos: string[] | string | null;
+  photo_status: 'complete' | 'incomplete' | null;
+  created_at: string;
+  total_records?: number;
+}
+
+// RPC 返回的运单记录原始数据接口
+interface LogisticsRecordRawData {
+  id: string;
+  auto_number: string;
+  project_id: string;
+  project_name: string;
+  chain_id: string | null;
+  loading_date: string;
+  loading_location: string;
+  unloading_location: string;
+  driver_id: string;
+  driver_name: string;
+  license_plate: string | null;
+  driver_phone: string | null;
+  loading_weight: number | null;
+  unloading_date: string | null;
+  unloading_weight: number | null;
+  transport_type: string | null;
+  current_cost: number | null;
+  extra_cost: number | null;
+  payable_cost: number | null;
+  remarks: string | null;
+  created_at: string;
+  created_by_user_id: string;
+}
+
+// RPC 返回的运单记录响应接口
+interface LogisticsRecordsRPCResponse {
+  records: LogisticsRecordRawData[];
+  totalCount: number;
+}
+
 // 数据库操作工具类
 export class SupabaseStorage {
   // 项目相关
@@ -91,7 +161,7 @@ export class SupabaseStorage {
     if (error) throw error;
   }
 
-  static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }): Promise<any> {
+  static async getDashboardStats(filters: { startDate: string; endDate: string; projectId: string | null; }): Promise<DashboardStats> {
     try {
       // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
       const { data, error } = await supabase.rpc('get_dashboard_stats_with_billing_types_1113', {
@@ -105,7 +175,7 @@ export class SupabaseStorage {
         throw error;
       }
 
-      return (data as any) || {
+      return (data as DashboardStats) || {
         overview: {
           totalRecords: 0, totalWeight: 0, totalVolume: 0, totalTrips: 0, totalCost: 0, actualTransportCount: 0, returnCount: 0, weightRecordsCount: 0, tripRecordsCount: 0, volumeRecordsCount: 0
         },
@@ -133,7 +203,7 @@ export class SupabaseStorage {
       id: l.id,
       name: l.name,
       nickname: l.nickname || undefined,
-      projectIds: l.location_projects?.map((lp: any) => lp.project_id) || [],
+      projectIds: l.location_projects?.map((lp: { project_id: string }) => lp.project_id) || [],
       createdAt: l.created_at,
     })) || [];
   }
@@ -232,7 +302,7 @@ export class SupabaseStorage {
     
     if (data && Array.isArray(data) && data.length > 0) {
       return {
-        drivers: data.map((d: any) => {
+        drivers: data.map((d: DriverRawData) => {
           // 处理project_ids：确保是数组格式
           let projectIds: string[] = [];
           if (d.project_ids) {
@@ -375,65 +445,66 @@ export class SupabaseStorage {
 
     if (error) throw error;
 
-    if (!data || !(data as any).records) {
+    if (!data || !(data as LogisticsRecordsRPCResponse).records) {
       return { records: [], totalCount: 0 };
     }
 
-    const totalCount = (data as any).totalCount || 0;
-    const records = (data as any).records.map((record: any) => ({
+    const response = data as LogisticsRecordsRPCResponse;
+    const totalCount = response.totalCount || 0;
+    const records: LogisticsRecord[] = response.records.map((record: LogisticsRecordRawData) => ({
       id: record.id,
-      autoNumber: record.auto_number,
-      projectId: record.project_id,
-      projectName: record.project_name,
-      chainId: record.chain_id,
-      loadingDate: record.loading_date,
-      loadingLocation: record.loading_location,
-      unloadingLocation: record.unloading_location,
-      driverId: record.driver_id,
-      driverName: record.driver_name,
-      licensePlate: record.license_plate,
-      driverPhone: record.driver_phone,
-      loadingWeight: record.loading_weight,
-      unloadingDate: record.unloading_date,
-      unloadingWeight: record.unloading_weight,
-      transportType: record.transport_type as "实际运输" | "退货",
-      currentFee: record.current_cost,
-      extraFee: record.extra_cost,
-      payableFee: record.payable_cost,
-      remarks: record.remarks,
-      createdAt: record.created_at,
-      createdByUserId: record.created_by_user_id,
+      auto_number: record.auto_number,
+      project_id: record.project_id,
+      project_name: record.project_name,
+      chain_id: record.chain_id || undefined,
+      loading_date: record.loading_date,
+      loading_location: record.loading_location,
+      unloading_location: record.unloading_location,
+      driver_id: record.driver_id,
+      driver_name: record.driver_name,
+      license_plate: record.license_plate || '',
+      driver_phone: record.driver_phone || '',
+      loading_weight: record.loading_weight || 0,
+      unloading_date: record.unloading_date || undefined,
+      unloading_weight: record.unloading_weight || undefined,
+      transport_type: (record.transport_type as "实际运输" | "退货") || "实际运输",
+      current_cost: record.current_cost || undefined,
+      extra_cost: record.extra_cost || undefined,
+      payable_cost: record.payable_cost || undefined,
+      remarks: record.remarks || undefined,
+      created_at: record.created_at,
+      created_by_user_id: record.created_by_user_id,
     }));
 
     return { records, totalCount };
   }
 
-  static async addLogisticsRecord(record: Omit<LogisticsRecord, 'id' | 'autoNumber' | 'createdAt'>): Promise<LogisticsRecord> {
+  static async addLogisticsRecord(record: Omit<LogisticsRecord, 'id' | 'auto_number' | 'created_at'>): Promise<LogisticsRecord> {
     const autoNumber = await this.generateAutoNumber();
 
     const { data, error } = await supabase
       .from('logistics_records')
       .insert([{
         auto_number: autoNumber,
-        project_id: record.projectId,
-        project_name: record.projectName,
-        chain_id: record.chainId,
-        loading_date: record.loadingDate,
-        loading_location: record.loadingLocation,
-        unloading_location: record.unloadingLocation,
-        driver_id: record.driverId,
-        driver_name: record.driverName,
-        license_plate: record.licensePlate,
-        driver_phone: record.driverPhone,
-        loading_weight: record.loadingWeight,
-        unloading_date: record.unloadingDate,
-        unloading_weight: record.unloadingWeight,
-        transport_type: record.transportType,
-        current_cost: record.currentFee,
-        extra_cost: record.extraFee,
-        payable_cost: record.payableFee,
+        project_id: record.project_id,
+        project_name: record.project_name,
+        chain_id: record.chain_id,
+        loading_date: record.loading_date,
+        loading_location: record.loading_location,
+        unloading_location: record.unloading_location,
+        driver_id: record.driver_id,
+        driver_name: record.driver_name,
+        license_plate: record.license_plate,
+        driver_phone: record.driver_phone,
+        loading_weight: record.loading_weight,
+        unloading_date: record.unloading_date,
+        unloading_weight: record.unloading_weight,
+        transport_type: record.transport_type,
+        current_cost: record.current_cost,
+        extra_cost: record.extra_cost,
+        payable_cost: record.payable_cost,
         remarks: record.remarks,
-        created_by_user_id: record.createdByUserId,
+        created_by_user_id: record.created_by_user_id,
       }])
       .select()
       .single();
@@ -442,32 +513,39 @@ export class SupabaseStorage {
 
     return {
       id: data.id,
-      autoNumber: data.auto_number,
-      projectId: data.project_id,
-      projectName: data.project_name,
-      chainId: data.chain_id,
-      loadingDate: data.loading_date,
-      loadingLocation: data.loading_location,
-      unloadingLocation: data.unloading_location,
-      driverId: data.driver_id,
-      driverName: data.driver_name,
-      licensePlate: data.license_plate,
-      driverPhone: data.driver_phone,
-      loadingWeight: data.loading_weight,
-      unloadingDate: data.unloading_date,
-      unloadingWeight: data.unloading_weight,
-      transportType: data.transport_type as "实际运输" | "退货",
-      currentFee: data.current_cost,
-      extraFee: data.extra_cost,
-      payableFee: data.payable_cost,
+      auto_number: data.auto_number,
+      project_id: data.project_id,
+      project_name: data.project_name,
+      chain_id: data.chain_id,
+      loading_date: data.loading_date,
+      loading_location: data.loading_location,
+      unloading_location: data.unloading_location,
+      driver_id: data.driver_id,
+      driver_name: data.driver_name,
+      license_plate: data.license_plate,
+      driver_phone: data.driver_phone,
+      loading_weight: data.loading_weight,
+      unloading_date: data.unloading_date,
+      unloading_weight: data.unloading_weight,
+      transport_type: data.transport_type as "实际运输" | "退货",
+      current_cost: data.current_cost,
+      extra_cost: data.extra_cost,
+      payable_cost: data.payable_cost,
       remarks: data.remarks,
-      createdAt: data.created_at,
-      createdByUserId: data.created_by_user_id,
+      created_at: data.created_at,
+      created_by_user_id: data.created_by_user_id,
     };
   }
 
   // 合作商链相关
-  static async getPartnerChains(projectId: string): Promise<any[]> {
+  static async getPartnerChains(projectId: string): Promise<Array<{
+    id: string;
+    chain_name: string;
+    project_id: string;
+    billing_type_id: number | null;
+    is_default: boolean;
+    created_at: string;
+  }>> {
     const { data, error } = await supabase
       .from('partner_chains')
       .select('*')

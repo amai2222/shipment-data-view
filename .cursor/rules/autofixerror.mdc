@@ -1,0 +1,27 @@
+## 🛡️ 代码质量与类型安全（最高优先级）
+
+**AI 在生成代码时必须强制执行以下检查，违反以下规则的代码将被视为无效：**
+
+### 1. TypeScript 严格模式
+- ❌ **严禁使用 `any`**：遇到类型困难时，必须定义 `interface` 或 `type`。如果必须使用临时类型，请使用 `unknown` 并配合类型守卫。
+- ✅ **Props 类型定义**：所有 React 组件必须定义 Props 接口。例如 `interface ButtonProps { ... }`。
+- ✅ **事件类型**：必须使用正确的 React 事件类型，例如 `React.ChangeEvent<HTMLInputElement>`，而不是 `any`。
+
+### 2. 导入/导出与路径修复
+- ✅ **自动检查路径**：在生成 `import` 语句前，必须检查文件是否存在。优先使用 `@/` 别名路径。
+- ✅ **修正导入方式**：根据 `package.json` 检查第三方库是 `default` 导出还是 `named` 导出。
+  - 错误：`import Button from '@/components/ui/button'` (如果是命名导出)
+  - 正确：`import { Button } from '@/components/ui/button'`
+
+### 3. 构建与语法错误预防
+- ✅ **JSX 闭合检查**：输出前自检所有 JSX 标签是否正确闭合。
+- ✅ **Hooks 规则**：确保 `useEffect` 依赖项完整，不要在循环或条件语句中调用 Hooks。
+- ✅ **React 18 兼容性**：使用 `createRoot` 而不是 `ReactDOM.render`，确保组件返回值类型为 `JSX.Element` 或 `React.ReactNode`。
+
+### 4. 自我修正机制
+如果生成的代码可能导致构建失败（例如引用了不存在的变量或属性），AI 必须：
+1. 停止生成。
+2. 重新分析上下文。
+3. 重新生成修复后的代码，并附加说明：“已修复潜在的类型错误...”。---
+alwaysApply: true
+---

@@ -20,6 +20,7 @@ import {
 export interface ComboboxOption {
   value: string
   label: string
+  searchText?: string // 用于搜索的文本（可选，如果提供则优先使用此字段进行搜索）
 }
 
 interface ComboboxProps {
@@ -52,9 +53,10 @@ export function Combobox({
 
   const selectedOption = options.find((option) => option.value === value)
 
-  const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(searchValue.toLowerCase())
-  )
+  const filteredOptions = options.filter((option) => {
+    const searchText = option.searchText || option.label;
+    return searchText.toLowerCase().includes(searchValue.toLowerCase());
+  })
 
   const handleSelect = (currentValue: string) => {
     onValueChange(currentValue === value ? "" : currentValue)
@@ -68,8 +70,9 @@ export function Combobox({
         await onCreateNew(searchValue)
         setOpen(false)
         setSearchValue("")
-      } catch (error) {
-        console.error("Failed to create new option:", error)
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : '创建选项失败';
+        console.error("Failed to create new option:", errorMessage);
       }
     }
   }

@@ -231,6 +231,7 @@ export default function EnhancedLocations() {
 
     const selectedData = locations.filter(loc => selectedLocations.includes(loc.id));
     const exportData = selectedData.map(location => ({
+      '昵称': location.nickname || '',
       '地点名称': location.name,
       '详细地址': location.formatted_address || location.address || '',
       '纬度': location.latitude || '',
@@ -257,6 +258,7 @@ export default function EnhancedLocations() {
   useEffect(() => {
     loadData();
     loadGeocodingStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 刷新数据
@@ -898,6 +900,7 @@ export default function EnhancedLocations() {
                       aria-label="选择全部"
                     />
                   </TableHead>
+                  <TableHead>昵称</TableHead>
                   <TableHead>地点名称</TableHead>
                   {showGeocodingInfo && <TableHead>详细地址</TableHead>}
                   {showGeocodingInfo && <TableHead>坐标</TableHead>}
@@ -917,6 +920,7 @@ export default function EnhancedLocations() {
                         aria-label={`选择 ${location.name}`}
                       />
                     </TableCell>
+                    <TableCell>{location.nickname || '-'}</TableCell>
                     <TableCell className="font-medium">{location.name}</TableCell>
                     {showGeocodingInfo && (
                       <TableCell>
