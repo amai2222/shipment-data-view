@@ -25,7 +25,7 @@ import { LogisticsFormDialog } from './components/LogisticsFormDialog';
 import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 import { generatePrintVersion } from '@/components/TransportDocumentGenerator';
 import { BatchPDFGenerator } from '@/components/BatchPDFGenerator';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog, DirectConfirmDialog } from '@/components/ConfirmDialog';
 import { LogisticsTable } from './components/LogisticsTable';
 import { PageHeader } from "@/components/PageHeader";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
@@ -116,6 +116,8 @@ export default function BusinessEntry() {
   const [selectedRecords, setSelectedRecords] = useState<LogisticsRecord[]>([]);
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]); // 新增：选中的记录ID列表
   const [isBatchPDFOpen, setIsBatchPDFOpen] = useState(false);
+  const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { records, loading, activeFilters, setActiveFilters, pagination: paginationState, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort, handlePageSizeChange } = useLogisticsData();
   const pagination = paginationState as PaginationState;
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, duplicateActions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates, setDuplicateActions } = useExcelImport(() => { refetch(); });
@@ -436,6 +438,51 @@ export default function BusinessEntry() {
     }
   };
 
+  // 批量删除处理
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedRecordIds.length === 0) {
+      toast({
+        title: "提示",
+        description: "请先选择要删除的运单",
+        variant: "default"
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // 使用 Supabase 批量删除
+      const { error } = await supabase
+        .from('logistics_records')
+        .delete()
+        .in('id', selectedRecordIds);
+
+      if (error) throw error;
+
+      toast({
+        title: "成功",
+        description: `已成功删除 ${selectedRecordIds.length} 条运单记录`,
+        variant: "default"
+      });
+
+      // 清空选中状态
+      setSelectedRecordIds([]);
+      setIsBatchDeleteDialogOpen(false);
+      
+      // 重新加载数据
+      await refetch();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '删除失败，请稍后重试';
+      toast({
+        title: "删除失败",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedRecordIds, toast, refetch]);
+
   const toggleBatchMode = () => {
     setIsBatchMode(!isBatchMode);
     if (isBatchMode) {
@@ -496,6 +543,19 @@ export default function BusinessEntry() {
               <Download className="mr-2 h-4 w-4" />
               导出筛选
             </Button>
+
+            {/* 批量删除按钮 */}
+            {hasButtonAccess('data.delete') && (
+              <Button 
+                onClick={() => setIsBatchDeleteDialogOpen(true)}
+                disabled={loading || selectedRecordIds.length === 0}
+                variant="destructive"
+                title={selectedRecordIds.length === 0 ? "请先选择要删除的运单" : `删除选中的 ${selectedRecordIds.length} 条运单`}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                批量删除 ({selectedRecordIds.length})
+              </Button>
+            )}
             
             {selectedRecordIds.length > 0 && (
               <Button 
@@ -537,6 +597,16 @@ export default function BusinessEntry() {
         isOpen={isBatchPDFOpen}
         onClose={() => setIsBatchPDFOpen(false)}
         selectedRecords={selectedRecords}
+      />
+
+      {/* 批量删除确认对话框 */}
+      <DirectConfirmDialog
+        open={isBatchDeleteDialogOpen}
+        onOpenChange={setIsBatchDeleteDialogOpen}
+        title="确认批量删除"
+        description={`您确定要删除选中的 ${selectedRecordIds.length} 条运单记录吗？此操作不可撤销，将永久删除这些运单及其关联数据。`}
+        onConfirm={handleBatchDelete}
+        loading={isDeleting}
       />
       </div>
     </div>
