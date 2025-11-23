@@ -7,6 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   FileUp, 
   Trash2, 
@@ -74,6 +76,47 @@ interface ProjectRawData {
   project_status: string;
 }
 
+// 解析行数范围字符串（支持格式：2-101, 2,4,6-11, 2-51,61-101）
+// 返回一个 Set，包含所有有效的Excel行号（Excel实际行号：表头是第1行，数据从第2行开始）
+// maxRows: Excel总行数（包括表头）
+function parseRowRange(rangeStr: string, maxRows: number): Set<number> {
+  const result = new Set<number>();
+  if (!rangeStr.trim()) {
+    // 如果为空，返回所有数据行（从第2行开始，因为第1行是表头）
+    for (let i = 2; i <= maxRows; i++) {
+      result.add(i);
+    }
+    return result;
+  }
+
+  // 按逗号分割
+  const parts = rangeStr.split(',').map(part => part.trim()).filter(Boolean);
+  
+  for (const part of parts) {
+    if (part.includes('-')) {
+      // 范围格式：2-101
+      const [start, end] = part.split('-').map(s => parseInt(s.trim(), 10));
+      if (!isNaN(start) && !isNaN(end) && start > 0 && end > 0 && start <= end) {
+        // Excel行号范围：最小是2（第1行是表头），最大是maxRows
+        const actualStart = Math.max(2, start);
+        const actualEnd = Math.min(maxRows, end);
+        for (let i = actualStart; i <= actualEnd; i++) {
+          result.add(i);
+        }
+      }
+    } else {
+      // 单个数字：2
+      const num = parseInt(part, 10);
+      // Excel行号：最小是2（第1行是表头），最大是maxRows
+      if (!isNaN(num) && num >= 2 && num <= maxRows) {
+        result.add(num);
+      }
+    }
+  }
+  
+  return result;
+}
+
 export default function EnhancedWaybillMaintenance() {
   const { toast } = useToast();
   const { hasButtonAccess, hasRole } = useUnifiedPermissions();
@@ -93,6 +136,9 @@ export default function EnhancedWaybillMaintenance() {
   const [importLogs, setImportLogs] = useState<LogEntry[]>([]);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
+  const [rowRangeInput, setRowRangeInput] = useState<string>('');
+  const [totalDataRows, setTotalDataRows] = useState<number>(0);
+  const [allValidRecords, setAllValidRecords] = useState<Array<Record<string, unknown>>>([]);
   
   // 创建增强的日志记录器
   const logger = useMemo(() => createEnhancedLogger((logs) => setImportLogs(logs)), []);
@@ -206,8 +252,13 @@ export default function EnhancedWaybillMaintenance() {
         throw new Error('Excel文件至少需要包含表头和一行数据');
       }
 
+      const totalExcelRows = jsonData.length; // Excel总行数（包括表头）
+      const totalDataRows = jsonData.length - 1; // 数据行数（不包括表头）
+      setTotalDataRows(totalExcelRows); // 保存Excel总行数用于范围解析
+      
       logger.info('Excel文件解析成功', { 
-        totalRows: jsonData.length - 1,
+        totalExcelRows,
+        totalDataRows,
         sheetName 
       });
 
@@ -223,9 +274,30 @@ export default function EnhancedWaybillMaintenance() {
 
       logger.info('表头验证通过', { headers, requiredHeaders });
 
+      // 解析行数范围（如果已输入）
+      // 注意：使用Excel实际行号（表头是第1行，数据从第2行开始）
+      const rowRange = parseRowRange(rowRangeInput, totalExcelRows);
+      if (rowRangeInput.trim() && rowRange.size === 0) {
+        logger.warn('行数范围无效，将导入所有行', { input: rowRangeInput });
+      } else if (rowRangeInput.trim()) {
+        logger.info('应用行数范围过滤', { 
+          input: rowRangeInput, 
+          selectedRows: rowRange.size,
+          totalExcelRows,
+          totalDataRows 
+        });
+      }
+
       // 处理数据行
       const validRows: ExcelRowData[] = [];
       for (let i = 1; i < jsonData.length; i++) {
+        // Excel实际行号：i=1 对应 Excel 第2行（第1条数据），i=2 对应 Excel 第3行（第2条数据）
+        const excelRowNumber = i + 1; // Excel行号从2开始（第1行是表头）
+        
+        // 如果指定了行数范围，检查当前行是否在范围内
+        if (rowRangeInput.trim() && !rowRange.has(excelRowNumber)) {
+          continue; // 跳过不在范围内的行
+        }
         const row = jsonData[i] as unknown[];
         if (row.every(cell => cell === null || cell === undefined || cell === '')) continue;
 
@@ -340,12 +412,32 @@ export default function EnhancedWaybillMaintenance() {
         other_platform_names: record['other_platform_names']
       }));
 
+      // 保存所有有效记录（用于行数范围过滤）
+      setAllValidRecords(recordsForImport);
+
+      // 如果指定了行数范围，应用过滤
+      let filteredRecords = recordsForImport;
+      if (rowRangeInput.trim()) {
+        const rowRange = parseRowRange(rowRangeInput, totalDataRows);
+        // 根据行数范围过滤记录（注意：这里我们只能根据处理顺序来过滤）
+        // 由于验证可能改变了数据顺序，我们尽量保持原始顺序
+        filteredRecords = recordsForImport.filter((_, index) => {
+          // index + 2 对应Excel行号（index=0对应Excel第2行，index=1对应Excel第3行...）
+          return rowRange.has(index + 2);
+        });
+        logger.info('行数范围过滤已应用', { 
+          input: rowRangeInput,
+          originalCount: recordsForImport.length,
+          filteredCount: filteredRecords.length 
+        });
+      }
+
       // 设置预览数据
       setImportPreview({
-        new_records: recordsForImport.map(record => ({ record })),
+        new_records: filteredRecords.map(record => ({ record })),
         duplicate_records: [],
-        total_count: recordsForImport.length,
-        valid_count: recordsForImport.length,
+        total_count: filteredRecords.length,
+        valid_count: filteredRecords.length,
         invalid_count: validationResult.invalidRows.length
       });
 
@@ -365,7 +457,7 @@ export default function EnhancedWaybillMaintenance() {
       setIsEnhancedImporting(false);
       event.target.value = '';
     }
-  }, [logger, progressManager, validationProcessor, excelErrorHandler, toast]);
+  }, [logger, progressManager, validationProcessor, excelErrorHandler, toast, rowRangeInput]);
 
   // 执行增强的导入
   const executeEnhancedImport = useCallback(async () => {
@@ -426,9 +518,38 @@ export default function EnhancedWaybillMaintenance() {
     setImportStep('upload');
     setImportPreview(null);
     setApprovedDuplicates(new Set());
+    setRowRangeInput('');
+    setTotalDataRows(0);
+    setAllValidRecords([]);
     logger.clear();
     progressManager.reset(0);
   }, [logger, progressManager]);
+
+  // 当行数范围改变时，重新应用过滤
+  useEffect(() => {
+    if (importStep === 'preview' && allValidRecords.length > 0 && totalDataRows > 0) {
+      let filteredRecords = allValidRecords;
+      if (rowRangeInput.trim()) {
+        const rowRange = parseRowRange(rowRangeInput, totalDataRows);
+        filteredRecords = allValidRecords.filter((_, index) => {
+          // index + 2 对应Excel行号（index=0对应Excel第2行，index=1对应Excel第3行...）
+          return rowRange.has(index + 2);
+        });
+        logger.info('行数范围已更新，重新应用过滤', { 
+          input: rowRangeInput,
+          filteredCount: filteredRecords.length 
+        });
+      }
+
+      setImportPreview({
+        new_records: filteredRecords.map(record => ({ record })),
+        duplicate_records: [],
+        total_count: filteredRecords.length,
+        valid_count: filteredRecords.length,
+        invalid_count: 0
+      });
+    }
+  }, [rowRangeInput, allValidRecords, totalDataRows, importStep, logger]);
 
   // 下载增强模板
   const handleEnhancedTemplateDownload = useCallback(() => {
@@ -764,6 +885,34 @@ export default function EnhancedWaybillMaintenance() {
                 </div>
               )}
 
+              {/* 行数范围输入 */}
+              {importStep === 'preview' && totalDataRows > 0 && (
+                <div className="mb-4">
+                  <Label htmlFor="row-range-input" className="text-sm font-medium mb-2 block">
+                    指定导入行数范围（可选）
+                  </Label>
+                  <div className="space-y-2">
+                    <Input
+                      id="row-range-input"
+                      type="text"
+                      placeholder="例如：1-100 或 1,3,5-10 或 1-50,60-100（留空则导入全部）"
+                      value={rowRangeInput}
+                      onChange={(e) => setRowRangeInput(e.target.value)}
+                      className="w-full"
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      <Info className="h-3 w-3 inline mr-1" />
+                      支持格式：单个数字（2）、范围（2-101）、多个范围（2-51,61-101）。Excel总行数：{totalDataRows} 行（第1行是表头，数据从第2行开始）
+                    </div>
+                    {rowRangeInput.trim() && (
+                      <div className="text-xs text-blue-600">
+                        将导入行数：{parseRowRange(rowRangeInput, totalDataRows).size} 行
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* 预览数据 */}
               {importStep === 'preview' && importPreview && (
                 <div className="mb-4">
@@ -773,6 +922,11 @@ export default function EnhancedWaybillMaintenance() {
                       <Info className="h-4 w-4 text-blue-600" />
                       <span className="text-sm text-blue-800">
                         准备导入 {importPreview.new_records.length} 条记录
+                        {rowRangeInput.trim() && (
+                          <span className="text-xs text-blue-600 ml-2">
+                            （已应用行数范围过滤）
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="text-xs text-blue-600">
