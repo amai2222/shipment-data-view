@@ -1,5 +1,5 @@
 // 增强的运单维护页面 - 集成数据维护-数据导入的专业处理功能
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,6 +47,33 @@ import {
   type ImportProgress
 } from '@/utils/enhancedLoggingUtils';
 
+// 增强导入预览结果类型
+interface EnhancedImportPreview {
+  new_records: Array<{ record: Record<string, unknown> }>;
+  duplicate_records: Array<{ record: Record<string, unknown> }>;
+  total_count: number;
+  valid_count: number;
+  invalid_count: number;
+}
+
+// Excel行数据类型
+interface ExcelRowData {
+  [key: string]: string | number | null | undefined | string[];
+  loading_date_parsed?: string;
+  unloading_date_parsed?: string;
+  external_tracking_numbers?: string[];
+  other_platform_names?: string[];
+}
+
+// 项目数据（从数据库返回）
+interface ProjectRawData {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  project_status: string;
+}
+
 export default function EnhancedWaybillMaintenance() {
   const { toast } = useToast();
   const { hasButtonAccess, hasRole } = useUnifiedPermissions();
@@ -62,17 +89,42 @@ export default function EnhancedWaybillMaintenance() {
   // 增强的导入状态
   const [isEnhancedImporting, setIsEnhancedImporting] = useState(false);
   const [importStep, setImportStep] = useState<'upload' | 'preview' | 'confirmation' | 'processing' | 'completed'>('upload');
-  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importPreview, setImportPreview] = useState<EnhancedImportPreview | null>(null);
   const [importLogs, setImportLogs] = useState<LogEntry[]>([]);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
   
   // 创建增强的日志记录器
-  const logger = createEnhancedLogger((logs) => setImportLogs(logs));
-  const progressManager = createImportProgressManager(0, (progress) => setImportProgress(progress));
-  const validationProcessor = new ValidationResultProcessor(logger);
-  const excelErrorHandler = new ExcelParseErrorHandler(logger);
-  const importResultProcessor = new ImportResultProcessor(logger);
+  const logger = useMemo(() => createEnhancedLogger((logs) => setImportLogs(logs)), []);
+  const progressManager = useMemo(() => createImportProgressManager(0, (progress) => setImportProgress(progress)), []);
+  const validationProcessor = useMemo(() => new ValidationResultProcessor(logger), [logger]);
+  const excelErrorHandler = useMemo(() => new ExcelParseErrorHandler(logger), [logger]);
+  const importResultProcessor = useMemo(() => new ImportResultProcessor(logger), [logger]);
+
+  // 加载指定项目的运单数量（延迟加载，不阻塞页面打开）
+  const loadWaybillCount = useCallback(async () => {
+    if (!selectedProject) {
+      setWaybillCount(0);
+      return;
+    }
+
+    // ✅ 不阻塞UI，使用estimated模式
+    try {
+      const { count, error } = await supabase
+        .from('logistics_records')
+        .select('id', { count: 'estimated', head: true })  // ✅ 改为estimated，更快
+        .eq('project_name', selectedProject);
+
+      if (error) throw error;
+      setWaybillCount(count || 0);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      console.error('加载运单数量失败:', errorMessage);
+      setWaybillCount(0);  // 失败不提示，避免干扰
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedProject]);
 
   // 原有的Excel导入Hook（保持兼容）
   const {
@@ -93,21 +145,6 @@ export default function EnhancedWaybillMaintenance() {
     loadWaybillCount(); 
   });
 
-  // 检查权限
-  if (!isAdmin && !isOperator) {
-    return (
-      <div className="container mx-auto p-4">
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>权限不足</AlertTitle>
-          <AlertDescription>
-            您没有权限访问此页面。只有系统管理员和操作员可以访问数据维护功能。
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   // 加载项目列表
   const loadProjects = useCallback(async () => {
     try {
@@ -117,36 +154,27 @@ export default function EnhancedWaybillMaintenance() {
         .order('name');
 
       if (error) throw error;
-      setProjects(data || []);
-    } catch (error: any) {
-      console.error('加载项目失败:', error);
+      
+      // 转换数据库字段名（snake_case）到 TypeScript 类型（camelCase）
+      const convertedProjects: Project[] = (data || []).map((p: ProjectRawData) => ({
+        id: p.id,
+        name: p.name,
+        startDate: p.start_date,
+        endDate: p.end_date,
+        manager: '',
+        loadingAddress: '',
+        unloadingAddress: '',
+        projectStatus: p.project_status,
+        createdAt: ''
+      }));
+      
+      setProjects(convertedProjects);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      console.error('加载项目失败:', errorMessage);
       toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
     }
   }, [toast]);
-
-  // 加载指定项目的运单数量（延迟加载，不阻塞页面打开）
-  const loadWaybillCount = useCallback(async () => {
-    if (!selectedProject) {
-      setWaybillCount(0);
-      return;
-    }
-
-    // ✅ 不阻塞UI，使用estimated模式
-    try {
-      const { count, error } = await supabase
-        .from('logistics_records')
-        .select('id', { count: 'estimated', head: true })  // ✅ 改为estimated，更快
-        .eq('project_name', selectedProject);
-
-      if (error) throw error;
-      setWaybillCount(count || 0);
-    } catch (error: any) {
-      console.error('加载运单数量失败:', error);
-      setWaybillCount(0);  // 失败不提示，避免干扰
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedProject, toast]);
 
   // 增强的Excel导入处理
   const handleEnhancedExcelImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +200,7 @@ export default function EnhancedWaybillMaintenance() {
       
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
 
       if (jsonData.length < 2) {
         throw new Error('Excel文件至少需要包含表头和一行数据');
@@ -196,15 +224,15 @@ export default function EnhancedWaybillMaintenance() {
       logger.info('表头验证通过', { headers, requiredHeaders });
 
       // 处理数据行
-      const validRows: any[] = [];
+      const validRows: ExcelRowData[] = [];
       for (let i = 1; i < jsonData.length; i++) {
-        const row = jsonData[i] as any[];
+        const row = jsonData[i] as unknown[];
         if (row.every(cell => cell === null || cell === undefined || cell === '')) continue;
 
-        const rowData: any = {};
+        const rowData: ExcelRowData = {};
         headers.forEach((header, index) => {
           if (header && row[index] !== undefined) {
-            rowData[header] = row[index];
+            rowData[header] = row[index] as string | number | null | undefined;
           }
         });
 
@@ -324,11 +352,12 @@ export default function EnhancedWaybillMaintenance() {
       setImportStep('preview');
       logger.success('数据验证完成，准备导入');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       excelErrorHandler.handleParseError(error, 'Excel文件处理');
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast({ 
         title: "文件处理失败", 
-        description: error.message, 
+        description: errorMessage, 
         variant: "destructive" 
       });
       setImportStep('upload');
@@ -350,12 +379,14 @@ export default function EnhancedWaybillMaintenance() {
         totalRecords: importPreview.new_records.length 
       });
 
-      const recordsToImport = importPreview.new_records.map((item: any) => item.record);
+      const recordsToImport = importPreview.new_records.map((item) => item.record);
       
       progressManager.updateProgress(0, '准备导入数据...');
       
-      const { data: result, error } = await supabase.rpc('batch_import_logistics_records', {
-        p_records: recordsToImport
+      // ✅ 修复：使用与标准版相同的RPC函数，支持自动创建地点并关联项目
+      const { data: result, error } = await supabase.rpc('batch_import_logistics_records_with_update_1123', {
+        p_records: recordsToImport,
+        p_update_mode: false  // 增强版目前只支持创建模式
       });
 
       if (error) throw error;
@@ -375,13 +406,14 @@ export default function EnhancedWaybillMaintenance() {
       setImportStep('completed');
       loadWaybillCount();
 
-    } catch (error: any) {
-      logger.error('导入失败', { error: error.message });
-      progressManager.addError(error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      logger.error('导入失败', { error: errorMessage });
+      progressManager.addError(errorMessage);
       
       toast({
         title: "导入失败",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
       
@@ -408,11 +440,12 @@ export default function EnhancedWaybillMaintenance() {
         description: "请按照模板格式填写数据后重新导入",
         variant: "default"
       });
-    } catch (error: any) {
-      logger.error('模板下载失败', { error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      logger.error('模板下载失败', { error: errorMessage });
       toast({
         title: "模板下载失败",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -440,8 +473,9 @@ export default function EnhancedWaybillMaintenance() {
       });
       
       loadWaybillCount();
-    } catch (error: any) {
-      console.error('删除运单失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      console.error('删除运单失败:', errorMessage);
       toast({ 
         title: "删除失败", 
         description: "删除运单记录时发生错误", 
@@ -459,6 +493,21 @@ export default function EnhancedWaybillMaintenance() {
   useEffect(() => {
     loadWaybillCount();
   }, [loadWaybillCount]);
+
+  // 检查权限
+  if (!isAdmin && !isOperator) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>权限不足</AlertTitle>
+          <AlertDescription>
+            您没有权限访问此页面。只有系统管理员和操作员可以访问数据维护功能。
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -480,7 +529,7 @@ export default function EnhancedWaybillMaintenance() {
         </Alert>
 
         {/* 标签页 */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'standard' | 'template' | 'mapping' | 'selective' | 'delete')}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger 
               value="standard"
@@ -533,7 +582,7 @@ export default function EnhancedWaybillMaintenance() {
                         <div className="flex items-center gap-2">
                           <span>{project.name}</span>
                           <Badge variant="outline" className="text-xs">
-                            {project.project_status || '进行中'}
+                            {project.projectStatus || '进行中'}
                           </Badge>
                         </div>
                       </SelectItem>
