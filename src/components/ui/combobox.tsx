@@ -53,10 +53,18 @@ export function Combobox({
 
   const selectedOption = options.find((option) => option.value === value)
 
-  const filteredOptions = options.filter((option) => {
-    const searchText = option.searchText || option.label;
-    return searchText.toLowerCase().includes(searchValue.toLowerCase());
-  })
+  // 模糊搜索：支持搜索名称和昵称
+  const filteredOptions = React.useMemo(() => {
+    if (!searchValue.trim()) {
+      return options;
+    }
+    const searchLower = searchValue.toLowerCase().trim();
+    return options.filter((option) => {
+      const searchText = option.searchText || option.label;
+      // 支持模糊匹配：检查搜索文本是否包含在名称或昵称中
+      return searchText.toLowerCase().includes(searchLower);
+    });
+  }, [options, searchValue]);
 
   const handleSelect = (currentValue: string) => {
     onValueChange(currentValue === value ? "" : currentValue)
@@ -97,7 +105,7 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput 
             placeholder={searchPlaceholder} 
             value={searchValue}
@@ -109,26 +117,30 @@ export function Combobox({
             )}
             {filteredOptions.length > 0 && (
               <CommandGroup>
-                {filteredOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={handleSelect}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === option.value ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {option.label}
-                  </CommandItem>
-                ))}
+                {filteredOptions.map((option) => {
+                  // 使用 searchText 作为 CommandItem 的 value，以便 Command 组件也能正确过滤
+                  const searchValueForItem = option.searchText || option.label;
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      value={searchValueForItem}
+                      onSelect={() => handleSelect(option.value)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === option.value ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {option.label}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             )}
             {canCreateNew && (
               <CommandGroup>
-                <CommandItem onSelect={handleCreateNew}>
+                <CommandItem onSelect={handleCreateNew} value={searchValue}>
                   <Plus className="mr-2 h-4 w-4" />
                   {createLabel} "{searchValue}"
                 </CommandItem>
