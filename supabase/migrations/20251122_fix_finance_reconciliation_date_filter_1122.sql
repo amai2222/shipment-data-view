@@ -5,6 +5,23 @@
 --       日期筛选逻辑与运单管理页面一致，使用 +08:00 时区转换
 -- ============================================================================
 
+-- 先删除可能存在的旧版本函数（使用 date 类型的版本），避免函数重载冲突
+DROP FUNCTION IF EXISTS public.get_finance_reconciliation_by_partner_1122(
+    text,      -- p_project_id
+    date,      -- p_start_date (旧版本使用 date)
+    date,      -- p_end_date (旧版本使用 date)
+    uuid,      -- p_partner_id
+    integer,   -- p_page_number
+    integer,   -- p_page_size
+    text,      -- p_driver_name
+    text,      -- p_license_plate
+    text,      -- p_driver_phone
+    text,      -- p_waybill_numbers
+    text,      -- p_other_platform_name
+    text       -- p_reconciliation_status
+);
+
+-- 创建新版本的函数（使用 text 类型的日期参数）
 CREATE OR REPLACE FUNCTION public.get_finance_reconciliation_by_partner_1122(
     -- 常规筛选参数
     p_project_id text DEFAULT NULL,  -- ✅ 支持逗号分隔的多个 UUID
@@ -221,18 +238,26 @@ BEGIN
             'partner_summary', COALESCE((
                 SELECT jsonb_agg(
                     jsonb_build_object(
-                        'partner_id', lpc.partner_id,
-                        'partner_name', p.name,
-                        'level', lpc.level,
-                        'total_payable', SUM(lpc.payable_amount),
-                        'records_count', COUNT(DISTINCT lpc.logistics_record_id)
-                    )
+                        'partner_id', partner_summary.partner_id,
+                        'partner_name', partner_summary.partner_name,
+                        'level', partner_summary.level,
+                        'total_payable', partner_summary.total_payable,
+                        'records_count', partner_summary.records_count
+                    ) ORDER BY partner_summary.level, partner_summary.partner_name
                 )
-                FROM filtered_records fr
-                JOIN public.logistics_partner_costs lpc ON fr.id = lpc.logistics_record_id
-                JOIN public.partners p ON lpc.partner_id = p.id
-                GROUP BY lpc.partner_id, p.name, lpc.level
-                ORDER BY lpc.level, p.name
+                FROM (
+                    SELECT 
+                        lpc.partner_id,
+                        p.name as partner_name,
+                        lpc.level,
+                        SUM(lpc.payable_amount) as total_payable,
+                        COUNT(DISTINCT lpc.logistics_record_id) as records_count
+                    FROM filtered_records fr
+                    JOIN public.logistics_partner_costs lpc ON fr.id = lpc.logistics_record_id
+                    JOIN public.partners p ON lpc.partner_id = p.id
+                    GROUP BY lpc.partner_id, p.name, lpc.level
+                    ORDER BY lpc.level, p.name
+                ) partner_summary
             ), '[]'::jsonb),
             'count', COALESCE((SELECT count FROM total_count_cte), 0),
             'total_pages', CEIL(COALESCE((SELECT count FROM total_count_cte), 0)::numeric / NULLIF(p_page_size, 0))

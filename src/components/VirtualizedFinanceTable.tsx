@@ -50,6 +50,14 @@ interface FinanceRecord {
   partner_costs: PartnerCost[];
 }
 
+interface PartnerSummary {
+  partner_id: string;
+  partner_name: string;
+  level: number;
+  total_payable: number;
+  records_count: number;
+}
+
 interface VirtualizedFinanceTableProps {
   data: FinanceRecord[];
   displayedPartners: Partner[];
@@ -61,6 +69,19 @@ interface VirtualizedFinanceTableProps {
   onReconcileClick: (costIds: string[]) => void;
   height?: number;
   rowHeight?: number;
+  // ✅ 新增：合计数据
+  pageSummary?: {
+    total_freight: number;
+    total_extra_cost: number;
+    total_driver_receivable: number;
+    partner_totals: Record<string, number>; // partner_id -> total_payable
+  };
+  allSummary?: {
+    total_freight: number;
+    total_extra_cost: number;
+    total_driver_receivable: number;
+    partner_summary?: PartnerSummary[];
+  };
 }
 
 // 获取对账状态徽章
@@ -306,7 +327,9 @@ export function VirtualizedFinanceTable({
   onRecordSelect,
   onReconcileClick,
   height = 600,
-  rowHeight = 60
+  rowHeight = 60,
+  pageSummary,
+  allSummary
 }: VirtualizedFinanceTableProps) {
   const listRef = useRef<List>(null);
 
@@ -398,6 +421,100 @@ export function VirtualizedFinanceTable({
           {VirtualRow}
         </List>
       </div>
+
+      {/* 合计行 - 本页合计 */}
+      {pageSummary && (
+        <div 
+          className="flex items-center border-t-2 border-t-primary/20 bg-muted/20 text-sm font-semibold"
+          style={{ width: '100%' }}
+          role="row"
+        >
+          <div className="flex" style={{ minWidth: `${tableWidth}px` }}>
+            <div className="flex-shrink-0 w-12 px-2 py-2" role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '120px' }} role="cell">
+              <span className="text-xs text-muted-foreground">本页合计</span>
+            </div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '150px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '120px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '120px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2 text-red-600" style={{ width: '150px' }} role="cell">
+              <CurrencyDisplay value={pageSummary.total_freight} className="text-red-600 text-xs" />
+              <span className="text-gray-400 mx-1">/</span>
+              <CurrencyDisplay value={pageSummary.total_extra_cost} className="text-black text-xs" />
+            </div>
+            <div className="flex-shrink-0 px-2 py-2 text-green-600" style={{ width: '120px' }} role="cell">
+              <CurrencyDisplay value={pageSummary.total_driver_receivable} className="text-green-600 text-xs" />
+            </div>
+            
+            {displayedPartners.map(partner => {
+              const pageTotal = pageSummary.partner_totals[partner.id] || 0;
+              return (
+                <div 
+                  key={partner.id}
+                  className="flex-shrink-0 px-2 py-2 text-center" 
+                  style={{ width: '140px' }} 
+                  role="cell"
+                >
+                  <CurrencyDisplay value={pageTotal} className="text-xs" />
+                </div>
+              );
+            })}
+            
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+          </div>
+        </div>
+      )}
+
+      {/* 合计行 - 全部合计 */}
+      {allSummary && (
+        <div 
+          className="flex items-center border-t-2 border-t-primary/30 bg-muted/30 text-sm font-bold"
+          style={{ width: '100%' }}
+          role="row"
+        >
+          <div className="flex" style={{ minWidth: `${tableWidth}px` }}>
+            <div className="flex-shrink-0 w-12 px-2 py-2" role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '120px' }} role="cell">
+              <span className="text-xs text-muted-foreground">全部合计</span>
+            </div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '150px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '120px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '120px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2 text-red-600" style={{ width: '150px' }} role="cell">
+              <CurrencyDisplay value={allSummary.total_freight} className="text-red-600 text-xs" />
+              <span className="text-gray-400 mx-1">/</span>
+              <CurrencyDisplay value={allSummary.total_extra_cost} className="text-black text-xs" />
+            </div>
+            <div className="flex-shrink-0 px-2 py-2 text-green-600" style={{ width: '120px' }} role="cell">
+              <CurrencyDisplay value={allSummary.total_driver_receivable} className="text-green-600 text-xs" />
+            </div>
+            
+            {displayedPartners.map(partner => {
+              const allTotal = allSummary.partner_summary?.find(p => p.partner_id === partner.id)?.total_payable || 0;
+              return (
+                <div 
+                  key={partner.id}
+                  className="flex-shrink-0 px-2 py-2 text-center" 
+                  style={{ width: '140px' }} 
+                  role="cell"
+                >
+                  <CurrencyDisplay value={allTotal} className="text-xs font-bold" />
+                </div>
+              );
+            })}
+            
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+            <div className="flex-shrink-0 px-2 py-2" style={{ width: '100px' }} role="cell">-</div>
+          </div>
+        </div>
+      )}
 
       {/* 数据统计（作为表格的一部分） */}
       <div className="px-4 py-2 text-xs text-muted-foreground border-t bg-muted/30" role="row">

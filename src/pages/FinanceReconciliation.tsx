@@ -379,6 +379,35 @@ export default function FinanceReconciliation() {
       .map(([level, partners]) => ({ level, partners }));
   }, [reportData?.partner_summary]);
 
+  // 计算本页合计
+  const pageSummary = useMemo(() => {
+    const records = reportData?.records || [];
+    const pageTotals = {
+      total_freight: records.reduce((sum, r) => sum + (r.current_cost || 0), 0),
+      total_extra_cost: records.reduce((sum, r) => sum + (r.extra_cost || 0), 0),
+      total_driver_receivable: records.reduce((sum, r) => sum + (r.payable_cost || 0), 0),
+      partner_totals: {} as Record<string, number>
+    };
+    
+    // 计算每个合作方的本页合计
+    displayedPartners.forEach(partner => {
+      pageTotals.partner_totals[partner.id] = records.reduce((sum, record) => {
+        const cost = record.partner_costs?.find(c => c.partner_id === partner.id);
+        return sum + (cost?.payable_amount || 0);
+      }, 0);
+    });
+    
+    return pageTotals;
+  }, [reportData?.records, displayedPartners]);
+
+  // 计算全部合计
+  const allSummary = useMemo(() => ({
+    total_freight: reportData?.overview?.total_freight || 0,
+    total_extra_cost: reportData?.overview?.total_extra_cost || 0,
+    total_driver_receivable: reportData?.overview?.total_driver_receivable || 0,
+    partner_summary: reportData?.partner_summary || []
+  }), [reportData?.overview, reportData?.partner_summary]);
+
   // --- 事件处理器 ---
   const handleFilterChange = <K extends keyof FinanceFilters>(field: K, value: FinanceFilters[K]) => { setUiFilters(prev => ({ ...prev, [field]: value })); };
   
@@ -1422,15 +1451,8 @@ export default function FinanceReconciliation() {
 
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-background to-muted/10 border-b">
-                <div>
+                <div className="flex items-center gap-3">
                   <CardTitle className="text-lg">运单财务明细</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {partnerDisplayState === 'hidden' ? '合作方列已隐藏' : 
-                     partnerDisplayState === 'maxLevel' ? '仅显示最高级合作方' : 
-                     '显示所有层级的合作方'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -1439,14 +1461,21 @@ export default function FinanceReconciliation() {
                   >
                     {getPartnerDisplayButtonText()}
                   </Button>
+                  <p className="text-sm text-muted-foreground hidden sm:block">
+                    {partnerDisplayState === 'hidden' ? '合作方列已隐藏' : 
+                     partnerDisplayState === 'maxLevel' ? '仅显示最高级合作方' : 
+                     '显示所有层级的合作方'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={exportDetailsToExcel} disabled={!(reportData?.records?.length > 0)}>
                     <Download className="mr-2 h-4 w-4" />导出明细
                   </Button>
                 </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {loading ? (
-                <div className="min-h-[400px] overflow-x-auto">
+                <div className="min-h-[400px] overflow-x-auto p-6">
                   <TableSkeleton 
                     rowCount={pageSize} 
                     colCount={11 + displayedPartners.length} 
@@ -1454,7 +1483,7 @@ export default function FinanceReconciliation() {
                   />
                 </div>
               ) : (
-                <>
+                <div className="p-6">
                   {/* ✅ 使用虚拟化表格，大幅提升性能 */}
                   <VirtualizedFinanceTable
                     data={reportData?.records || []}
@@ -1467,35 +1496,10 @@ export default function FinanceReconciliation() {
                     onReconcileClick={openReconciliationDialog}
                     height={600}
                     rowHeight={60}
+                    pageSummary={pageSummary}
+                    allSummary={allSummary}
                   />
-
-                  {/* 汇总行 - 作为表格的一部分 */}
-                  <div className="border-t-2 border-t-primary/20 bg-muted/20 p-3 -mt-px">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-semibold">
-                      <div className="text-center">
-                        <div className="text-xs text-muted-foreground mb-1">运费</div>
-                        <CurrencyDisplay value={reportData?.overview?.total_freight} className="text-red-600" />
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-muted-foreground mb-1">额外费用</div>
-                        <CurrencyDisplay value={reportData?.overview?.total_extra_cost} className="text-black" />
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-muted-foreground mb-1">司机应收</div>
-                        <CurrencyDisplay value={reportData?.overview?.total_driver_receivable} className="text-green-600" />
-                      </div>
-                      {displayedPartners.slice(0, 1).map(p => {
-                        const total = (reportData?.partner_summary || []).find((pp) => pp.partner_id === p.id)?.total_payable || 0;
-                        return (
-                          <div key={p.id} className="text-center">
-                            <div className="text-xs text-muted-foreground mb-1">{p.name} 应付</div>
-                            <CurrencyDisplay value={total} />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
