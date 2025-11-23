@@ -132,6 +132,7 @@ export class SupabaseStorage {
     return data?.map(l => ({
       id: l.id,
       name: l.name,
+      nickname: l.nickname || undefined,
       projectIds: l.location_projects?.map((lp: any) => lp.project_id) || [],
       createdAt: l.created_at,
     })) || [];
@@ -143,7 +144,11 @@ export class SupabaseStorage {
 
     const { data, error } = await supabase
       .from('locations')
-      .insert([{ user_id: user.id, name: location.name }])
+      .insert([{ 
+        user_id: user.id, 
+        name: location.name,
+        nickname: location.nickname || null
+      }])
       .select().single();
     if (error) throw error;
 
@@ -159,14 +164,19 @@ export class SupabaseStorage {
     }
     return { 
       id: data.id, 
-      name: data.name, 
+      name: data.name,
+      nickname: data.nickname || undefined,
       projectIds: location.projectIds || [], 
       createdAt: data.created_at 
     };
   }
 
   static async updateLocation(id: string, updates: Partial<Location>): Promise<void> {
-    const { error } = await supabase.from('locations').update({ name: updates.name }).eq('id', id);
+    const updateData: { name?: string; nickname?: string | null } = { name: updates.name };
+    if (updates.nickname !== undefined) {
+      updateData.nickname = updates.nickname || null;
+    }
+    const { error } = await supabase.from('locations').update(updateData).eq('id', id);
     if (error) throw error;
 
     if (updates.projectIds !== undefined) {

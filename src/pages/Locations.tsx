@@ -28,6 +28,7 @@ export default function Locations() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: "",
+    nickname: "",
     projectIds: [] as string[],
   });
 
@@ -86,6 +87,7 @@ export default function Locations() {
   const resetForm = () => {
     setFormData({
       name: "",
+      nickname: "",
       projectIds: [],
     });
     setEditingLocation(null);
@@ -95,6 +97,7 @@ export default function Locations() {
   const handleEdit = (location: Location) => {
     setFormData({
       name: location.name,
+      nickname: location.nickname || "",
       projectIds: location.projectIds || [],
     });
     setEditingLocation(location);
@@ -282,6 +285,15 @@ export default function Locations() {
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))}
                     placeholder="请输入地点名称"
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="nickname">昵称</Label>
+                   <Input
+                     id="nickname"
+                     value={formData.nickname}
+                     onChange={(e) => setFormData(prev => ({...prev, nickname: e.target.value}))}
+                     placeholder="请输入地点昵称（可选）"
                    />
                  </div>
                  <div className="space-y-2">

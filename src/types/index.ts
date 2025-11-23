@@ -36,6 +36,7 @@ export interface Driver {
 export interface Location {
   id: string;
   name: string;
+  nickname?: string; // 地点昵称
   projectIds?: string[]; // 关联的项目ID数组
   createdAt: string;
   // 地理编码相关字段

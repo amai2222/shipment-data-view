@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 export interface LocationWithGeocoding {
   id: string;
   name: string;
+  nickname?: string;
   address?: string;
   latitude?: number;
   longitude?: number;
@@ -169,12 +170,12 @@ export class LocationGeocodingService {
     projectIds?: string[];
   }): Promise<GeocodingResult> {
     try {
-      // 创建地点
+      // 创建地点（地理编码基于 address 字段）
       const { data: newLocation, error: createError } = await supabase
         .from('locations')
         .insert({
           name: locationData.name,
-          address: locationData.address,
+          address: locationData.address, // 地理编码基于 address 字段
           geocoding_status: 'pending'
         })
         .select()

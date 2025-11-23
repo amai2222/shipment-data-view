@@ -77,6 +77,7 @@ export default function EnhancedLocations() {
   
   const [formData, setFormData] = useState({
     name: "",
+    nickname: "",
     address: "",
     projectIds: [] as string[],
   });
@@ -295,6 +296,7 @@ export default function EnhancedLocations() {
   const resetForm = () => {
     setFormData({
       name: "",
+      nickname: "",
       address: "",
       projectIds: [],
     });
@@ -305,6 +307,7 @@ export default function EnhancedLocations() {
   const handleEdit = (location: LocationWithGeocoding) => {
     setFormData({
       name: location.name,
+      nickname: location.nickname || "",
       address: location.address || location.formatted_address || location.name || "", // 优先使用address，然后是formatted_address，最后是name
       projectIds: location.projectIds || [],
     });
@@ -330,6 +333,7 @@ export default function EnhancedLocations() {
         // 更新现有地点
         await SupabaseStorage.updateLocation(editingLocation.id, {
           name: formData.name,
+          nickname: formData.nickname || null,
           projectIds: formData.projectIds,
         });
         
@@ -343,21 +347,22 @@ export default function EnhancedLocations() {
           description: "地点信息已成功更新",
         });
       } else {
-        // 创建新地点并自动地理编码
-        const result = await geocodingService.autoGeocodeNewLocation({
+        // 先创建地点（包含 nickname，但不通过地理编码服务）
+        const newLocation = await SupabaseStorage.addLocation({
           name: formData.name,
-          address: formData.address,
+          nickname: formData.nickname || undefined,
           projectIds: formData.projectIds
         });
         
-        if (!result.success) {
-          toast({
-            title: "创建失败",
-            description: result.error || "无法创建地点",
-            variant: "destructive",
-          });
-          return;
+        // 然后进行地理编码（基于 address 字段，与 nickname 无关）
+        if (formData.address) {
+          await geocodingService.geocodeLocation(newLocation.id, formData.address);
         }
+        
+        toast({
+          title: "创建成功",
+          description: "地点已创建并自动完成地理编码",
+        });
       }
 
       await loadData();
@@ -641,6 +646,15 @@ export default function EnhancedLocations() {
                         onChange={(e) => handleNameChange(e.target.value)}
                         placeholder="请输入地点名称"
                         required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nickname">昵称</Label>
+                      <Input
+                        id="nickname"
+                        value={formData.nickname}
+                        onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                        placeholder="请输入地点昵称（可选）"
                       />
                     </div>
                     <div>
