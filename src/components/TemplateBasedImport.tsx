@@ -107,6 +107,15 @@ interface ImportError {
   [key: string]: unknown;
 }
 
+// 错误详情对象类型（用于处理 error_details 和 errors 数组中的对象）
+interface ErrorDetailObject {
+  record_index?: number;
+  error_message?: string;
+  message?: string;
+  record_data?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 interface ImportResult {
   success_count: number;
   error_count: number;
@@ -494,9 +503,9 @@ export default function TemplateBasedImport() {
   };
 
   // 执行导入
-  // 注意：此函数与标准导入使用完全相同的逻辑
-  // - 使用相同的 RPC 函数 batch_import_logistics_records_with_update
-  // - 支持创建模式和更新模式
+  // 注意：此函数使用 batch_import_logistics_records 和 batch_update_logistics_records
+  // - 创建模式：使用 batch_import_logistics_records
+  // - 更新模式：使用 batch_update_logistics_records
   const executeImport = async () => {
     if (!importPreview) {
       toast({ title: "错误", description: "没有可导入的数据", variant: "destructive" });
@@ -893,11 +902,12 @@ export default function TemplateBasedImport() {
               error_message: err
             });
           } else if (typeof err === 'object' && err !== null) {
+            const errorObj = err as ErrorDetailObject;
             errorList.push({
-              row: (err as any).record_index ?? index + 1,
-              message: (err as any).error_message || (err as any).message || '未知错误',
-              error_message: (err as any).error_message || (err as any).message || '未知错误',
-              record_data: (err as any).record_data || {}
+              row: errorObj.record_index ?? index + 1,
+              message: errorObj.error_message || errorObj.message || '未知错误',
+              error_message: errorObj.error_message || errorObj.message || '未知错误',
+              record_data: errorObj.record_data || {}
             });
           }
         });
@@ -1592,7 +1602,7 @@ export default function TemplateBasedImport() {
                             {error.row ? `第 ${error.row} 行: ` : `错误 ${index + 1}: `}
                           </div>
                           <div className="text-xs font-mono bg-red-100 p-2 rounded break-words">
-                            {error.error_message || error.message || (typeof error === 'string' ? error : JSON.stringify(error, null, 2))}
+                            {String(error.error_message || error.message || (typeof error === 'string' ? error : JSON.stringify(error, null, 2)))}
                           </div>
                           {error.record_data && Object.keys(error.record_data).length > 0 && (
                             <details className="mt-2 text-xs">
