@@ -257,12 +257,20 @@ export default function FinanceReconciliation() {
       const { data, error } = await supabase.rpc('get_finance_reconciliation_by_partner_1122', requestParams);
       
       if (error) {
+        // Supabase 错误对象类型
+        interface SupabaseError {
+          code?: string;
+          message?: string;
+          details?: string;
+          hint?: string;
+        }
+        const supabaseErr = error as unknown as SupabaseError;
         console.error('RPC 调用错误详情:', {
           error,
-          code: (error as any)?.code,
-          message: (error as any)?.message,
-          details: (error as any)?.details,
-          hint: (error as any)?.hint,
+          code: supabaseErr?.code,
+          message: supabaseErr?.message,
+          details: supabaseErr?.details,
+          hint: supabaseErr?.hint,
         });
         throw error;
       }
@@ -283,7 +291,12 @@ export default function FinanceReconciliation() {
         errorMessage = error.message;
       } else if (error && typeof error === 'object') {
         // Supabase 错误对象通常有 message 或 details 属性
-        const supabaseError = error as any;
+        interface SupabaseError {
+          message?: string;
+          details?: string;
+          hint?: string;
+        }
+        const supabaseError = error as unknown as SupabaseError;
         errorMessage = supabaseError.message || supabaseError.details || supabaseError.hint || JSON.stringify(error);
       } else {
         errorMessage = String(error);
@@ -377,6 +390,62 @@ export default function FinanceReconciliation() {
       .sort(([levelA], [levelB]) => levelA - levelB)
       .map(([level, partners]) => ({ level, partners }));
   }, [reportData?.partner_summary]);
+
+  // --- 派生状态和工具函数 ---
+  // 将存储的中国时区日期字符串转换为 Date 对象（用于显示）
+  // uiFilters.startDate 和 uiFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
+  const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? {
+    from: uiFilters.startDate ? (() => {
+      // 解析中国时区日期字符串为 Date 对象（用于显示）
+      const [year, month, day] = uiFilters.startDate.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    })() : undefined,
+    to: uiFilters.endDate ? (() => {
+      // 解析中国时区日期字符串为 Date 对象（用于显示）
+      const [year, month, day] = uiFilters.endDate.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    })() : undefined
+  } : undefined;
+  
+  const displayedPartners = useMemo(() => {
+    // 如果状态为 hidden，不显示合作方列
+    if (partnerDisplayState === 'hidden') {
+      return [];
+    }
+    
+    // 如果筛选了特定合作方，只显示该合作方
+    if (uiFilters.partnerId !== "all") {
+      const selected = allPartners.find(p => p.id === uiFilters.partnerId);
+      return selected ? [selected] : [];
+    }
+    
+    if (!reportData || !Array.isArray(reportData.records)) return [];
+    
+    // 计算相关的合作方和最高级别
+    const relevantPartnerIds = new Set<string>();
+    let maxLevel = 0;
+    reportData.records.forEach((record) => {
+      if (record && Array.isArray(record.partner_costs)) {
+        record.partner_costs.forEach((cost) => {
+          relevantPartnerIds.add(cost.partner_id);
+          if (cost.level > maxLevel) {
+            maxLevel = cost.level;
+          }
+        });
+      }
+    });
+    
+    // 根据显示状态决定显示哪些合作方
+    if (partnerDisplayState === 'maxLevel') {
+      // 只显示最高级别的合作方
+      return allPartners.filter(p => 
+        relevantPartnerIds.has(p.id) && p.level === maxLevel
+      );
+    } else {
+      // 显示所有相关合作方
+      return allPartners.filter(p => relevantPartnerIds.has(p.id));
+    }
+  }, [partnerDisplayState, uiFilters.partnerId, allPartners, reportData]);
 
   // 计算本页合计
   const pageSummary = useMemo(() => {
@@ -720,62 +789,6 @@ export default function FinanceReconciliation() {
     }
   };
 
-  // --- 派生状态和工具函数 ---
-  // 将存储的中国时区日期字符串转换为 Date 对象（用于显示）
-  // uiFilters.startDate 和 uiFilters.endDate 存储的是中国时区的日期字符串（如 "2025-11-02"）
-  const dateRangeValue: DateRange | undefined = (uiFilters.startDate || uiFilters.endDate) ? {
-    from: uiFilters.startDate ? (() => {
-      // 解析中国时区日期字符串为 Date 对象（用于显示）
-      const [year, month, day] = uiFilters.startDate.split('-').map(Number);
-      return new Date(year, month - 1, day);
-    })() : undefined,
-    to: uiFilters.endDate ? (() => {
-      // 解析中国时区日期字符串为 Date 对象（用于显示）
-      const [year, month, day] = uiFilters.endDate.split('-').map(Number);
-      return new Date(year, month - 1, day);
-    })() : undefined
-  } : undefined;
-  
-  const displayedPartners = useMemo(() => {
-    // 如果状态为 hidden，不显示合作方列
-    if (partnerDisplayState === 'hidden') {
-      return [];
-    }
-    
-    // 如果筛选了特定合作方，只显示该合作方
-    if (uiFilters.partnerId !== "all") {
-      const selected = allPartners.find(p => p.id === uiFilters.partnerId);
-      return selected ? [selected] : [];
-    }
-    
-    if (!reportData || !Array.isArray(reportData.records)) return [];
-    
-    // 计算相关的合作方和最高级别
-    const relevantPartnerIds = new Set<string>();
-    let maxLevel = 0;
-    reportData.records.forEach((record) => {
-      if (record && Array.isArray(record.partner_costs)) {
-        record.partner_costs.forEach((cost) => {
-          relevantPartnerIds.add(cost.partner_id);
-          if (cost.level > maxLevel) {
-            maxLevel = cost.level;
-          }
-        });
-      }
-    });
-    
-    const filteredPartners = allPartners
-      .filter(partner => relevantPartnerIds.has(partner.id))
-      .sort((a, b) => a.level - b.level);
-    
-    // 根据 partnerDisplayState 决定显示哪些合作方
-    if (partnerDisplayState === 'maxLevel' && maxLevel > 0) {
-      return filteredPartners.filter(p => p.level === maxLevel);
-    }
-    // partnerDisplayState === 'all' 时显示所有合作方
-    return filteredPartners;
-  }, [reportData, allPartners, uiFilters.partnerId, partnerDisplayState]);
-  
   // 处理合作方显示状态切换
   // 状态循环：hidden -> maxLevel -> all -> maxLevel -> hidden
   const handlePartnerDisplayToggle = () => {
@@ -1494,26 +1507,53 @@ export default function FinanceReconciliation() {
               ) : (
                 <div className="p-6">
                   {/* ✅ 使用虚拟化表格，大幅提升性能 */}
-                  {reportData?.records && reportData.records.length > 0 ? (
-                    <VirtualizedFinanceTable
-                      data={reportData.records}
-                      displayedPartners={displayedPartners}
-                      selectedIds={selection.selectedIds}
-                      selectionMode={selection.mode}
-                      canReconcile={canReconcile}
-                      onRecordClick={setViewingRecord}
-                      onRecordSelect={handleRecordSelect}
-                      onReconcileClick={openReconciliationDialog}
-                      height={600}
-                      rowHeight={60}
-                      pageSummary={pageSummary}
-                      allSummary={allSummary}
-                    />
-                  ) : (
-                    <div className="text-center py-10 text-muted-foreground">
-                      暂无数据
-                    </div>
-                  )}
+                  {(() => {
+                    try {
+                      if (!reportData?.records || reportData.records.length === 0) {
+                        return (
+                          <div className="text-center py-10 text-muted-foreground">
+                            暂无数据
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <VirtualizedFinanceTable
+                          data={reportData.records}
+                          displayedPartners={displayedPartners}
+                          selectedIds={selection.selectedIds}
+                          selectionMode={selection.mode}
+                          canReconcile={canReconcile}
+                          onRecordClick={setViewingRecord}
+                          onRecordSelect={handleRecordSelect}
+                          onReconcileClick={openReconciliationDialog}
+                          height={600}
+                          rowHeight={60}
+                          pageSummary={pageSummary}
+                          allSummary={allSummary}
+                        />
+                      );
+                    } catch (error) {
+                      console.error('渲染财务对账表格时出错:', error);
+                      return (
+                        <div className="text-center py-10">
+                          <p className="text-destructive mb-2">表格渲染出错</p>
+                          <p className="text-sm text-muted-foreground">
+                            {error instanceof Error ? error.message : '未知错误'}
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-4"
+                            onClick={() => window.location.reload()}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            刷新页面
+                          </Button>
+                        </div>
+                      );
+                    }
+                  })()}
                 </div>
               )}
             </CardContent>
