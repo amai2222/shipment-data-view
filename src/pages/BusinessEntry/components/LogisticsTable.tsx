@@ -187,7 +187,7 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
       }
       totals.currentCost += r.current_cost || 0;
       totals.extraCost += r.extra_cost || 0;
-      totals.driverPayable += (r.current_cost || 0) + (r.extra_cost || 0);
+      totals.driverPayable += r.payable_cost || 0;  // ✅ 修复：使用 payable_cost 而不是 current_cost + extra_cost
     });
 
     return totals;
@@ -358,7 +358,8 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
               </>
             ) : records.length > 0 ? (
               records.map((record) => {
-                const driverPayable = (record.current_cost || 0) + (record.extra_cost || 0);
+                // ✅ 修复：使用 payable_cost 而不是 current_cost + extra_cost
+                const driverPayable = record.payable_cost || 0;
                 return (
                   <TableRow 
                     key={record.id} 
