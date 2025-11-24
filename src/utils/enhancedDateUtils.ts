@@ -130,6 +130,22 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
         return result;
       }
       
+      // ✅ 修复：与标准版保持一致，尝试使用 new Date() 解析其他格式
+      // 标准版会尝试解析其他格式，然后使用UTC方法获取年月日
+      try {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          const result = `${year}-${month}-${day}`;
+          console.log('其他格式日期解析成功:', result);
+          return result;
+        }
+      } catch (error) {
+        console.warn('日期解析失败:', dateStr, error);
+      }
+      
       console.warn('未识别的日期格式:', dateStr);
       return null;
     } catch (error) {
