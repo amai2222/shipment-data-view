@@ -1015,29 +1015,9 @@ export default function EnhancedWaybillMaintenance() {
                                 {String(item.record.loading_location || '')}
                               </div>
                               <div className="col-span-2">
-                                {/* ✅ 修复：与运单管理页面保持一致，使用相同的日期显示逻辑 */}
-                                {/* 预览中的 loading_date 是 YYYY-MM-DD 格式字符串（从Excel解析后的中国时区日期） */}
-                                {/* 运单管理页面使用：new Date(record.loading_date).toLocaleDateString('zh-CN', ...) */}
-                                {/* 但预览中的日期已经是字符串格式，如果直接显示即可，如果需要格式化则使用 formatChinaDate */}
-                                {item.record.loading_date 
-                                  ? (() => {
-                                      const dateValue = item.record.loading_date;
-                                      // 如果已经是 YYYY-MM-DD 格式字符串，直接显示（与标准版预览保持一致）
-                                      if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-                                        return dateValue;
-                                      }
-                                      // 否则尝试格式化为日期（兼容其他格式）
-                                      try {
-                                        const date = new Date(dateValue as string);
-                                        if (!isNaN(date.getTime())) {
-                                          return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-                                        }
-                                      } catch (error) {
-                                        console.error('日期格式化错误:', error);
-                                      }
-                                      return String(dateValue);
-                                    })()
-                                  : ''}
+                                {/* ✅ 修复：与标准版预览保持一致，直接显示 loading_date 字符串 */}
+                                {/* 标准版预览使用：{item.record.loading_date}，直接显示 YYYY-MM-DD 格式字符串 */}
+                                {item.record.loading_date ? String(item.record.loading_date) : ''}
                               </div>
                               <div className="col-span-1">
                                 {String(item.record.loading_weight || '')}
