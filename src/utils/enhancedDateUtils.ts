@@ -66,12 +66,15 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
         console.warn('无效的Date对象');
         return null;
       }
-      // ✅ 修复：与标准版保持一致，使用UTC方法获取年月日
-      // 标准版使用 getUTCFullYear(), getUTCMonth(), getUTCDate()
-      // 这样可以确保日期解析不受系统时区影响
-      const year = excelDate.getUTCFullYear();
-      const month = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(excelDate.getUTCDate()).padStart(2, '0');
+      // ✅ 修复：xlsx库解析的Date对象是本地时区的，应该使用本地时区方法
+      // Excel显示：2025-08-12（中国时区）
+      // xlsx解析为：2025-08-12 00:00:00+08:00（本地时区）
+      // 如果使用UTC方法，会得到：2025-08-11（错误！）
+      // 应该使用本地时区方法，得到：2025-08-12（正确！）
+      // 预览显示：2025-08-12（直接显示原始的中国时区日期）
+      const year = excelDate.getFullYear();
+      const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+      const day = String(excelDate.getDate()).padStart(2, '0');
       const result = `${year}-${month}-${day}`;
       console.log('Date对象解析成功:', result);
       return result;
