@@ -66,9 +66,9 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
         console.warn('无效的Date对象');
         return null;
       }
-      // ✅ 修复：使用UTC方法获取年月日，确保日期准确（不受系统时区影响）
-      // 与标准版保持一致，避免时区转换导致的日期偏差
-      // Excel数据已经是中国时区的日期，但我们需要确保解析的日期准确
+      // ✅ 修复：与标准版保持一致，使用UTC方法获取年月日
+      // 标准版使用 getUTCFullYear(), getUTCMonth(), getUTCDate()
+      // 这样可以确保日期解析不受系统时区影响
       const year = excelDate.getUTCFullYear();
       const month = String(excelDate.getUTCMonth() + 1).padStart(2, '0');
       const day = String(excelDate.getUTCDate()).padStart(2, '0');

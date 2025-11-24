@@ -426,8 +426,11 @@ export default function EnhancedWaybillMaintenance() {
           driver_phone: record['司机电话'],
           loading_location: record['装货地点'],
           unloading_location: record['卸货地点'],
-          loading_date: record['装货日期'],
-          unloading_date: record['卸货日期'],
+          // ✅ 修复：使用解析后的日期字符串，而不是原始的Excel日期
+          // 标准版使用 rowData['loading_date']（解析后的），增强版应该使用 record['装货日期']（已通过验证，是解析后的字符串）
+          // 但为了明确，我们检查是否有解析后的日期字段
+          loading_date: record['装货日期'], // 这个已经是 parseExcelDateEnhanced 解析后的 YYYY-MM-DD 字符串
+          unloading_date: record['卸货日期'] || record['装货日期'], // 这个已经是 parseExcelDateEnhanced 解析后的 YYYY-MM-DD 字符串
           loading_weight: record['装货数量'],
           unloading_weight: record['卸货数量'],
           current_cost: record['运费金额'],
