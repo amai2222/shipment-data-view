@@ -1531,6 +1531,8 @@ export default function FinanceReconciliation() {
                           rowHeight={60}
                           pageSummary={pageSummary}
                           allSummary={allSummary}
+                          isAllOnPageSelected={isAllOnPageSelected}
+                          onSelectAllOnPage={handleSelectAllOnPage}
                         />
                       );
                     } catch (error) {

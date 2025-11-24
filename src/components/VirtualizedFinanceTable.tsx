@@ -82,6 +82,9 @@ interface VirtualizedFinanceTableProps {
     total_driver_receivable: number;
     partner_summary?: PartnerSummary[];
   };
+  // ✅ 新增：全选相关
+  isAllOnPageSelected?: boolean;
+  onSelectAllOnPage?: (isChecked: boolean) => void;
 }
 
 // 获取对账状态徽章
@@ -329,7 +332,9 @@ export function VirtualizedFinanceTable({
   height = 600,
   rowHeight = 60,
   pageSummary,
-  allSummary
+  allSummary,
+  isAllOnPageSelected = false,
+  onSelectAllOnPage
 }: VirtualizedFinanceTableProps) {
   const listRef = useRef<List>(null);
 
@@ -384,7 +389,20 @@ export function VirtualizedFinanceTable({
         role="rowgroup"
       >
         <div className="flex" style={{ minWidth: `${tableWidth}px` }} role="row">
-          <div className="flex-shrink-0 w-12 px-2 py-3" role="columnheader">选择</div>
+          <div className="flex-shrink-0 w-12 px-2 py-3 flex items-center justify-center" role="columnheader">
+            {onSelectAllOnPage ? (
+              <Checkbox 
+                checked={selectionMode === 'all_filtered' || isAllOnPageSelected}
+                onCheckedChange={(checked) => {
+                  if (onSelectAllOnPage) {
+                    onSelectAllOnPage(checked === true);
+                  }
+                }}
+              />
+            ) : (
+              <span>选择</span>
+            )}
+          </div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }} role="columnheader">运单编号</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '150px' }} role="columnheader">项目</div>
           <div className="flex-shrink-0 px-2 py-3" style={{ width: '120px' }} role="columnheader">合作链路</div>
