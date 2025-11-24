@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,13 +51,27 @@ interface Partner {
   name: string;
 }
 
+interface PaymentRequest {
+  id: string;
+  request_id: string;
+  logistics_record_ids: string[] | null;
+  record_count: number;
+  status: string;
+  work_wechat_sp_no: string | null;
+  approval_result: unknown;
+  notes: string | null;
+  created_by: string | null;
+  user_id: string;
+  created_at: string;
+}
+
 export default function PaymentInvoiceDetail() {
   const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
   const [partnerSummaries, setPartnerSummaries] = useState<PartnerSummary[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(false);
-  const [requestData, setRequestData] = useState<any>(null);
+  const [requestData, setRequestData] = useState<PaymentRequest | null>(null);
 
   // Dialog states
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -90,13 +104,6 @@ export default function PaymentInvoiceDetail() {
     invoice_images: [] as File[]
   });
 
-  useEffect(() => {
-    loadPartners();
-    if (requestId) {
-      loadPaymentRequestData();
-    }
-  }, [requestId]);
-
   const loadPartners = async () => {
     try {
       const { data, error } = await supabase
@@ -116,7 +123,7 @@ export default function PaymentInvoiceDetail() {
     }
   };
 
-  const loadPaymentRequestData = async () => {
+  const loadPaymentRequestData = useCallback(async () => {
     if (!requestId) return;
     
     setLoading(true);
@@ -130,21 +137,51 @@ export default function PaymentInvoiceDetail() {
 
       if (requestError) throw requestError;
       
-      setRequestData(requestData);
+      if (!requestData) {
+        throw new Error('付款申请单数据为空');
+      }
+      
+      // 类型断言：确保 requestData 符合 PaymentRequest 类型
+      const paymentRequest: PaymentRequest = requestData as PaymentRequest;
+      setRequestData(paymentRequest);
 
       // Get the logistics records data for this request
-      const { data: recordsData, error: recordsError } = await supabase.rpc('get_payment_request_data_v2_1122', {
-        p_record_ids: requestData.logistics_record_ids,
+      if (!paymentRequest.logistics_record_ids) {
+        throw new Error('付款申请单没有关联的运单');
+      }
+      
+      const { data: recordsData, error: recordsError } = await supabase.rpc('get_payment_request_data_v2_1124', {
+        p_record_ids: paymentRequest.logistics_record_ids,
       });
 
       if (recordsError) throw recordsError;
 
       // Transform data and group by partner
-      const responseData = recordsData as any;
+      interface PaymentRequestResponse {
+        records?: Array<{
+          id: string;
+          auto_number: string;
+          project_name?: string;
+          driver_name?: string;
+          loading_date?: string;
+          loading_location?: string;
+          unloading_location?: string;
+          loading_weight?: number;
+          partner_costs?: Array<{
+            partner_id: string;
+            partner_name?: string;
+            payable_amount?: number;
+            level?: number;
+            payment_status?: string;
+            invoice_status?: string;
+          }>;
+        }>;
+      }
+      const responseData = recordsData as PaymentRequestResponse;
       const allRecords: PaymentInvoiceRecord[] = [];
       
-      (responseData?.records || []).forEach((rec: any) => {
-        (rec.partner_costs || []).forEach((partnerCost: any) => {
+      (responseData?.records || []).forEach((rec) => {
+        (rec.partner_costs || []).forEach((partnerCost) => {
           allRecords.push({
             id: `${rec.id}-${partnerCost.partner_id}`,
             auto_number: rec.auto_number,
@@ -205,7 +242,14 @@ export default function PaymentInvoiceDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [requestId]);
+
+  useEffect(() => {
+    loadPartners();
+    if (requestId) {
+      loadPaymentRequestData();
+    }
+  }, [requestId, loadPaymentRequestData]);
 
   const handleRowClick = (partnerSummary: PartnerSummary) => {
     setSelectedPartnerSummary(partnerSummary);
@@ -280,6 +324,15 @@ export default function PaymentInvoiceDetail() {
 
       const recordId = selectedRecord.id.split('-')[0]; // Get the original logistics_record_id
 
+      interface PaymentRecordInsert {
+        logistics_record_id: string;
+        partner_id: string;
+        payment_amount: number;
+        payment_date: string;
+        remarks: string;
+        user_id?: string;
+      }
+
       const { error } = await supabase
         .from('payment_records')
         .insert([{
@@ -289,7 +342,7 @@ export default function PaymentInvoiceDetail() {
           payment_date: paymentForm.date,
           remarks: paymentForm.remarks,
           user_id: userId
-        }]);
+        }] as never);
 
       if (error) throw error;
 
@@ -334,6 +387,16 @@ export default function PaymentInvoiceDetail() {
 
       const recordId = selectedRecord.id.split('-')[0]; // Get the original logistics_record_id
 
+      interface InvoiceRecordInsert {
+        logistics_record_id: string;
+        partner_id: string;
+        invoice_amount: number;
+        invoice_number: string;
+        invoice_date: string;
+        remarks: string;
+        user_id?: string;
+      }
+
       const { error } = await supabase
         .from('invoice_records')
         .insert([{
@@ -344,7 +407,7 @@ export default function PaymentInvoiceDetail() {
           invoice_date: invoiceForm.date,
           remarks: invoiceForm.remarks,
           user_id: userId
-        }]);
+        }] as never);
 
       if (error) throw error;
 
@@ -389,7 +452,16 @@ export default function PaymentInvoiceDetail() {
 
       const amountPerRecord = parseFloat(paymentForm.amount) / selectedPartnerForBatch.records.length;
 
-      const paymentRecords = selectedPartnerForBatch.records.map(record => ({
+      interface PaymentRecordInsert {
+        logistics_record_id: string;
+        partner_id: string;
+        payment_amount: number;
+        payment_date: string;
+        remarks: string;
+        user_id?: string;
+      }
+
+      const paymentRecords: PaymentRecordInsert[] = selectedPartnerForBatch.records.map(record => ({
         logistics_record_id: record.id.split('-')[0],
         partner_id: paymentForm.partner_id,
         payment_amount: amountPerRecord,
@@ -400,7 +472,7 @@ export default function PaymentInvoiceDetail() {
 
       const { error } = await supabase
         .from('payment_records')
-        .insert(paymentRecords);
+        .insert(paymentRecords as never);
 
       if (error) throw error;
 
@@ -445,7 +517,17 @@ export default function PaymentInvoiceDetail() {
 
       const amountPerRecord = parseFloat(invoiceForm.amount) / selectedPartnerForBatch.records.length;
 
-      const invoiceRecords = selectedPartnerForBatch.records.map(record => ({
+      interface InvoiceRecordInsert {
+        logistics_record_id: string;
+        partner_id: string;
+        invoice_amount: number;
+        invoice_number: string;
+        invoice_date: string;
+        remarks: string;
+        user_id?: string;
+      }
+
+      const invoiceRecords: InvoiceRecordInsert[] = selectedPartnerForBatch.records.map(record => ({
         logistics_record_id: record.id.split('-')[0],
         partner_id: invoiceForm.partner_id,
         invoice_amount: amountPerRecord,
@@ -457,7 +539,7 @@ export default function PaymentInvoiceDetail() {
 
       const { error } = await supabase
         .from('invoice_records')
-        .insert(invoiceRecords);
+        .insert(invoiceRecords as never);
 
       if (error) throw error;
 

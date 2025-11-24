@@ -269,7 +269,7 @@ export default function PaymentRequest() {
     } catch (error) {
       toast({ title: "错误", description: "加载筛选选项失败", variant: "destructive" });
     }
-  }, []); // ✅ 优化：移除toast依赖，toast是稳定的
+  }, [toast]); // ✅ 修复：添加toast依赖
 
   const fetchReportData = useCallback(async () => {
     setLoading(true);
@@ -318,7 +318,7 @@ export default function PaymentRequest() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
+  }, [activeFilters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects, toast]);
 
   useEffect(() => { fetchInitialOptions(); }, [fetchInitialOptions]);
   useEffect(() => { if (!isStale) { fetchReportData(); } else { setLoading(false); setReportData(null); } }, [fetchReportData, isStale]);
@@ -538,7 +538,7 @@ export default function PaymentRequest() {
         return;
       }
 
-      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2_1122', {
+      const { data: v2Data, error: rpcError } = await supabase.rpc('get_payment_request_data_v2_1124', {
         p_record_ids: idsToProcess
       });
 

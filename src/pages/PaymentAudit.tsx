@@ -241,7 +241,7 @@ export default function PaymentAudit() {
         requestsData.map(async (item) => {
           try {
             // 获取申请单的详细数据
-            const { data: detailData } = await supabase.rpc('get_payment_request_data_v2_1122', {
+            const { data: detailData } = await supabase.rpc('get_payment_request_data_v2_1124', {
               p_record_ids: item.logistics_record_ids
             });
             
@@ -749,7 +749,7 @@ export default function PaymentAudit() {
       setExportingId(req.id);
       
       // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
-      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2_1124', {
         p_record_ids: req.logistics_record_ids
       });
 
@@ -794,9 +794,29 @@ export default function PaymentAudit() {
             ? Math.max(...costs.map(c => (c as { level: number }).level)) 
             : 0;
           
+          const recData = rec as { id: string; project_name: string; chain_id?: string; chain_name?: string };
+          
+          // ✅ 关键验证：获取该运单所属链路的合作方配置，用于验证
+          const projectName = recData.project_name;
+          const projectId = projectsByName.get(projectName);
+          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+          const partnersInChain = recData.chain_name 
+            ? allPartnersInProject.filter((p) => p.chain_name === recData.chain_name)
+            : [];
+          
           // 只包含低于该运单最高级的合作方（特殊情况：只有1个合作方时也包含）
           for (const cost of costs) {
             const costData = cost as { partner_id: string; level: number; full_name?: string; partner_name?: string; bank_account?: string; bank_name?: string; branch_name?: string; payable_amount?: number };
+            
+            // ✅ 关键验证：确保合作方属于该运单的实际链路
+            if (recData.chain_name && partnersInChain.length > 0) {
+              const partnerInChain = partnersInChain.find((p) => p.partner_id === costData.partner_id);
+              if (!partnerInChain) {
+                // 合作方不属于该运单的链路，跳过（这不应该发生，因为数据库函数已经过滤了）
+                // 静默跳过，避免控制台警告（数据已由数据库函数保证正确性）
+                continue;
+              }
+            }
             
             // ✅ 规则1：如果只有1个合作方，必须包含
             // ✅ 规则2：如果有多个合作方，只包含低层级（排除最高级）
@@ -806,15 +826,9 @@ export default function PaymentAudit() {
               continue;  // 跳过该运单的最高级合作方（仅当有多个合作方时）
             }
             
-            const recData = rec as { id: string; project_name: string; chain_id?: string; chain_name?: string };
-            
             // ✅ 找到当前合作方的上级合作方
             let parentPartnerId: string | null = null;
-            const projectName = recData.project_name;
-            const projectId = projectsByName.get(projectName);
-            if (projectId && recData.chain_name) {
-              const allPartnersInProject = projectPartnersByProjectId.get(projectId) || [];
-              const partnersInChain = allPartnersInProject.filter((p) => p.chain_name === recData.chain_name);
+            if (projectId && recData.chain_name && partnersInChain.length > 0) {
               const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === costData.partner_id);
               if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
                 const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
@@ -930,6 +944,7 @@ export default function PaymentAudit() {
           const bankName = sheetData.paying_partner_bank_name || "";
           const branchName = sheetData.paying_partner_branch_name || "";
           
+          // 生成PDF表格
           console.log(`生成第 ${index + 1} 个表格，合作方: ${payingPartnerName}`);
           console.log(`表头HTML:`, `
             <thead>
@@ -1288,7 +1303,7 @@ export default function PaymentAudit() {
     setTotalPartnerAmount(0);
 
     try {
-      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
+      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2_1124', {
         p_record_ids: request.logistics_record_ids,
       });
 

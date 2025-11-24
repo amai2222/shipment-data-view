@@ -354,7 +354,7 @@ export default function MobilePaymentRequestsList() {
       setExportingId(req.id);
       
       // 使用Excel导出功能的数据结构 - 确保与Excel完全一致
-      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
+      const { data: excelData, error } = await supabase.rpc('get_payment_request_data_v2_1124', {
         p_record_ids: req.logistics_record_ids
       });
 
@@ -378,35 +378,7 @@ export default function MobilePaymentRequestsList() {
             }))
           : [];
 
-        // 使用与Excel导出完全相同的分组逻辑
-        const sheetMap = new Map<string, PaymentSheet>();
-        for (const rec of records) {
-          const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
-          for (const cost of costs) {
-            const key = cost.partner_id;
-            if (!sheetMap.has(key)) {
-              sheetMap.set(key, {
-                paying_partner_id: key,
-                paying_partner_full_name: (cost.full_name as string) || (cost.partner_name as string) || '',
-                paying_partner_bank_account: (cost.bank_account as string) || '',
-                paying_partner_bank_name: (cost.bank_name as string) || '',
-                paying_partner_branch_name: (cost.branch_name as string) || '',
-                record_count: 0,
-                total_payable: 0,
-                project_name: rec.project_name,
-                records: [],
-              });
-            }
-            const sheet = sheetMap.get(key);
-            if (!sheet.records.some((r) => r.record.id === rec.id)) {
-              sheet.record_count += 1;
-            }
-            sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
-            sheet.total_payable += Number(cost.payable_amount || 0);
-          }
-        }
-        
-        // 获取项目合作方信息，实现与Excel导出相同的过滤逻辑
+        // 获取项目合作方信息，用于确定上下级关系和链路验证
         const { data: projectsData } = await supabase.from('projects').select('id, name');
         const { data: projectPartnersData } = await supabase.from('project_partners').select(`
           project_id,
@@ -425,14 +397,54 @@ export default function MobilePaymentRequestsList() {
           return acc;
         }, new Map());
         
-        // 为每个 sheet 设置 chain_name
-        for (const sheet of sheetMap.values()) {
-          const projectId = projectsByName.get(sheet.project_name);
-          if (projectId) {
-            const allPartnersInProject = projectPartnersByProjectId.get(projectId) || [];
-            const partnerInfo = allPartnersInProject.find((p) => p.partner_id === sheet.paying_partner_id);
-            if (partnerInfo && partnerInfo.chain_name) {
-              sheet.chain_name = partnerInfo.chain_name as string;
+        // ✅ 修复：使用与Excel导出完全相同的分组逻辑，并按链路验证
+        const sheetMap = new Map<string, PaymentSheet>();
+        for (const rec of records) {
+          const costs = Array.isArray(rec.partner_costs) ? rec.partner_costs : [];
+          
+          // ✅ 关键验证：获取该运单所属链路的合作方配置，用于验证
+          const projectName = rec.project_name;
+          const projectId = projectsByName.get(projectName);
+          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
+          const partnersInChain = rec.chain_name 
+            ? allPartnersInProject.filter((p) => p.chain_name === rec.chain_name)
+            : [];
+          
+          for (const cost of costs) {
+            // ✅ 关键验证：确保合作方属于该运单的实际链路
+            if (rec.chain_name && partnersInChain.length > 0) {
+              const partnerInChain = partnersInChain.find((p) => p.partner_id === cost.partner_id);
+              if (!partnerInChain) {
+                // 合作方不属于该运单的链路，跳过（这不应该发生，因为数据库函数已经过滤了）
+                continue;
+              }
+            }
+            
+            // ✅ 修复：按链路分组，确保不同链路的运单不会合并到同一个sheet
+            const chainIdForKey = (rec as { chain_id?: string }).chain_id || 'no-chain';
+            const key = `${cost.partner_id}_${chainIdForKey}`;
+            
+            if (!sheetMap.has(key)) {
+              sheetMap.set(key, {
+                paying_partner_id: cost.partner_id,
+                paying_partner_full_name: (cost.full_name as string) || (cost.partner_name as string) || '',
+                paying_partner_bank_account: (cost.bank_account as string) || '',
+                paying_partner_bank_name: (cost.bank_name as string) || '',
+                paying_partner_branch_name: (cost.branch_name as string) || '',
+                record_count: 0,
+                total_payable: 0,
+                project_name: rec.project_name,
+                chain_name: (rec.chain_name as string | undefined),
+                records: [],
+              });
+            }
+            const sheet = sheetMap.get(key);
+            if (sheet && !sheet.records.some((r) => r.record.id === rec.id)) {
+              sheet.record_count += 1;
+            }
+            if (sheet) {
+              sheet.records.push({ record: rec, payable_amount: cost.payable_amount });
+              sheet.total_payable += Number(cost.payable_amount || 0);
             }
           }
         }
@@ -766,7 +778,7 @@ export default function MobilePaymentRequestsList() {
     setPartnerTotals([]);
 
     try {
-      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2_1122', {
+      const { data: rpcData, error } = await supabase.rpc('get_payment_request_data_v2_1124', {
         p_record_ids: request.logistics_record_ids,
       });
 
