@@ -828,8 +828,10 @@ export default function PaymentAudit() {
               }
             }
             
-            // ✅ 修复：按上下级关系分组，同样的上下级合并sheet，否则单开sheet
-            const key = `${parentPartnerId || 'none'}_${costData.partner_id}`;
+            // ✅ 修复：按上下级关系和链路分组，同样的上下级+链路合并sheet，否则单开sheet
+            // 关键修复：分组key必须包含chain_id，确保不同链路的运单不会合并到同一个sheet
+            const chainIdForKey = recData.chain_id || 'no-chain';
+            const key = `${parentPartnerId || 'none'}_${costData.partner_id}_${chainIdForKey}`;
             if (!sheetMap.has(key)) {
               sheetMap.set(key, {
                 paying_partner_id: costData.partner_id,
@@ -842,8 +844,8 @@ export default function PaymentAudit() {
                 total_payable: 0,
                 project_name: recData.project_name,
                 chain_id: recData.chain_id,
-                chain_name: recData.chain_name,
-                chain_names: new Set<string>(), // 收集所有链路名称
+                chain_name: recData.chain_name, // 使用当前运单的链路名称
+                chain_names: new Set<string>(), // 收集所有链路名称（应该只有一个）
                 records: [],
               });
             }
@@ -853,7 +855,7 @@ export default function PaymentAudit() {
               total_payable: number;
               chain_names?: Set<string>;
             };
-            // 收集链路名称
+            // 收集链路名称（正常情况下，同一个sheet中的运单应该有相同的链路）
             if (recData.chain_name && sheet.chain_names) {
               sheet.chain_names.add(recData.chain_name);
             }
@@ -962,11 +964,17 @@ export default function PaymentAudit() {
           const projectName = sheetData.project_name;
           const projectId = projectsByName.get(projectName);
           const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-          // ✅ 修复：由于同一合作方可能包含多个链路，使用第一个链路来过滤（用于获取上一级合作方）
+          
+          // ✅ 修复：应该使用当前sheet中运单的链路来查找上级合作方
+          // 如果sheet中有多个链路，应该为每个运单使用它自己的链路来查找上级
+          // 但为了简化，我们使用sheet中第一个运单的链路（因为同一个sheet中的运单应该属于同一个链路）
+          // 如果sheet中有多个链路，说明分组逻辑有问题，应该按链路分组
           const chainNames = (sheetData as { chain_names?: Set<string> }).chain_names ? Array.from((sheetData as { chain_names?: Set<string> }).chain_names!) : [];
-          const firstChain = chainNames.length > 0 ? chainNames[0] : (sheetData.chain_name || null);
-          const partnersInChain = firstChain 
-            ? allPartnersInProject.filter((p) => p.chain_name === firstChain)
+          // ✅ 修复：优先使用sheet的chain_name（这是创建sheet时设置的第一个运单的链路）
+          // 如果sheet中有多个链路，说明分组时没有按链路分组，这是分组逻辑的问题
+          const chainToUse = sheetData.chain_name || (chainNames.length > 0 ? chainNames[0] : null);
+          const partnersInChain = chainToUse 
+            ? allPartnersInProject.filter((p) => p.chain_name === chainToUse)
             : allPartnersInProject;
           const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
           const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
