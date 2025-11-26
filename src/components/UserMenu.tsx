@@ -29,8 +29,22 @@ export function UserMenu() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSignOut = async () => {
-    await signOut();
+  const handleSignOut = async (e?: React.MouseEvent) => {
+    // 阻止事件冒泡，确保点击事件正常触发
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('退出登录失败:', error);
+      toast({
+        title: "退出失败",
+        description: error instanceof Error ? error.message : "退出登录时发生错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSwitchUser = async () => {
@@ -61,9 +75,10 @@ export function UserMenu() {
         setSwitchData({ username: '', password: '' });
       }
     } catch (error) {
+      console.error('切换用户失败:', error);
       toast({
         title: "切换失败",
-        description: "切换用户时发生错误",
+        description: error instanceof Error ? error.message : "切换用户时发生错误，请稍后重试",
         variant: "destructive",
       });
     } finally {
@@ -118,7 +133,10 @@ export function UserMenu() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem 
-            onClick={() => setIsSwitchDialogOpen(true)}
+            onSelect={(e) => {
+              e.preventDefault();
+              setIsSwitchDialogOpen(true);
+            }}
             className="py-3 cursor-pointer hover:bg-gradient-secondary transition-all duration-200"
           >
             <UserCheck className="mr-3 h-4 w-4 text-primary" />
@@ -126,7 +144,10 @@ export function UserMenu() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem 
-            onClick={handleSignOut}
+            onSelect={(e) => {
+              e.preventDefault();
+              handleSignOut(e);
+            }}
             className="py-3 cursor-pointer hover:bg-destructive/10 text-destructive hover:text-destructive transition-all duration-200"
           >
             <LogOut className="mr-3 h-4 w-4" />
