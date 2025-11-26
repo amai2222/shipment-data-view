@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
                 return;
               } else if (profileData) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const anyProfile = profileData as any;
                 
                 // 如果是partner角色，查询关联的货主ID
@@ -195,7 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error || !data?.access_token || !data?.refresh_token) {
           loginError = '用户名或密码错误';
         } else {
-          const { access_token, refresh_token } = data as any;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { access_token, refresh_token } = data as { access_token: string; refresh_token: string };
           const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
           if (setErr) {
             loginError = '登录失败，请重试';
@@ -231,21 +233,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      // 尝试调用Supabase登出
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Supabase登出失败:", error.message);
-      }
-    } catch (error) {
-      console.error("登出异常:", error);
-    } finally {
-      // 无论Supabase登出是否成功，都清除本地状态
+      // 1. 先清除本地状态
       setUser(null);
       setProfile(null);
       setLoading(false);
       
-      // 强制导航到登录页
-      window.location.href = '/auth';
+      // 2. 调用Supabase登出（这会清除Supabase的session）
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Supabase登出失败:", error.message);
+      }
+      
+      // 3. 手动清除localStorage中所有Supabase相关的session数据
+      // Supabase的session key格式通常是: sb-<project-ref>-auth-token
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+      if (supabaseUrl) {
+        try {
+          // 提取项目ref（从URL中提取）
+          const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+          if (projectRef) {
+            const sessionKey = `sb-${projectRef}-auth-token`;
+            localStorage.removeItem(sessionKey);
+            console.log('✅ 已清除localStorage中的session:', sessionKey);
+          }
+          
+          // 清除所有可能的Supabase相关key（以防格式不同）
+          const keysToRemove: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.includes('supabase') || key.includes('auth-token') || key.includes('sb-'))) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+            console.log('✅ 已清除localStorage中的key:', key);
+          });
+        } catch (storageError) {
+          console.error('清除localStorage失败:', storageError);
+        }
+      }
+    } catch (error) {
+      console.error("登出异常:", error);
+    } finally {
+      // 4. 强制导航到登录页（使用replace避免返回）
+      window.location.replace('/auth');
     }
   };
 
