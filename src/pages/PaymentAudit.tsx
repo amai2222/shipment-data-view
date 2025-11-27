@@ -596,7 +596,7 @@ export default function PaymentAudit() {
     
     try {
       const selectedRequestIds = Array.from(selection.selectedIds);
-      const { data, error } = await supabase.rpc('batch_approve_payment_requests', {
+      const { data, error } = await supabase.rpc('batch_approve_payment_requests_1126', {
         p_request_ids: selectedRequestIds
       });
 
@@ -624,9 +624,19 @@ export default function PaymentAudit() {
   // 批量付款功能已移除
 
   const handleRollbackApproval = async (requestId: string) => {
+    // 权限检查
+    if (!hasButtonAccess('finance.rollback_payment_approval')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有回滚付款审批的权限。请联系管理员在权限管理中分配 "finance.rollback_payment_approval" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
       setExportingId(requestId);
-      const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
+      const { data, error } = await supabase.rpc('rollback_payment_request_approval_1126', {
         p_request_id: requestId
       });
 
@@ -644,6 +654,16 @@ export default function PaymentAudit() {
 
   // 批量取消审批（回滚到待审批状态）- 使用批量函数优化
   const handleBatchRollbackApproval = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.rollback_payment_approval')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有批量回滚付款审批的权限。请联系管理员在权限管理中分配 "finance.rollback_payment_approval" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (selection.selectedIds.size === 0) return;
     
     setIsBatchOperating(true);
@@ -659,7 +679,7 @@ export default function PaymentAudit() {
 
       // 调用批量取消审批RPC函数（性能优化）
       const requestIds = selectedReqs.map(r => r.request_id);
-      const { data, error } = await supabase.rpc('batch_rollback_payment_approval', {
+      const { data, error } = await supabase.rpc('batch_rollback_payment_approval_1126', {
         p_request_ids: requestIds
           });
           
@@ -1242,7 +1262,7 @@ export default function PaymentAudit() {
       setExportingId(req.id);
       
       // 取消付款状态
-      const { data, error } = await supabase.rpc('void_payment_for_request', {
+      const { data, error } = await supabase.rpc('void_payment_for_request_1126', {
         p_request_id: req.request_id,
         p_cancel_reason: '手动取消付款'
       });
@@ -1595,7 +1615,7 @@ export default function PaymentAudit() {
       }
 
       // 调用批量取消审批函数
-      const { data, error } = await supabase.rpc('batch_rollback_payment_approval', { 
+      const { data, error } = await supabase.rpc('batch_rollback_payment_approval_1126', { 
         p_request_ids: idsToRollback 
       });
       if (error) throw error;
@@ -1640,7 +1660,7 @@ export default function PaymentAudit() {
       }
 
       // 调用删除函数
-      const { data, error } = await supabase.rpc('void_and_delete_payment_requests', { 
+      const { data, error } = await supabase.rpc('void_and_delete_payment_requests_1126', { 
         p_request_ids: idsToDelete 
       });
 

@@ -626,7 +626,7 @@ export default function FinanceReconciliation() {
 
     setIsReconciling(true);
     try {
-      const { data, error } = await supabase.rpc('reconcile_partner_costs_batch', {
+      const { data, error } = await supabase.rpc('reconcile_partner_costs_batch_1126', {
         p_cost_ids: reconciliationDialog.costIds,
         p_reconciliation_status: reconciliationStatus,
         p_reconciliation_notes: reconciliationNotes || null

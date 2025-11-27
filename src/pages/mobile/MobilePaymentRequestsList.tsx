@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, X } from 'lucide-react';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 
 // 简单的图标占位符组件
 const Search = ({ className }: { className?: string }) => <span className={className}>🔍</span>;
@@ -152,6 +153,7 @@ export default function MobilePaymentRequestsList() {
   const [loading, setLoading] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { hasButtonAccess } = useUnifiedPermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [modalRecords, setModalRecords] = useState<LogisticsRecordDetail[]>([]);
@@ -270,9 +272,19 @@ export default function MobilePaymentRequestsList() {
   };
 
   const handleRollbackApproval = async (requestId: string) => {
+    // 权限检查
+    if (!hasButtonAccess('finance.rollback_payment_approval')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有回滚付款审批的权限。请联系管理员在权限管理中分配 "finance.rollback_payment_approval" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
       setExportingId(requestId);
-      const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
+      const { data, error } = await supabase.rpc('rollback_payment_request_approval_1126', {
         p_request_id: requestId
       });
 
@@ -715,20 +727,30 @@ export default function MobilePaymentRequestsList() {
   };
 
   const handlePayment = async (req: PaymentRequest) => {
+    // 权限检查
+    if (!hasButtonAccess('finance.pay_payment')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有完成付款的权限。请联系管理员在权限管理中分配 "finance.pay_payment" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
       setExportingId(req.id);
       
-      // 更新付款状态
-      const { data, error } = await supabase.rpc('set_payment_status_for_waybills', {
-        p_record_ids: req.logistics_record_ids,
-        p_payment_status: 'Paid'
+      // 调用新的付款函数（会同时更新申请单和运单状态）
+      const { data, error } = await supabase.rpc('pay_payment_request_1126', {
+        p_request_id: req.request_id
       });
 
       if (error) throw error;
 
+      const result = data as { success: boolean; message: string; updated_count: number };
       toast({ 
         title: '付款成功', 
-        description: `已更新 ${(data as RPCResponse)?.updated_waybills || 0} 条运单的付款状态，同步了 ${(data as RPCResponse)?.updated_partner_costs || 0} 条合作方成本记录。` 
+        description: result.message || `付款完成，${result.updated_count}条运单状态已更新为"已支付"` 
       });
       
       // 刷新数据
@@ -743,11 +765,21 @@ export default function MobilePaymentRequestsList() {
   };
 
   const handleCancelPayment = async (req: PaymentRequest) => {
+    // 权限检查
+    if (!hasButtonAccess('finance.cancel_payment')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有取消付款申请的权限。请联系管理员在权限管理中分配 "finance.cancel_payment" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
       setExportingId(req.id);
       
       // 取消付款状态
-      const { data, error } = await supabase.rpc('void_payment_for_request', {
+      const { data, error } = await supabase.rpc('void_payment_for_request_1126', {
         p_request_id: req.request_id,
         p_cancel_reason: '手动取消付款'
       });
@@ -1165,8 +1197,8 @@ export default function MobilePaymentRequestsList() {
                       详情
                     </Button>
                     
-                    {/* 主要操作按钮 - 根据状态显示不同按钮 */}
-                    {req.status === 'Approved' && (
+                    {/* 主要操作按钮 - 根据状态显示不同按钮，需要权限 */}
+                    {hasButtonAccess('finance.pay_payment') && req.status === 'Approved' && (
                       <Button 
                         variant="default" 
                         size="sm" 
@@ -1179,7 +1211,7 @@ export default function MobilePaymentRequestsList() {
                       </Button>
                     )}
 
-                    {req.status === 'Pending' && (
+                    {hasButtonAccess('finance.approve_payment') && req.status === 'Pending' && (
                       <Button 
                         variant="default" 
                         size="sm" 
@@ -1192,7 +1224,7 @@ export default function MobilePaymentRequestsList() {
                       </Button>
                     )}
                     
-                    {req.status === 'Paid' && (
+                    {hasButtonAccess('finance.cancel_payment') && req.status === 'Paid' && (
                       <Button 
                         variant="outline" 
                         size="sm" 

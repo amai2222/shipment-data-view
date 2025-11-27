@@ -224,7 +224,10 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
       { key: 'finance.view_cost', label: '查看成本信息', description: '可以查看成本相关数据' },
       { key: 'finance.approve_payment', label: '审批付款', description: '可以审批付款申请' },
       { key: 'finance.generate_invoice', label: '生成发票', description: '可以生成发票' },
-      { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账' }
+      { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账' },
+      { key: 'finance.pay_payment', label: '付款按钮', description: '控制"付款"和"批量付款"按钮的显示，允许完成付款申请（单个或批量）' },
+      { key: 'finance.cancel_payment', label: '取消付款按钮', description: '控制"取消付款"按钮的显示，允许取消已支付的付款申请' },
+      { key: 'finance.rollback_payment_approval', label: '回滚审批按钮', description: '控制"回滚审批"和"批量回滚审批"按钮的显示，允许回滚付款审批状态（单个或批量）' }
     ]
   },
   {
@@ -331,6 +334,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'data', 'data.create', 'data.edit', 'data.delete', 'data.export', 'data.import',
       'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view', 'scale_records.delete',
       'finance', 'finance.view_cost', 'finance.approve_payment', 'finance.generate_invoice', 'finance.reconcile',
+      'finance.pay_payment', 'finance.cancel_payment', 'finance.rollback_payment_approval',
       'contract_management', 'contract.view',
       'system', 'system.manage_users', 'system.manage_roles', 'system.view_logs', 'system.backup'
     ],
@@ -355,6 +359,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
     function_permissions: [
       'data', 'data.view', 'data.export',
       'finance', 'finance.view_cost', 'finance.approve_payment', 'finance.generate_invoice', 'finance.reconcile',
+      'finance.pay_payment', 'finance.cancel_payment', 'finance.rollback_payment_approval',
       'scale_records', 'scale_records.view',
       'contract_management', 'contract.view',
     ],
@@ -414,6 +419,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
       'scale_records', 'scale_records.create', 'scale_records.edit', 'scale_records.view', 'scale_records.delete',
       // 财务操作
       'finance', 'finance.view_cost', 'finance.generate_invoice', 'finance.reconcile',
+      'finance.pay_payment', 'finance.rollback_payment_approval',
       // 合同管理
       'contract_management', 'contract.view'
     ],

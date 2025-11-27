@@ -440,7 +440,7 @@ export default function InvoiceRequestManagement() {
   // 作废申请单
   const voidRequest = async (requestId: string, reason: string) => {
     try {
-      const { data, error } = await supabase.rpc('void_invoice_request', {
+      const { data, error } = await supabase.rpc('void_invoice_request_1126', {
         p_request_id: requestId,
         p_void_reason: reason
       });
@@ -612,7 +612,7 @@ export default function InvoiceRequestManagement() {
         .map(r => r.request_number);
       
       // 调用批量开票函数
-      const { data, error } = await supabase.rpc('batch_complete_invoice_requests', {
+      const { data, error } = await supabase.rpc('batch_complete_invoice_requests_1126', {
         p_request_numbers: selectedRequestNumbers
       });
 
@@ -790,7 +790,7 @@ export default function InvoiceRequestManagement() {
       const voidableIds = voidableReqs.map(r => r.id);
       
       // 调用删除函数
-      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', {
+      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests_1126', {
         p_request_ids: voidableIds
       });
       
@@ -969,7 +969,7 @@ export default function InvoiceRequestManagement() {
   const handleCompleteInvoice = async (request: InvoiceRequest) => {
     try {
       // 调用新的开票函数（会同时更新申请单和运单状态）
-      const { data, error } = await supabase.rpc('complete_invoice_request_v2', {
+      const { data, error } = await supabase.rpc('complete_invoice_request_v2_1126', {
         p_request_number: request.request_number
       });
 

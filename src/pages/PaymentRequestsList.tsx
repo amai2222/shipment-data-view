@@ -416,7 +416,7 @@ export default function PaymentRequestsList() {
     
     try {
       const selectedRequestIds = Array.from(selection.selectedIds);
-      const { data, error } = await supabase.rpc('batch_approve_payment_requests', {
+      const { data, error } = await supabase.rpc('batch_approve_payment_requests_1126', {
         p_request_ids: selectedRequestIds
       });
 
@@ -442,6 +442,16 @@ export default function PaymentRequestsList() {
   };
 
   const handleBatchPay = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.pay_payment')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有完成付款的权限。请联系管理员在权限管理中分配 "finance.pay_payment" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (selection.selectedIds.size === 0) {
       toast({ title: "提示", description: "请先选择要付款的申请单", variant: "destructive" });
       return;
@@ -452,7 +462,7 @@ export default function PaymentRequestsList() {
     
     try {
       const selectedRequestIds = Array.from(selection.selectedIds);
-      const { data, error } = await supabase.rpc('batch_pay_payment_requests', {
+      const { data, error } = await supabase.rpc('batch_pay_payment_requests_1126', {
         p_request_ids: selectedRequestIds
       });
 
@@ -478,9 +488,19 @@ export default function PaymentRequestsList() {
   };
 
   const handleRollbackApproval = async (requestId: string) => {
+    // 权限检查
+    if (!hasButtonAccess('finance.rollback_payment_approval')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有回滚付款审批的权限。请联系管理员在权限管理中分配 "finance.rollback_payment_approval" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     try {
       setExportingId(requestId);
-      const { data, error } = await supabase.rpc('rollback_payment_request_approval', {
+      const { data, error } = await supabase.rpc('rollback_payment_request_approval_1126', {
         p_request_id: requestId
       });
 
@@ -1077,6 +1097,16 @@ export default function PaymentRequestsList() {
   const handlePayment = async (e: MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     
+    // 权限检查
+    if (!hasButtonAccess('finance.pay_payment')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有完成付款的权限。请联系管理员在权限管理中分配 "finance.pay_payment" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     // 检查状态：只有Approved状态才能付款
     if (req.status !== 'Approved') {
       toast({ 
@@ -1091,7 +1121,7 @@ export default function PaymentRequestsList() {
       setExportingId(req.id);
       
       // 调用新的付款函数（会同时更新申请单和运单状态）
-      const { data, error } = await supabase.rpc('pay_payment_request', {
+      const { data, error } = await supabase.rpc('pay_payment_request_1126', {
         p_request_id: req.request_id
       });
 
@@ -1116,6 +1146,16 @@ export default function PaymentRequestsList() {
   const handleCancelPayment = async (e: MouseEvent<HTMLButtonElement>, req: PaymentRequest) => {
     e.stopPropagation();
     
+    // 权限检查
+    if (!hasButtonAccess('finance.cancel_payment')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有取消付款申请的权限。请联系管理员在权限管理中分配 "finance.cancel_payment" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     // 检查状态：只有Paid状态才能取消付款
     if (req.status !== 'Paid') {
       toast({ 
@@ -1130,7 +1170,7 @@ export default function PaymentRequestsList() {
       setExportingId(req.id);
       
       // 调用新的取消付款函数
-      const { data, error } = await supabase.rpc('cancel_payment_request', {
+      const { data, error } = await supabase.rpc('cancel_payment_request_1126', {
         p_request_id: req.request_id
       });
 
@@ -1523,7 +1563,7 @@ export default function PaymentRequestsList() {
       }
 
       // 调用删除函数
-      const { data, error } = await supabase.rpc('void_and_delete_payment_requests', { 
+      const { data, error } = await supabase.rpc('void_and_delete_payment_requests_1126', { 
         p_request_ids: idsToDelete 
       });
 
@@ -2031,8 +2071,8 @@ export default function PaymentRequestsList() {
                               查看申请单
                             </Button>
 
-                            {/* 付款按钮 - 绿色主题，只在已审批状态显示 */}
-                            {req.status === 'Approved' && (
+                            {/* 付款按钮 - 绿色主题，只在已审批状态显示，需要权限 */}
+                            {hasButtonAccess('finance.pay_payment') && req.status === 'Approved' && (
                               <Button 
                                 variant="default" 
                                 size="sm" 

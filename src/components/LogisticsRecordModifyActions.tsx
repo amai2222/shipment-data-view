@@ -170,13 +170,22 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
     setIsSaving(true);
     try {
       // 验证运单支付状态和开票状态
+      interface LogisticsRecordStatus {
+        payment_status: string;
+        invoice_status: string | null;
+      }
+      
       const { data: recordData, error: checkError } = await supabase
         .from('logistics_records')
         .select('payment_status, invoice_status')
         .eq('id', editPartnerCostData.recordId)
-        .single();
+        .single<LogisticsRecordStatus>();
       
       if (checkError) throw checkError;
+      
+      if (!recordData) {
+        throw new Error('运单记录不存在');
+      }
       
       // 检查支付状态
       if (recordData.payment_status !== 'Unpaid') {
@@ -204,7 +213,7 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
             payable_amount: amount,
             is_manually_modified: true,
             updated_at: new Date().toISOString()
-          })
+          } as never)
           .eq('logistics_record_id', editPartnerCostData.recordId)
           .eq('partner_id', cost.partner_id)
           .eq('level', cost.level);
@@ -219,7 +228,7 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
         .update({
           payable_cost: driverAmount,
           updated_at: new Date().toISOString()
-        })
+        } as never)
         .eq('id', editPartnerCostData.recordId);
       
       if (driverUpdateError) throw driverUpdateError;
@@ -234,7 +243,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       onRefresh();
     } catch (error) {
       console.error("保存合作方运费失败:", error);
-      toast({ title: "错误", description: `保存失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `保存失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -294,7 +304,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       setAvailableChains(data || []);
     } catch (error) {
       console.error("获取合作链路失败:", error);
-      toast({ title: "错误", description: `获取合作链路失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `获取合作链路失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsLoadingChains(false);
     }
@@ -311,14 +322,20 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       const selectedChain = availableChains.find(c => c.id === newChainId);
       if (!selectedChain) throw new Error("未找到选择的合作链路");
       
-      const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc' as any, {
+      interface ModifyChainResult {
+        success: boolean;
+        message: string;
+        recalculated_partners?: number;
+      }
+      
+      const { data, error } = await supabase.rpc<ModifyChainResult>('modify_logistics_record_chain_with_recalc_1126', {
         p_record_id: editChainData.recordId,
         p_chain_name: selectedChain.chain_name
       });
       
       if (error) throw error;
       
-      const result = data as any;
+      const result = data;
       toast({ 
         title: "成功", 
         description: `合作链路已更新为"${selectedChain.chain_name}"，已重新计算${result?.recalculated_partners || 0}个合作方的成本` 
@@ -329,7 +346,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       onRefresh();
     } catch (error) {
       console.error("修改合作链路失败:", error);
-      toast({ title: "错误", description: `修改失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `修改失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -412,13 +430,24 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
           const newPartnerAmount = parseFloat(record.new_amount);
           const newDriverAmount = parseFloat(record.new_driver_amount);
           
+          interface LogisticsRecordStatus {
+            payment_status: string;
+            invoice_status: string | null;
+          }
+          
           const { data: recordData, error: checkError } = await supabase
             .from('logistics_records')
             .select('payment_status, invoice_status')
             .eq('id', record.id)
-            .single();
+            .single<LogisticsRecordStatus>();
           
           if (checkError) throw checkError;
+          
+          if (!recordData) {
+            failedCount++;
+            failedList.push(`${record.auto_number}(运单不存在)`);
+            continue;
+          }
           
           if (recordData.payment_status !== 'Unpaid') {
             failedCount++;
@@ -445,7 +474,7 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
             continue;
           }
           
-          const highestPartner = costs[0];
+          const highestPartner = costs[0] as { partner_id: string; level: number };
           
           const { error: updatePartnerError } = await supabase
             .from('logistics_partner_costs')
@@ -453,7 +482,7 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
               payable_amount: newPartnerAmount,
               is_manually_modified: true,
               updated_at: new Date().toISOString()
-            })
+            } as never)
             .eq('logistics_record_id', record.id)
             .eq('partner_id', highestPartner.partner_id)
             .eq('level', highestPartner.level);
@@ -465,7 +494,7 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
             .update({
               payable_cost: newDriverAmount,
               updated_at: new Date().toISOString()
-            })
+            } as never)
             .eq('id', record.id);
           
           if (updateDriverError) throw updateDriverError;
@@ -473,7 +502,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
           successCount++;
         } catch (error) {
           failedCount++;
-          failedList.push(`${record.auto_number}(错误: ${(error as any).message})`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          failedList.push(`${record.auto_number}(错误: ${errorMessage})`);
         }
       }
 
@@ -492,7 +522,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       onRefresh();
     } catch (error) {
       console.error("批量修改应收失败:", error);
-      toast({ title: "错误", description: `批量修改失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `批量修改失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsBatchModifying(false);
     }
@@ -543,7 +574,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       setBatchChainId('');
     } catch (error) {
       console.error("获取合作链路失败:", error);
-      toast({ title: "错误", description: `获取合作链路失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `获取合作链路失败: ${errorMessage}`, variant: "destructive" });
     }
   };
 
@@ -570,14 +602,20 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
 
     setIsBatchModifying(true);
     try {
-      const { data, error } = await supabase.rpc('batch_modify_chain' as any, {
+      const { data, error } = await supabase.rpc('batch_modify_chain_1126', {
         p_record_ids: idsToModify,
         p_chain_name: selectedChain.chain_name
       });
 
       if (error) throw error;
 
-      const result = data as any;
+      interface BatchModifyChainResult {
+        success: boolean;
+        message: string;
+        failed_records?: string[];
+      }
+      
+      const result = data as BatchModifyChainResult;
       toast({
         title: result.success ? "批量修改完成" : "修改失败",
         description: result.message,
@@ -594,7 +632,8 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
       onRefresh();
     } catch (error) {
       console.error("批量修改链路失败:", error);
-      toast({ title: "错误", description: `批量修改失败: ${(error as any).message}`, variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({ title: "错误", description: `批量修改失败: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsBatchModifying(false);
     }

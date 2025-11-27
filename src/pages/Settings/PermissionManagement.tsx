@@ -590,19 +590,27 @@ function PermissionEditor({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {group.permissions.map(permission => (
-                  <div key={permission.key} className="flex items-center space-x-2">
+                {group.children?.map(permission => (
+                  <div key={permission.key} className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
                     <Checkbox
                       id={permission.key}
                       checked={functionPermissions.includes(permission.key)}
                       onCheckedChange={() => onToggleFunction(permission.key)}
+                      className="mt-1"
                     />
-                    <Label 
-                      htmlFor={permission.key}
-                      className="text-sm cursor-pointer"
-                    >
-                      {permission.label}
-                    </Label>
+                    <div className="flex-1 space-y-1">
+                      <Label 
+                        htmlFor={permission.key}
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        {permission.label}
+                      </Label>
+                      {permission.description && (
+                        <p className="text-xs text-muted-foreground">
+                          {permission.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

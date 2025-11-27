@@ -472,7 +472,7 @@ export default function InvoiceAudit() {
       }).filter(Boolean) as string[];
 
       // 调用批量审批函数
-      const { data, error } = await supabase.rpc('batch_approve_invoice_requests', {
+      const { data, error } = await supabase.rpc('batch_approve_invoice_requests_1126', {
         p_request_numbers: selectedRequestNumbers
       });
 
@@ -661,7 +661,7 @@ export default function InvoiceAudit() {
 
       // 调用批量取消审批RPC函数（性能优化）
       const requestIds = approvedReqs.map(r => r.id);
-      const { data, error } = await supabase.rpc('batch_rollback_invoice_approval', {
+      const { data, error } = await supabase.rpc('batch_rollback_invoice_approval_1126', {
         p_request_ids: requestIds
       });
 
@@ -1233,7 +1233,7 @@ export default function InvoiceAudit() {
       setExportingId(req.id);
       
       // 调用新的审批函数（会同时更新申请单和运单状态）
-      const { data, error } = await supabase.rpc('approve_invoice_request_v2', {
+      const { data, error } = await supabase.rpc('approve_invoice_request_v2_1126', {
         p_request_number: req.request_number
       });
       
@@ -1536,7 +1536,7 @@ export default function InvoiceAudit() {
       
       for (const requestId of idsToRollback) {
         try {
-          const { data, error } = await supabase.rpc('void_invoice_request', {
+          const { data, error } = await supabase.rpc('void_invoice_request_1126', {
             p_request_id: requestId,
             p_void_reason: '批量回滚'
           });
@@ -1612,7 +1612,7 @@ export default function InvoiceAudit() {
       }
 
       // 调用删除函数
-      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', { 
+      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests_1126', { 
         p_request_ids: idsToDelete 
       });
 

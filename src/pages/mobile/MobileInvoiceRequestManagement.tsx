@@ -16,7 +16,7 @@ import { FileText, Search, Filter, Eye, Edit, RefreshCw, ChevronRight, X, CheckC
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { LogisticsFormDialog } from "@/pages/BusinessEntry/components/LogisticsFormDialog";
-import { LogisticsRecord } from "../../BusinessEntry/types";
+import { LogisticsRecord } from "@/pages/BusinessEntry/types";
 import { MobilePullToRefresh } from "@/components/mobile/MobilePullToRefresh";
 import { MobileSkeletonLoader } from "@/components/mobile/MobileSkeletonLoader";
 import { triggerHaptic } from "@/utils/mobile";
@@ -35,6 +35,9 @@ interface InvoiceRequest {
   invoicing_partner_company_address?: string;
   invoicing_partner_bank_name?: string;
   invoicing_partner_bank_account?: string;
+  bank_name?: string;  // 银行名称
+  bank_account?: string;  // 银行账号
+  tax_number?: string;  // 税号
   total_amount: number;
   record_count: number;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Completed' | 'Voided' | 'Merged';
@@ -64,8 +67,11 @@ interface InvoiceRequestDetail {
     auto_number: string;
     project_name: string;
     driver_name: string;
-    loading_address: string;
-    unloading_address: string;
+    loading_location?: string;
+    unloading_location?: string;
+    loading_address?: string;
+    unloading_address?: string;
+    loading_date?: string;
   };
 }
 
@@ -118,7 +124,11 @@ export default function MobileInvoiceRequestManagement() {
       if (error) throw error;
 
       // 处理数据，添加creator_name字段
-      const processedData = data?.map(request => ({
+      interface InvoiceRequestWithProfile extends InvoiceRequest {
+        profiles?: { full_name: string } | null;
+      }
+      
+      const processedData = (data as InvoiceRequestWithProfile[] | null)?.map(request => ({
         ...request,
         creator_name: request.profiles?.full_name || '未知用户'
       })) || [];
@@ -153,7 +163,12 @@ export default function MobileInvoiceRequestManagement() {
       }
 
       // 获取所有相关的运单ID
-      const logisticsRecordIds = detailsData.map(detail => detail.logistics_record_id).filter(Boolean);
+      interface InvoiceRequestDetailRow {
+        logistics_record_id: string;
+        [key: string]: unknown;
+      }
+      
+      const logisticsRecordIds = (detailsData as InvoiceRequestDetailRow[]).map(detail => detail.logistics_record_id).filter(Boolean);
       
       if (logisticsRecordIds.length === 0) {
         setRequestDetails([]);
@@ -177,24 +192,46 @@ export default function MobileInvoiceRequestManagement() {
       if (logisticsResult.error) throw logisticsResult.error;
 
       // 创建映射
-      const projectsMap = new Map(projectsResult.data?.map(p => [p.id, p.name]) || []);
-      const driversMap = new Map(driversResult.data?.map(d => [d.id, d.name]) || []);
-      const logisticsMap = new Map(logisticsResult.data?.map(l => [l.id, l]) || []);
+      interface ProjectRow {
+        id: string;
+        name: string;
+      }
+      
+      interface DriverRow {
+        id: string;
+        name: string;
+      }
+      
+      interface LogisticsRow {
+        id: string;
+        auto_number: string;
+        project_id: string;
+        driver_id: string | null;
+        loading_location: string;
+        unloading_location: string;
+        loading_date: string;
+      }
+      
+      const projectsMap = new Map((projectsResult.data as ProjectRow[] | null)?.map(p => [p.id, p.name]) || []);
+      const driversMap = new Map((driversResult.data as DriverRow[] | null)?.map(d => [d.id, d.name]) || []);
+      const logisticsMap = new Map((logisticsResult.data as LogisticsRow[] | null)?.map(l => [l.id, l]) || []);
 
       // 组合数据
-      const formattedDetails = detailsData.map(detail => {
+      const formattedDetails = (detailsData as InvoiceRequestDetailRow[]).map(detail => {
         const logisticsRecord = logisticsMap.get(detail.logistics_record_id);
         return {
-          id: detail.id,
-          invoice_request_id: detail.invoice_request_id,
+          id: detail.id as string,
+          invoice_request_id: detail.invoice_request_id as string,
           logistics_record_id: detail.logistics_record_id,
-          amount: detail.amount,
+          amount: typeof detail.amount === 'number' ? detail.amount : parseFloat(String(detail.amount || 0)),
           logistics_record: {
             auto_number: logisticsRecord?.auto_number || '',
             project_name: logisticsRecord?.project_id ? projectsMap.get(logisticsRecord.project_id) || '' : '',
             driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
             loading_location: logisticsRecord?.loading_location || '',
             unloading_location: logisticsRecord?.unloading_location || '',
+            loading_address: logisticsRecord?.loading_location || '',
+            unloading_address: logisticsRecord?.unloading_location || '',
             loading_date: logisticsRecord?.loading_date || ''
           }
         };
@@ -211,6 +248,33 @@ export default function MobileInvoiceRequestManagement() {
     }
   };
 
+  // 完成开票（单个）
+  const handleCompleteInvoice = async (request: InvoiceRequest) => {
+    try {
+      // 调用新的开票函数（会同时更新申请单和运单状态）
+      const { data, error } = await supabase.rpc('complete_invoice_request_v2_1126', {
+        p_request_number: request.request_number
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; message: string; updated_count: number };
+      toast({ 
+        title: "开票成功", 
+        description: result.message || `开票完成，${result.updated_count}条运单状态已更新为"已开票"` 
+      });
+      
+      loadInvoiceRequests();
+    } catch (error) {
+      console.error('开票失败:', error);
+      toast({ 
+        title: "开票失败", 
+        description: error instanceof Error ? error.message : '未知错误', 
+        variant: 'destructive' 
+      });
+    }
+  };
+
   // 更新申请单状态
   const updateRequestStatus = async (requestId: string, status: string, remarks?: string) => {
     try {
@@ -220,7 +284,7 @@ export default function MobileInvoiceRequestManagement() {
           status,
           remarks,
           updated_at: new Date().toISOString()
-        })
+        } as never)
         .eq('id', requestId);
 
       if (error) throw error;
@@ -263,7 +327,7 @@ export default function MobileInvoiceRequestManagement() {
   // 作废申请单
   const voidRequest = async (requestId: string, reason: string) => {
     try {
-      const { data, error } = await supabase.rpc('void_invoice_request', {
+      const { data, error } = await supabase.rpc('void_invoice_request_1126', {
         p_request_id: requestId,
         p_void_reason: reason
       });
@@ -300,12 +364,16 @@ export default function MobileInvoiceRequestManagement() {
         .update({ 
           status: 'Approved',
           updated_at: new Date().toISOString()
-        })
+        } as never)
         .eq('id', requestId);
 
       if (requestError) throw requestError;
 
       // 2. 获取开票申请单详情，更新相关运单的开票状态
+      interface InvoiceRequestDetailRow {
+        logistics_record_id: string;
+      }
+      
       const { data: requestDetails, error: detailsError } = await supabase
         .from('invoice_request_details')
         .select('logistics_record_id')
@@ -315,13 +383,13 @@ export default function MobileInvoiceRequestManagement() {
 
       if (requestDetails && requestDetails.length > 0) {
         // 3. 更新运单记录的开票状态
-        const recordIds = requestDetails.map(detail => detail.logistics_record_id);
+        const recordIds = (requestDetails as InvoiceRequestDetailRow[]).map(detail => detail.logistics_record_id);
         const { error: updateError } = await supabase
           .from('logistics_records')
           .update({ 
             invoice_status: 'Invoiced',
             invoice_completed_at: new Date().toISOString()
-          })
+          } as never)
           .in('id', recordIds);
 
         if (updateError) throw updateError;
@@ -332,7 +400,7 @@ export default function MobileInvoiceRequestManagement() {
           .update({ 
             invoice_status: 'Invoiced',
             invoice_completed_at: new Date().toISOString()
-          })
+          } as never)
           .in('logistics_record_id', recordIds);
 
         if (costsError) throw costsError;
@@ -369,7 +437,13 @@ export default function MobileInvoiceRequestManagement() {
       if (error) throw error;
 
       // 创建开票申请单格式的HTML表格
-      const createInvoiceRequestHTML = (requests: any[]) => {
+      interface InvoiceRequestForPDF {
+        request_number: string;
+        total_amount: number;
+        [key: string]: unknown;
+      }
+      
+      const createInvoiceRequestHTML = (requests: InvoiceRequestForPDF[]) => {
         const currentDate = format(new Date(), 'yyyy-MM-dd');
         const totalAmount = requests.reduce((sum, req) => sum + (req.total_amount || 0), 0);
 
@@ -421,11 +495,11 @@ export default function MobileInvoiceRequestManagement() {
         <tbody>
             ${requests.map((request, index) => `
                 <tr>
-                    <td>${format(new Date(request.created_at), 'yyyy年MM月dd日')}</td>
+                    <td>${format(new Date(String(request.created_at)), 'yyyy年MM月dd日')}</td>
                     <td>${request.partner_name}</td>
                     <td></td>
                     <td></td>
-                    <td>${format(new Date(request.created_at), 'yyyy年MM月')}</td>
+                    <td>${format(new Date(String(request.created_at)), 'yyyy年MM月')}</td>
                     <td>${request.total_amount.toLocaleString()}</td>
                     <td>${request.total_amount.toLocaleString()}</td>
                 </tr>
@@ -553,7 +627,7 @@ export default function MobileInvoiceRequestManagement() {
         .update({ 
           status: 'Approved',
           updated_at: new Date().toISOString()
-        })
+        } as never)
         .in('id', Array.from(selectedRequests));
 
       if (error) throw error;
@@ -586,7 +660,7 @@ export default function MobileInvoiceRequestManagement() {
       const selectedIds = Array.from(selectedRequests);
       
       // 调用批量取消审批RPC函数（性能优化）
-      const { data, error } = await supabase.rpc('batch_rollback_invoice_approval', {
+      const { data, error } = await supabase.rpc('batch_rollback_invoice_approval_1126', {
         p_request_ids: selectedIds
       });
 
@@ -643,7 +717,7 @@ export default function MobileInvoiceRequestManagement() {
       
       for (const requestId of selectedIds) {
         try {
-          const { data, error } = await supabase.rpc('void_invoice_request', {
+          const { data, error } = await supabase.rpc('void_invoice_request_1126', {
             p_request_id: requestId,
             p_void_reason: '批量回滚'
           });
@@ -690,7 +764,7 @@ export default function MobileInvoiceRequestManagement() {
     try {
       const selectedIds = Array.from(selectedRequests);
       
-      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests', {
+      const { data, error } = await supabase.rpc('void_and_delete_invoice_requests_1126', {
         p_request_ids: selectedIds
       });
 
@@ -735,63 +809,118 @@ export default function MobileInvoiceRequestManagement() {
       if (logisticsError) throw logisticsError;
       if (!logisticsData) throw new Error('运单记录不存在');
 
+      // 定义类型
+      interface LogisticsRecordRow {
+        id: string;
+        auto_number: string;
+        project_id: string | null;
+        driver_id: string | null;
+        loading_location: string;
+        unloading_location: string;
+        loading_date: string | null;
+        unloading_date: string | null;
+        goods_weight: number | null;
+        unit_price: number | null;
+        total_price: number | null;
+        remarks: string | null;
+        external_tracking_numbers: string[] | null;
+        other_platform_names: string[] | null;
+        created_at: string;
+      }
+      
+      interface ProjectRow {
+        id: string;
+        name: string;
+        auto_code?: string;
+      }
+      
+      interface DriverRow {
+        id: string;
+        name: string;
+        license_plate?: string | null;
+        phone?: string | null;
+        id_card_number?: string | null;
+        bank_name?: string | null;
+        bank_account?: string | null;
+        bank_branch?: string | null;
+      }
+
+      const logisticsRow = logisticsData as LogisticsRecordRow;
+
       // 查询项目信息
       let projectName = '';
-      if (logisticsData.project_id) {
+      if (logisticsRow.project_id) {
         const { data: projectData } = await supabase
           .from('projects')
           .select('id, name, auto_code')
-          .eq('id', logisticsData.project_id)
-          .single();
-        projectName = projectData?.name || '';
+          .eq('id', logisticsRow.project_id)
+          .single<ProjectRow>();
+        if (projectData) {
+          projectName = projectData.name || '';
+        }
       }
 
       // 查询司机信息
-      let driverInfo: any = {};
-      if (logisticsData.driver_id) {
+      interface DriverInfo {
+        id?: string;
+        name?: string;
+        license_plate?: string | null;
+        phone?: string | null;
+      }
+      
+      let driverInfo: DriverInfo = {};
+      if (logisticsRow.driver_id) {
         const { data: driverData } = await supabase
           .from('drivers')
           .select('id, name, license_plate, phone, id_card_number, bank_name, bank_account, bank_branch')
-          .eq('id', logisticsData.driver_id)
-          .single();
-        driverInfo = driverData || {};
+          .eq('id', logisticsRow.driver_id)
+          .single<DriverRow>();
+        if (driverData) {
+          driverInfo = {
+            id: driverData.id,
+            name: driverData.name,
+            license_plate: driverData.license_plate,
+            phone: driverData.phone
+          };
+        }
       }
 
       const formattedRecord: LogisticsRecord = {
-        id: logisticsData.id,
-        auto_number: logisticsData.auto_number,
-        project_id: logisticsData.project_id,
+        id: logisticsRow.id,
+        auto_number: logisticsRow.auto_number,
+        project_id: logisticsRow.project_id || '',
         project_name: projectName,
         chain_id: null,
         chain_name: null,
         billing_type_id: 0,
         driver_id: driverInfo.id || '',
         driver_name: driverInfo.name || '',
-        loading_location: logisticsData.loading_location,
-        unloading_location: logisticsData.unloading_location,
-        loading_date: logisticsData.loading_date,
-        unloading_date: logisticsData.unloading_date,
-        loading_weight: logisticsData.goods_weight,
-        unloading_weight: logisticsData.goods_weight,
-        current_cost: logisticsData.unit_price,
-        payable_cost: logisticsData.total_price,
+        loading_location: logisticsRow.loading_location,
+        unloading_location: logisticsRow.unloading_location,
+        loading_date: logisticsRow.loading_date,
+        unloading_date: logisticsRow.unloading_date,
+        loading_weight: logisticsRow.goods_weight,
+        unloading_weight: logisticsRow.goods_weight,
+        current_cost: logisticsRow.unit_price,
+        payable_cost: logisticsRow.total_price,
         license_plate: driverInfo.license_plate || '',
         driver_phone: driverInfo.phone || '',
         transport_type: null,
         extra_cost: null,
-        remarks: logisticsData.remarks,
+        remarks: logisticsRow.remarks,
         loading_weighbridge_image_url: null,
         unloading_weighbridge_image_url: null,
-        external_tracking_numbers: logisticsData.external_tracking_numbers || [],
-        other_platform_names: logisticsData.other_platform_names || [],
-        created_at: logisticsData.created_at,
+        external_tracking_numbers: logisticsRow.external_tracking_numbers || [],
+        other_platform_names: logisticsRow.other_platform_names || [],
+        created_at: logisticsRow.created_at,
       };
       return formattedRecord;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('获取运单详情失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({
         title: "加载失败",
-        description: error.message || '无法加载运单详情',
+        description: errorMessage || '无法加载运单详情',
         variant: "destructive",
       });
       return null;
@@ -850,6 +979,7 @@ export default function MobileInvoiceRequestManagement() {
 
   useEffect(() => {
     loadInvoiceRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -1388,8 +1518,6 @@ export default function MobileInvoiceRequestManagement() {
           onSubmitSuccess={() => {
             // 查看模式下不需要提交成功回调
           }}
-          isViewMode={true}
-          isEditMode={false}
         />
       )}
 

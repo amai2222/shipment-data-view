@@ -726,7 +726,7 @@ export default function InvoiceRequest() {
       })));
       console.log('传给后端的all_partner_cost_ids数量:', allPartnerCostIds.length);
 
-      const { data, error } = await supabase.rpc('save_invoice_request', {
+      const { data, error } = await supabase.rpc('save_invoice_request_1126', {
         p_invoice_data: {
           sheets: finalInvoiceData.sheets,
           all_partner_cost_ids: allPartnerCostIds
@@ -775,10 +775,30 @@ export default function InvoiceRequest() {
 
     } catch (error) {
       console.error("保存开票申请失败:", error);
+      
+      // ✅ 改进错误处理：提取更友好的错误信息
+      let errorMessage = '保存开票申请失败';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // 处理 Supabase 错误对象
+        const supabaseError = error as { message?: string; details?: string; hint?: string; code?: string };
+        if (supabaseError.message) {
+          errorMessage = supabaseError.message;
+        } else if (supabaseError.details) {
+          errorMessage = supabaseError.details;
+        } else {
+          errorMessage = String(error);
+        }
+      } else {
+        errorMessage = String(error);
+      }
+      
       toast({
         title: "错误",
-        description: `保存开票申请失败: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive"
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000  // 延长显示时间，让用户有时间阅读错误信息
       });
     } finally {
       setIsSaving(false);

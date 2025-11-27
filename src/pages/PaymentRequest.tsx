@@ -661,7 +661,7 @@ export default function PaymentRequest() {
     setIsSaving(true);
     try {
       const allRecordIds = finalPaymentData.all_record_ids;
-      const { error } = await supabase.rpc('process_payment_application', {
+      const { error } = await supabase.rpc('process_payment_application_1126', {
         p_record_ids: allRecordIds,
       });
 
@@ -838,7 +838,7 @@ export default function PaymentRequest() {
       // 调用重算函数，使用系统自动计算的值
       const recordData = reportData?.records?.find((r) => r.id === editPartnerCostData.recordId);
       if (recordData && recordData.chain_id) {
-        const { error: recalcError } = await supabase.rpc('modify_logistics_record_chain_with_recalc', {
+        const { error: recalcError } = await supabase.rpc('modify_logistics_record_chain_with_recalc_1126', {
           p_record_id: editPartnerCostData.recordId,
           p_chain_name: recordData.chain_name || '默认链路'
         });
@@ -976,7 +976,7 @@ export default function PaymentRequest() {
   /**
    * 保存合作链路修改
    * 功能：
-   * 1. 调用RPC函数modify_logistics_record_chain_with_recalc
+   * 1. 调用RPC函数modify_logistics_record_chain_with_recalc_1126
    * 2. 删除旧的合作方成本记录
    * 3. 根据新链路重新计算所有合作方成本
    * 4. 刷新数据
@@ -990,7 +990,7 @@ export default function PaymentRequest() {
       if (!selectedChain) throw new Error("未找到选择的合作链路");
       
       // 调用修改合作链路的RPC函数（包含成本重算）
-      const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc', {
+      const { data, error } = await supabase.rpc('modify_logistics_record_chain_with_recalc_1126', {
         p_record_id: editChainData.recordId,
         p_chain_name: selectedChain.chain_name
       });
@@ -1096,7 +1096,7 @@ export default function PaymentRequest() {
           
           // 2. 触发重算（会重新计算合作方应收）
           if (recordStatus.chain_name) {
-            await supabase.rpc('modify_logistics_record_chain_with_recalc', {
+            await supabase.rpc('modify_logistics_record_chain_with_recalc_1126', {
               p_record_id: record.id,
               p_chain_name: recordStatus.chain_name
             });
@@ -1331,7 +1331,7 @@ export default function PaymentRequest() {
 
     setIsBatchModifying(true);
     try {
-      const { data, error } = await supabase.rpc('batch_modify_chain', {
+      const { data, error } = await supabase.rpc('batch_modify_chain_1126', {
         p_record_ids: idsToModify,
         p_chain_name: selectedChain.chain_name
       });
