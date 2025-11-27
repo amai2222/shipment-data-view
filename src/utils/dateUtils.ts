@@ -299,24 +299,26 @@ export function parseExcelDateToChina(dateValue: unknown): string {
   
   // 如果是数字（Excel日期序列号），转换为Date对象
   if (typeof dateValue === 'number') {
-    // ✅ 修复：Excel日期序列号正确计算
+    // ✅ 修复：Excel日期序列号正确计算（按中国时区处理）
     // Excel日期序列号：1900年1月1日为1
     // Excel错误地认为1900年是闰年，所以1900年2月29日存在（但实际上不存在）
     // 修正规则：如果序列号 >= 60（1900年2月29日），需要减去1天来修正
-    const excelEpochUTC = Date.UTC(1900, 0, 1); // 1900年1月1日 UTC
+    // 注意：Excel中的日期序列号代表的是中国时区的日期，所以我们需要按中国时区计算
+    const excelEpoch = new Date(1900, 0, 1); // 1900年1月1日（本地时区，即中国时区）
     let daysToAdd = dateValue - 1; // 序列号1 = 1900-01-01，所以减去1
     if (dateValue >= 60) {
       daysToAdd = daysToAdd - 1; // 修正Excel的闰年错误
     }
-    const dateUTC = excelEpochUTC + daysToAdd * 24 * 60 * 60 * 1000;
-    const date = new Date(dateUTC);
+    const date = new Date(excelEpoch);
+    date.setDate(date.getDate() + daysToAdd);
     if (isNaN(date.getTime())) {
       throw new Error('无效的Excel日期序列号');
     }
-    // 使用UTC方法获取年月日，确保日期准确
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
+    // ✅ 使用本地时区方法获取年月日（因为Excel数据已经是中国时区）
+    // Excel数据已经是中国时区的日期，所以使用本地时区方法获取年月日
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
   

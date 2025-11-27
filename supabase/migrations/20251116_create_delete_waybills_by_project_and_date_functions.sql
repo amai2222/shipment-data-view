@@ -153,12 +153,13 @@ AS $$
 DECLARE
     v_project_id UUID;
     v_target_record_ids UUID[];
+    v_original_record_ids UUID[];  -- 保存原始的目标运单ID列表
     v_deleted_logistics_count INTEGER := 0;
     v_deleted_costs_count INTEGER := 0;
-    v_has_payment_requests BOOLEAN;
-    v_has_invoice_requests BOOLEAN;
+    v_skipped_count INTEGER := 0;  -- 跳过的运单数量
     v_start_date DATE;
     v_end_date DATE;
+    v_message TEXT;  -- 用于构建返回消息
 BEGIN
     -- ========== 第1步：验证项目 ==========
     SELECT id INTO v_project_id
@@ -203,45 +204,54 @@ BEGIN
             'success', true,
             'message', '没有找到符合条件的运单记录，无需删除',
             'deleted_logistics_count', 0,
-            'deleted_costs_count', 0
+            'deleted_costs_count', 0,
+            'skipped_count', 0
         );
     END IF;
 
-    -- ========== 第3步：安全检查 ==========
-    -- 检查是否有关联的付款申请（只检查未完成的申请）
-    SELECT EXISTS(
-        SELECT 1
+    -- 保存原始的目标运单ID列表（用于计算跳过的数量）
+    v_original_record_ids := v_target_record_ids;
+
+    -- ========== 第3步：筛选可删除的运单 ==========
+    -- ✅ 修复：只删除那些未关联付款申请和发票申请的运单
+    -- 找出所有关联了未完成付款申请或发票申请的运单ID
+    WITH protected_record_ids AS (
+        -- 找出关联了未完成付款申请的运单ID
+        SELECT DISTINCT unnest(pr.logistics_record_ids) AS record_id
         FROM public.payment_requests pr
-        JOIN public.payment_request_items pri ON pr.id = pri.payment_request_id
-        WHERE pri.logistics_record_id = ANY(v_target_record_ids)
-          AND pr.status IN ('Pending', 'Processing')
-    ) INTO v_has_payment_requests;
-
-    -- 检查是否有关联的发票申请（只检查未完成的申请）
-    SELECT EXISTS(
-        SELECT 1
+        WHERE pr.logistics_record_ids && v_target_record_ids
+          AND pr.status IN ('Pending', 'Approved')
+        
+        UNION
+        
+        -- 找出关联了未完成发票申请的运单ID
+        SELECT DISTINCT ird.logistics_record_id AS record_id
         FROM public.invoice_requests ir
-        JOIN public.invoice_request_items iri ON ir.id = iri.invoice_request_id
-        WHERE iri.logistics_record_id = ANY(v_target_record_ids)
-          AND ir.status IN ('Pending', 'Processing')
-    ) INTO v_has_invoice_requests;
+        JOIN public.invoice_request_details ird ON ir.id = ird.invoice_request_id
+        WHERE ird.logistics_record_id = ANY(v_target_record_ids)
+          AND ir.status IN ('Pending', 'Approved')
+    ),
+    deletable_record_ids AS (
+        -- 从目标运单ID中排除受保护的运单ID
+        SELECT id
+        FROM unnest(v_target_record_ids) AS id
+        WHERE id NOT IN (SELECT record_id FROM protected_record_ids)
+    )
+    SELECT array_agg(id)
+    INTO v_target_record_ids
+    FROM deletable_record_ids;
 
-    -- 如果有未完成的付款或发票申请，返回错误
-    IF v_has_payment_requests THEN
+    -- 计算跳过的运单数量
+    v_skipped_count := array_length(v_original_record_ids, 1) - COALESCE(array_length(v_target_record_ids, 1), 0);
+
+    -- 如果没有可删除的运单，返回提示
+    IF v_target_record_ids IS NULL OR array_length(v_target_record_ids, 1) = 0 THEN
         RETURN jsonb_build_object(
             'success', false,
-            'error', '存在未完成的付款申请，无法删除相关运单。请先完成或取消付款申请。',
+            'error', format('所有选中的 %s 条运单都关联了未完成的付款申请或发票申请，无法删除。请先完成或取消相关申请。', v_skipped_count),
             'deleted_logistics_count', 0,
-            'deleted_costs_count', 0
-        );
-    END IF;
-
-    IF v_has_invoice_requests THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'error', '存在未完成的发票申请，无法删除相关运单。请先完成或取消发票申请。',
-            'deleted_logistics_count', 0,
-            'deleted_costs_count', 0
+            'deleted_costs_count', 0,
+            'skipped_count', v_skipped_count
         );
     END IF;
 
@@ -262,13 +272,24 @@ BEGIN
     SELECT COUNT(*) INTO v_deleted_logistics_count FROM deleted_rows;
 
     -- ========== 第6步：返回结果 ==========
+    -- 构建消息：如果有跳过的运单，在消息中说明
+    IF v_skipped_count > 0 THEN
+        v_message := format('成功删除 %s 条运单记录和 %s 条成本记录。跳过了 %s 条关联了未完成申请的运单。', 
+                           v_deleted_logistics_count, 
+                           v_deleted_costs_count,
+                           v_skipped_count);
+    ELSE
+        v_message := format('成功删除 %s 条运单记录和 %s 条成本记录', 
+                           v_deleted_logistics_count, 
+                           v_deleted_costs_count);
+    END IF;
+    
     RETURN jsonb_build_object(
         'success', true,
-        'message', format('成功删除 %s 条运单记录和 %s 条成本记录', 
-                         v_deleted_logistics_count, 
-                         v_deleted_costs_count),
+        'message', v_message,
         'deleted_logistics_count', v_deleted_logistics_count,
         'deleted_costs_count', v_deleted_costs_count,
+        'skipped_count', v_skipped_count,
         'project_name', p_project_name,
         'start_date', p_start_date,
         'end_date', p_end_date
