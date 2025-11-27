@@ -846,34 +846,50 @@ export default function PaymentAudit() {
               continue;  // 跳过该运单的最高级合作方（仅当有多个合作方时）
             }
             
-            // ✅ 找到当前合作方的上级合作方
+            // ✅ 找到当前合作方的上级合作方（付款方）
+            // 注意：层级判断只基于链路内的层级关系，与全局合作方层级无关
             let parentPartnerId: string | null = null;
+            let parentPartnerName: string | null = null;
             if (projectId && recData.chain_name && partnersInChain.length > 0) {
               const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === costData.partner_id);
               if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
-                const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
-                if (currentPartnerInfo.level < maxLevelInChain - 1) {
-                  const parentLevel = currentPartnerInfo.level + 1;
-                  const parentInfo = partnersInChain.find((p) => p.level === parentLevel);
-                  if (parentInfo) {
-                    parentPartnerId = parentInfo.partner_id;
+                // ✅ 直接基于链路内的层级关系：查找 level + 1 的合作方作为上级
+                // 不依赖全局最大值，只判断链路内是否存在更高一级的合作方
+                const parentLevel = currentPartnerInfo.level + 1;
+                const parentInfo = partnersInChain.find((p) => p.level === parentLevel);
+                if (parentInfo) {
+                  // 如果链路内存在更高一级的合作方，它就是上级（付款方）
+                  parentPartnerId = parentInfo.partner_id;
+                  // 获取上级合作方名称
+                  const parentPartner = partnersById.get(parentInfo.partner_id);
+                  if (parentPartner) {
+                    const parentData = parentPartner as { full_name?: string; name?: string };
+                    parentPartnerName = parentData.full_name || parentData.name || null;
                   }
                 }
+                // 如果链路内不存在更高一级的合作方，说明当前合作方是链路内的最高级，parentPartnerId 保持为 null
               }
             }
             
-            // ✅ 修复：按上下级关系和链路分组，同样的上下级+链路合并sheet，否则单开sheet
-            // 关键修复：分组key必须包含chain_id，确保不同链路的运单不会合并到同一个sheet
+            // ✅ 按付款关系分组（付款方 -> 收款方）
+            // 分组规则：
+            // 1. 相同的付款方 + 收款方 + 链路 → 合并到同一个表单
+            // 2. 不同的付款关系 → 生成独立的表单
+            // 例如：多个运单都是"中科智运平台 → 冠县昇仓仓储"，会合并到一个表单
             const chainIdForKey = recData.chain_id || 'no-chain';
+            // 分组key：付款方ID_收款方ID_链路ID
+            // 相同key的运单会被合并到同一个表单中
             const key = `${parentPartnerId || 'none'}_${costData.partner_id}_${chainIdForKey}`;
             if (!sheetMap.has(key)) {
+              // 创建新的表单组
               sheetMap.set(key, {
-                paying_partner_id: costData.partner_id,
-                paying_partner_full_name: costData.full_name || costData.partner_name,
+                paying_partner_id: costData.partner_id, // 收款方ID
+                paying_partner_full_name: costData.full_name || costData.partner_name, // 收款方名称
                 paying_partner_bank_account: costData.bank_account || '',
                 paying_partner_bank_name: costData.bank_name || '',
                 paying_partner_branch_name: costData.branch_name || '',
-                parent_partner_id: parentPartnerId,
+                parent_partner_id: parentPartnerId, // 付款方ID
+                parent_partner_name: parentPartnerName, // 付款方名称
                 record_count: 0,
                 total_payable: 0,
                 project_name: recData.project_name,
@@ -883,6 +899,7 @@ export default function PaymentAudit() {
                 records: [],
               });
             }
+            // 将当前运单添加到对应的表单组中（如果该运单还未添加）
             const sheet = sheetMap.get(key) as { 
               records: unknown[]; 
               record_count: number; 
@@ -893,9 +910,11 @@ export default function PaymentAudit() {
             if (recData.chain_name && sheet.chain_names) {
               sheet.chain_names.add(recData.chain_name);
             }
+            // 检查该运单是否已经添加过（避免重复添加）
             if (!sheet.records.some((r: unknown) => (r as { record: { id: string } }).record.id === recData.id)) {
               sheet.record_count += 1;
             }
+            // 添加运单记录到表单组
             sheet.records.push({ record: rec, payable_amount: costData.payable_amount });
             sheet.total_payable += Number(costData.payable_amount || 0);
           }
