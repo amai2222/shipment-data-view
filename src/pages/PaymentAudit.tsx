@@ -1011,42 +1011,11 @@ export default function PaymentAudit() {
             </thead>
           `);
           
-          // 获取上一级合作方信息，与Excel导出逻辑一致
-          let parentTitle = "中科智运(云南)供应链科技有限公司";
-          
-          // 获取当前合作方的级别，然后找到上一级合作方
-          const projectName = sheetData.project_name;
-          const projectId = projectsByName.get(projectName);
-          const allPartnersInProject = projectId ? projectPartnersByProjectId.get(projectId) || [] : [];
-          
-          // ✅ 修复：应该使用当前sheet中运单的链路来查找上级合作方
-          // 如果sheet中有多个链路，应该为每个运单使用它自己的链路来查找上级
-          // 但为了简化，我们使用sheet中第一个运单的链路（因为同一个sheet中的运单应该属于同一个链路）
-          // 如果sheet中有多个链路，说明分组逻辑有问题，应该按链路分组
-          const chainNames = (sheetData as { chain_names?: Set<string> }).chain_names ? Array.from((sheetData as { chain_names?: Set<string> }).chain_names!) : [];
-          // ✅ 修复：优先使用sheet的chain_name（这是创建sheet时设置的第一个运单的链路）
-          // 如果sheet中有多个链路，说明分组时没有按链路分组，这是分组逻辑的问题
-          const chainToUse = sheetData.chain_name || (chainNames.length > 0 ? chainNames[0] : null);
-          const partnersInChain = chainToUse 
-            ? allPartnersInProject.filter((p) => p.chain_name === chainToUse)
-            : allPartnersInProject;
-          const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
-          const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
-          
-          if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
-            if (currentPartnerInfo.level < maxLevelInChain - 1) {
-              const parentLevel = currentPartnerInfo.level + 1;
-              const parentInfo = partnersInChain.find((p) => p.level === parentLevel);
-              if (parentInfo) {
-                // 从已获取的数据中找到上一级合作方信息
-                const parentPartner = partnersById.get(parentInfo.partner_id);
-                if (parentPartner) {
-                  const partnerData = parentPartner as { full_name?: string; name?: string };
-                  parentTitle = partnerData.full_name || partnerData.name || parentTitle;
-                }
-              }
-            }
-          }
+          // ✅ 表单标题规则：使用付款方（上级合作方）名称 + "支付申请表"
+          // 直接使用分组时已存储的 parent_partner_name，确保与分组逻辑一致
+          const parentPartnerName = (sheetData as { parent_partner_name?: string }).parent_partner_name;
+          // 如果有付款方名称，使用付款方名称；否则使用默认值
+          const parentTitle = parentPartnerName || "中科智运(云南)供应链科技有限公司";
           
           return `
             <div class="partner-section">
