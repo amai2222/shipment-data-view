@@ -463,24 +463,84 @@ export default function EnhancedWaybillMaintenance() {
         });
       }
 
-      // 设置预览数据（包含Excel行号）
+      // ✅ 修复：调用验重函数检查重复记录
+      logger.info('开始检查重复记录', { recordCount: filteredRecords.length });
+      progressManager.updateProgress(0, '检查重复记录...');
+      
+      const recordsForDuplicateCheck = filteredRecords.map(record => {
+        // 移除内部字段_excelRowNumber，只保留数据库需要的字段
+        const { _excelRowNumber, ...dbRecord } = record as Record<string, unknown> & { _excelRowNumber?: number };
+        return dbRecord;
+      });
+
+      const { data: previewResult, error: previewError } = await supabase.rpc('preview_import_with_update_mode', {
+        p_records: recordsForDuplicateCheck
+      });
+
+      if (previewError) {
+        logger.error('验重检查失败', { error: previewError.message });
+        throw new Error(`验重检查失败: ${previewError.message}`);
+      }
+
+      logger.info('验重检查完成', {
+        newRecords: previewResult?.new_records?.length || 0,
+        duplicateRecords: previewResult?.update_records?.length || 0,
+        errorRecords: previewResult?.error_records?.length || 0
+      });
+
+      // 将验重结果与Excel行号关联
+      const newRecordsWithRowNumber = (previewResult?.new_records || []).map((item: { record: Record<string, unknown> }, index: number) => {
+        // 通过关键字段找到对应的原始记录以获取Excel行号
+        const originalRecord = filteredRecords.find((r) => {
+          const rRecord = r as Record<string, unknown>;
+          const itemRecord = item.record;
+          return rRecord.project_name === itemRecord.project_name &&
+                 rRecord.driver_name === itemRecord.driver_name &&
+                 rRecord.license_plate === itemRecord.license_plate &&
+                 rRecord.loading_date === itemRecord.loading_date;
+        });
+        const excelRowNumber = (originalRecord as Record<string, unknown> & { _excelRowNumber?: number })?._excelRowNumber || (index + 2);
+        
+        return {
+          record: item.record,
+          excelRowNumber
+        };
+      });
+
+      const duplicateRecordsWithRowNumber = (previewResult?.update_records || []).map((item: { record: Record<string, unknown>; existing_record_id?: string; existing_auto_number?: string }, index: number) => {
+        // 通过关键字段找到对应的原始记录以获取Excel行号
+        const originalRecord = filteredRecords.find((r) => {
+          const rRecord = r as Record<string, unknown>;
+          const itemRecord = item.record;
+          return rRecord.project_name === itemRecord.project_name &&
+                 rRecord.driver_name === itemRecord.driver_name &&
+                 rRecord.license_plate === itemRecord.license_plate &&
+                 rRecord.loading_date === itemRecord.loading_date;
+        });
+        const excelRowNumber = (originalRecord as Record<string, unknown> & { _excelRowNumber?: number })?._excelRowNumber || (index + 2);
+        
+        return {
+          record: item.record,
+          existing_record_id: item.existing_record_id,
+          existing_auto_number: item.existing_auto_number,
+          excelRowNumber
+        };
+      });
+
+      // 设置预览数据（包含Excel行号和重复记录）
       setImportPreview({
-        new_records: filteredRecords.map(record => ({ 
-          record: (() => {
-            // 移除内部字段_excelRowNumber，只保留数据库需要的字段
-            const { _excelRowNumber, ...dbRecord } = record as Record<string, unknown> & { _excelRowNumber?: number };
-            return dbRecord;
-          })(),
-          excelRowNumber: (record as Record<string, unknown> & { _excelRowNumber?: number })._excelRowNumber
-        })),
-        duplicate_records: [],
+        new_records: newRecordsWithRowNumber,
+        duplicate_records: duplicateRecordsWithRowNumber,
         total_count: filteredRecords.length,
-        valid_count: filteredRecords.length,
-        invalid_count: validationResult.invalidRows.length
+        valid_count: (previewResult?.new_records?.length || 0) + (previewResult?.update_records?.length || 0),
+        invalid_count: validationResult.invalidRows.length + (previewResult?.error_records?.length || 0)
       });
 
       setImportStep('preview');
-      logger.success('数据验证完成，准备导入');
+      logger.success('数据验证和验重完成', {
+        newRecords: newRecordsWithRowNumber.length,
+        duplicateRecords: duplicateRecordsWithRowNumber.length
+      });
 
     } catch (error: unknown) {
       excelErrorHandler.handleParseError(error, 'Excel文件处理');
