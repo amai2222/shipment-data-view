@@ -93,11 +93,12 @@ BEGIN
             AND lr.driver_id = d.id
             -- ✅ 使用 TRIM 和 UPPER 去除空格和大小写差异，确保地点匹配
             -- 使用 REGEXP_REPLACE 去除所有空白字符和常见分隔符（箭头、横线等），确保比较的一致性
-            -- 处理全角/半角字符差异，统一转换为半角
-            AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')) = 
-                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
-            AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')) = 
-                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
+            -- 注意：在字符类中，- 必须放在开头或结尾，否则会被解释为字符范围
+            -- 将 - 放在字符类开头，避免被解释为范围
+            AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[-→>—－]', '', 'g')) = 
+                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[-→>—－]', '', 'g'))
+            AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[-→>—－]', '', 'g')) = 
+                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[-→>—－]', '', 'g'))
             -- ✅ 修复：使用正确的日期比较
             -- 前端传递：'2025-11-13'（中国时区日期字符串）
             -- 数据库存储：'2025-11-12 16:00:00+00' (UTC) - 代表中国时区的 '2025-11-13 00:00:00+08:00'

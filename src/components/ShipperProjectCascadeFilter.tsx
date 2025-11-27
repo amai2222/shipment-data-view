@@ -233,43 +233,66 @@ export function ShipperProjectCascadeFilter({
           return;
         }
         
-        // ✅ 第二步：查询这些货主关联的所有项目（只查询这些货主的项目）
-        const { data, error } = await supabase
+        // ✅ 第二步：查询这些货主关联的所有项目
+        // ✅ 重要：只查询该货主在项目中是最高级别（level最大）的项目
+        // 先查询所有包含这些货主的项目记录（包含 level 信息）
+        const { data: allData, error: allError } = await supabase
           .from('project_partners')
           .select(`
             project_id,
+            partner_id,
+            level,
             projects (
               id,
               name
             )
           `)
-          .in('partner_id', allShipperIds); // ✅ 只查询这些货主的项目
-
+          .in('partner_id', allShipperIds);
+        
         if (isCancelled) return; // ✅ 检查是否已取消
-
-        console.log('project_partners 查询结果:', data, error);
-
-        if (error) {
-          console.error('查询 project_partners 失败:', error);
-          throw error;
+        
+        if (allError) {
+          console.error('查询 project_partners 失败:', allError);
+          throw allError;
         }
-
-        const projectList = data
+        
+        // ✅ 第三步：按项目分组，找到每个项目的最大 level
+        const projectMaxLevels = new Map<string, number>();
+        allData?.forEach(item => {
+          if (item.project_id) {
+            const currentMax = projectMaxLevels.get(item.project_id) || 0;
+            if (item.level > currentMax) {
+              projectMaxLevels.set(item.project_id, item.level);
+            }
+          }
+        });
+        
+        // ✅ 第四步：只保留该货主在项目中是最高级别的记录
+        // 只有该货主在项目中的 level 等于该项目最大 level 时，才视为该项目的货主
+        const filteredData = allData?.filter(item => 
+          item.project_id && 
+          item.level === projectMaxLevels.get(item.project_id)
+        ) || [];
+        
+        console.log('过滤后的项目记录（仅最高级货主）:', filteredData);
+        
+        // ✅ 第五步：提取项目列表并去重
+        const projectList = filteredData
           ?.map(pp => pp.projects)
           .filter(Boolean)
           .flat() as Project[];
-
-        console.log('提取的项目列表（包含下级）:', projectList);
-
-        // ✅ 第三步：去重（根据项目ID），并按名称排序
+        
+        console.log('提取的项目列表（仅最高级货主）:', projectList);
+        
+        // ✅ 第六步：去重（根据项目ID），并按名称排序
         const uniqueProjects = Array.from(
           new Map(projectList.map(p => [p.id, p])).values()
         ).sort((a, b) => a.name.localeCompare(b.name)); // ✅ 按名称排序，提升用户体验
-
-        console.log('去重后的项目列表（仅包含该货主及其下级）:', uniqueProjects);
-
+        
+        console.log('去重后的项目列表（仅包含该货主及其下级作为最高级货主的项目）:', uniqueProjects);
+        
         if (isCancelled) return; // ✅ 再次检查是否已取消
-
+        
         // ✅ 只设置这些项目，不包含其他货主的项目
         setProjects(uniqueProjects);
         
@@ -277,12 +300,14 @@ export function ShipperProjectCascadeFilter({
         if (onProjectsChangeRef.current) {
           onProjectsChangeRef.current(uniqueProjects);
         }
-
+        
         // ✅ 默认选择"所有项目"（表示该货主及其下级的所有项目）
         // 不自动选择第一个项目，让用户看到"所有项目"选项
         if (onProjectChangeRef.current) {
           onProjectChangeRef.current('all');
         }
+        
+        return; // ✅ 提前返回，避免执行下面的代码
 
       } catch (error) {
         if (isCancelled) return; // ✅ 错误处理时也检查

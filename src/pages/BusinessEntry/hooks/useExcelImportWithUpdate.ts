@@ -183,23 +183,23 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
           rowData['external_tracking_numbers'] = trackingNumbers;
         }
 
-        // 映射字段名
+        // 映射字段名（确保所有字符串字段都经过 trim 处理）
         const mappedData = {
-          project_name: rowData['项目名称'],
-          chain_name: rowData['合作链路(可选)'] || rowData['合作链路'],
-          driver_name: rowData['司机姓名'],
-          license_plate: rowData['车牌号'],
-          driver_phone: rowData['司机电话(可选)'] || rowData['司机电话'],
-          loading_location: rowData['装货地点'],
-          unloading_location: rowData['卸货地点'],
+          project_name: String(rowData['项目名称'] || '').trim(),
+          chain_name: (rowData['合作链路(可选)'] || rowData['合作链路'] || '').toString().trim() || null,
+          driver_name: String(rowData['司机姓名'] || '').trim(),
+          license_plate: String(rowData['车牌号'] || '').trim() || null,
+          driver_phone: (rowData['司机电话(可选)'] || rowData['司机电话'] || '').toString().trim() || null,
+          loading_location: String(rowData['装货地点'] || '').trim(),
+          unloading_location: String(rowData['卸货地点'] || '').trim(),
           loading_date: rowData['loading_date'],
           unloading_date: rowData['unloading_date'],
           loading_weight: rowData['装货数量'],
           unloading_weight: rowData['卸货数量(可选)'] || rowData['卸货数量'],
           current_cost: rowData['运费金额(可选)'] || rowData['运费金额'],
           extra_cost: rowData['额外费用(可选)'] || rowData['额外费用'],
-          transport_type: rowData['运输类型(可选)'] || rowData['运输类型'] || '实际运输',
-          remarks: rowData['备注(可选)'] || rowData['备注'],
+          transport_type: (rowData['运输类型(可选)'] || rowData['运输类型'] || '实际运输').toString().trim(),
+          remarks: (rowData['备注(可选)'] || rowData['备注'] || '').toString().trim() || null,
           external_tracking_numbers: rowData['external_tracking_numbers'] || [],
           other_platform_names: rowData['other_platform_names'] || []
         };

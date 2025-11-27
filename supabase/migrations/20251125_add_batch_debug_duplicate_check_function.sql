@@ -42,10 +42,10 @@ BEGIN
             FROM public.logistics_records lr
             WHERE lr.project_id = project_id_val
                 AND lr.driver_id = driver_id_val
-                AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')) = 
-                    UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
-                AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')) = 
-                    UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
+                AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[-→>—－]', '', 'g')) = 
+                    UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[-→>—－]', '', 'g'))
+                AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[-→>—－]', '', 'g')) = 
+                    UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[-→>—－]', '', 'g'))
                 AND (lr.loading_date AT TIME ZONE 'UTC' AT TIME ZONE '+08:00')::date = (TRIM(record_data->>'loading_date'))::date
                 AND (
                     CASE 
@@ -65,8 +65,8 @@ BEGIN
             
             -- 获取数据库中的地点名称（用于对比）
             SELECT 
-                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')),
-                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
+                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[-→>—－]', '', 'g')),
+                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[-→>—－]', '', 'g'))
             INTO location_normalized_db, location_normalized_input
             FROM public.logistics_records lr
             WHERE lr.project_id = project_id_val
@@ -84,9 +84,9 @@ BEGIN
                 'is_duplicate', matching_count > 0,
                 'normalized_locations', jsonb_build_object(
                     'loading_location_db', location_normalized_db,
-                    'loading_location_input', UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g')),
+                    'loading_location_input', UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[-→>—－]', '', 'g')),
                     'unloading_location_db', location_normalized_input,
-                    'unloading_location_input', UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
+                    'unloading_location_input', UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[-→>—－]', '', 'g'))
                 )
             );
             
