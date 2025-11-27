@@ -46,7 +46,7 @@ interface PermissionVisualizerProps {
 }
 
 // 菜单图标映射
-const menuIcons: Record<string, React.ComponentType<any>> = {
+const menuIcons: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   'dashboard': BarChart3,
   'business': Users,
   'contract': FileText,
@@ -373,14 +373,20 @@ export function PermissionVisualizer({
 
   // 渲染功能权限
   const renderFunctionPermissions = () => {
-    const groupedFunctions = FUNCTION_PERMISSIONS.reduce((acc, func) => {
-      const group = func.label || '其他';
-      if (!acc[group]) {
-        acc[group] = [];
+    // 展开所有功能权限组，按组名分组
+    const groupedFunctions = FUNCTION_PERMISSIONS.reduce((acc, funcGroup) => {
+      const groupName = funcGroup.group || '其他';
+      if (!acc[groupName]) {
+        acc[groupName] = [];
       }
-      acc[group].push(func);
+      // 展开组内的所有权限项
+      if (funcGroup.children) {
+        funcGroup.children.forEach(child => {
+          acc[groupName].push(child);
+        });
+      }
       return acc;
-    }, {} as Record<string, typeof FUNCTION_PERMISSIONS>);
+    }, {} as Record<string, Array<{ key: string; label: string; description?: string }>>);
 
     return (
       <div className="space-y-4">

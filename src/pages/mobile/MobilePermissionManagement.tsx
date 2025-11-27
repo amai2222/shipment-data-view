@@ -13,6 +13,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { FUNCTION_PERMISSIONS } from '@/config/dynamicPermissions';
 
 // 角色定义
 const ROLES = [
@@ -61,27 +62,6 @@ const MENU_PERMISSIONS = [
   }
 ];
 
-// 功能权限定义
-const FUNCTION_PERMISSIONS = [
-  {
-    group: '数据操作',
-    permissions: [
-      { key: 'data.create', label: '新增数据' },
-      { key: 'data.edit', label: '编辑数据' },
-      { key: 'data.delete', label: '删除数据' },
-      { key: 'data.export', label: '导出数据' }
-    ]
-  },
-  {
-    group: '财务操作',
-    permissions: [
-      { key: 'finance.view_cost', label: '查看成本' },
-      { key: 'finance.approve_payment', label: '审批付款' },
-      { key: 'finance.reconcile', label: '财务对账' }
-    ]
-  }
-];
-
 interface User {
   id: string;
   full_name: string;
@@ -119,6 +99,7 @@ export default function MobilePermissionManagement() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -251,7 +232,7 @@ export default function MobilePermissionManagement() {
         await supabase
           .from('role_permission_templates')
           .upsert({
-            role: roleKey as any,
+            role: roleKey,
             menu_permissions: template.menu_permissions,
             function_permissions: template.function_permissions
           });
@@ -522,8 +503,8 @@ function MobilePermissionEditor({ permissions, onTogglePermission, openGroups, o
                     {group.group}
                     <span className="text-xs text-muted-foreground">
                       {permissions.function_permissions.filter(p => 
-                        group.permissions.some(gp => gp.key === p)
-                      ).length}/{group.permissions.length}
+                        group.children?.some(gp => gp.key === p)
+                      ).length}/{group.children?.length || 0}
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -531,7 +512,7 @@ function MobilePermissionEditor({ permissions, onTogglePermission, openGroups, o
               <CollapsibleContent>
                 <CardContent className="pt-0">
                   <div className="space-y-2">
-                    {group.permissions.map(permission => (
+                    {group.children?.map(permission => (
                       <div key={permission.key} className="flex items-center space-x-2">
                         <Checkbox
                           id={permission.key}
@@ -541,6 +522,11 @@ function MobilePermissionEditor({ permissions, onTogglePermission, openGroups, o
                         <Label htmlFor={permission.key} className="text-sm">
                           {permission.label}
                         </Label>
+                        {permission.description && (
+                          <p className="text-xs text-muted-foreground ml-2">
+                            {permission.description}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

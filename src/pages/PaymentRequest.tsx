@@ -42,6 +42,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
@@ -184,6 +185,8 @@ const StaleDataPrompt = () => ( <div className="text-center py-10 border rounded
 // 主组件: PaymentRequest
 // ============================================================================
 export default function PaymentRequest() {
+  const { hasButtonAccess } = useUnifiedPermissions();
+  
   // ==========================================================================
   // 区域4: State状态管理
   // ==========================================================================
@@ -657,6 +660,16 @@ export default function PaymentRequest() {
    * 4. 刷新数据
    */
   const handleConfirmAndSave = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.generate_payment_request')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有申请付款的权限。请联系管理员在权限管理中分配 "finance.generate_payment_request" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (!finalPaymentData || finalPaymentData.all_record_ids.length === 0) return;
     setIsSaving(true);
     try {
@@ -892,6 +905,16 @@ export default function PaymentRequest() {
    * 3. 设置 is_manually_modified 标记
    */
   const handleSavePartnerCost = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.modify_cost')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有修改应收的权限。请联系管理员在权限管理中分配 "finance.modify_cost" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (!editPartnerCostData) return;
     
     setIsSaving(true);
@@ -1545,30 +1568,36 @@ export default function PaymentRequest() {
       >
         {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
           <div className="flex gap-2">
-            <Button 
-              variant="default" 
-              size="default"
-              disabled={selection.selectedIds.size === 0}
-              onClick={() => handleOpenBatchModify('cost')}
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-            >
-              <EditIcon className="mr-2 h-4 w-4" />
-              批量修改应收
-            </Button>
-            <Button 
-              variant="default"
-              size="default"
-              disabled={selection.selectedIds.size === 0}
-              onClick={() => handleOpenBatchModify('chain')}
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-            >
-              <LinkIcon className="mr-2 h-4 w-4" />
-              批量修改链路
-            </Button>
-            <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
-              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-              一键申请付款 ({selectionCount})
-            </Button>
+            {hasButtonAccess('finance.modify_cost') && (
+              <Button 
+                variant="default" 
+                size="default"
+                disabled={selection.selectedIds.size === 0}
+                onClick={() => handleOpenBatchModify('cost')}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <EditIcon className="mr-2 h-4 w-4" />
+                批量修改应收
+              </Button>
+            )}
+            {hasButtonAccess('finance.modify_chain') && (
+              <Button 
+                variant="default"
+                size="default"
+                disabled={selection.selectedIds.size === 0}
+                onClick={() => handleOpenBatchModify('chain')}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <LinkIcon className="mr-2 h-4 w-4" />
+                批量修改链路
+              </Button>
+            )}
+            {hasButtonAccess('finance.generate_payment_request') && (
+              <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating} onClick={handleApplyForPaymentClick}>
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                一键申请付款 ({selectionCount})
+              </Button>
+            )}
           </div>
         )}
       </PageHeader>

@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { InvoiceRequestFilterBar } from "@/pages/InvoiceRequest/components/InvoiceRequestFilterBar";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { TableSkeleton } from "@/components/common";
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -192,6 +193,8 @@ const StaleDataPrompt = () => (
 );
 
 export default function InvoiceRequest() {
+  const { hasButtonAccess } = useUnifiedPermissions();
+  
   // --- State 管理 ---
   const [reportData, setReportData] = useState<InvoiceRequestResponse | null>(null);
   const [allPartners, setAllPartners] = useState<{id: string, name: string, level: number}[]>([]);
@@ -698,6 +701,16 @@ export default function InvoiceRequest() {
   };
 
   const handleSaveInvoiceRequest = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.generate_invoice')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有生成发票的权限。请联系管理员在权限管理中分配 "finance.generate_invoice" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (!finalInvoiceData || !finalInvoiceData.all_record_ids || finalInvoiceData.all_record_ids.length === 0) return;
 
     setIsSaving(true);
@@ -904,7 +917,7 @@ export default function InvoiceRequest() {
         icon={Receipt}
         iconColor="text-green-600"
       >
-        {!isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
+        {hasButtonAccess('finance.generate_invoice') && !isStale && reportData && Array.isArray(reportData.records) && reportData.records.length > 0 && (
           <Button variant="default" disabled={(selection.mode !== 'all_filtered' && selection.selectedIds.size === 0) || isGenerating || processableCount === 0} onClick={handleApplyForInvoiceClick}>
             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Receipt className="mr-2 h-4 w-4" />}
             一键申请开票 ({processableCount})

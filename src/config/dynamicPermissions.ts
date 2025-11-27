@@ -84,43 +84,50 @@ function generateStaticMenuPermissions() {
   }));
 }
 
-// 功能权限定义（保持原有结构）
+// 功能权限定义（保持原有结构，但使用 children 字段以兼容 PermissionManagement.tsx）
+// 注意：PermissionManagement.tsx 使用 group.children?.map，所以这里使用 children 字段
 export const FUNCTION_PERMISSIONS = [
   {
     group: '数据操作',
-    permissions: [
-      { key: 'data.create', label: '新增数据' },
-      { key: 'data.edit', label: '编辑数据' },
-      { key: 'data.delete', label: '删除数据' },
-      { key: 'data.export', label: '导出数据' },
-      { key: 'data.import', label: '导入数据' }
+    children: [
+      { key: 'data.create', label: '新增数据', description: '可以创建新的业务数据' },
+      { key: 'data.edit', label: '编辑数据', description: '可以修改现有数据' },
+      { key: 'data.delete', label: '删除数据', description: '可以删除数据' },
+      { key: 'data.export', label: '导出数据', description: '可以导出数据到Excel' },
+      { key: 'data.import', label: '导入数据', description: '可以从Excel导入数据' }
     ]
   },
   {
     group: '磅单管理',
-    permissions: [
-      { key: 'scale_records.create', label: '新增磅单' },
-      { key: 'scale_records.edit', label: '编辑磅单' },
-      { key: 'scale_records.view', label: '查看磅单' },
-      { key: 'scale_records.delete', label: '删除磅单' }
+    children: [
+      { key: 'scale_records.create', label: '新增磅单', description: '可以创建新的磅单记录' },
+      { key: 'scale_records.edit', label: '编辑磅单', description: '可以修改磅单记录' },
+      { key: 'scale_records.view', label: '查看磅单', description: '可以查看磅单记录' },
+      { key: 'scale_records.delete', label: '删除磅单', description: '可以删除磅单记录' }
     ]
   },
   {
     group: '财务操作',
-    permissions: [
-      { key: 'finance.view_cost', label: '查看成本信息' },
-      { key: 'finance.approve_payment', label: '审批付款' },
-      { key: 'finance.generate_invoice', label: '生成发票' },
-      { key: 'finance.reconcile', label: '财务对账' }
+    children: [
+      { key: 'finance.view_cost', label: '查看成本信息', description: '可以查看成本相关数据' },
+      { key: 'finance.approve_payment', label: '审批付款', description: '可以审批付款申请' },
+      { key: 'finance.generate_invoice', label: '生成发票', description: '可以生成发票' },
+      { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账' },
+      { key: 'finance.pay_payment', label: '付款按钮', description: '控制"付款"和"批量付款"按钮的显示，允许完成付款申请（单个或批量）' },
+      { key: 'finance.cancel_payment', label: '取消付款按钮', description: '控制"取消付款"按钮的显示，允许取消已支付的付款申请' },
+      { key: 'finance.rollback_payment_approval', label: '回滚审批按钮', description: '控制"回滚审批"和"批量回滚审批"按钮的显示，允许回滚付款审批状态（单个或批量）' },
+      { key: 'finance.generate_payment_request', label: '申请付款按钮', description: '控制"一键申请付款"按钮的显示，允许创建付款申请单' },
+      { key: 'finance.modify_cost', label: '修改应收按钮', description: '控制"修改应收"和"批量修改应收"按钮的显示，允许修改合作方运费' },
+      { key: 'finance.modify_chain', label: '修改链路按钮', description: '控制"修改链路"和"批量修改链路"按钮的显示，允许修改合作链路并重新计算成本' }
     ]
   },
   {
     group: '系统管理',
-    permissions: [
-      { key: 'system.manage_users', label: '管理用户' },
-      { key: 'system.manage_roles', label: '管理角色' },
-      { key: 'system.view_logs', label: '查看日志' },
-      { key: 'system.backup', label: '系统备份' }
+    children: [
+      { key: 'system.manage_users', label: '管理用户', description: '可以管理用户账户' },
+      { key: 'system.manage_roles', label: '管理角色', description: '可以管理角色权限' },
+      { key: 'system.view_logs', label: '查看日志', description: '可以查看系统日志' },
+      { key: 'system.backup', label: '系统备份', description: '可以进行系统备份' }
     ]
   }
 ];

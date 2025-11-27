@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Save, Edit, Link as LinkIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
 
 // ============================================================================
 // 类型定义
@@ -113,6 +114,7 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
   buttonClassName = "bg-orange-600 hover:bg-orange-700 text-white"
 }, ref) => {
   const { toast } = useToast();
+  const { hasButtonAccess }: { hasButtonAccess: (buttonKey: string) => boolean } = useUnifiedPermissions();
   
   // 单个修改运费相关状态
   const [editPartnerCostData, setEditPartnerCostData] = useState<{
@@ -165,6 +167,16 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
    * 保存合作方运费修改
    */
   const handleSavePartnerCost = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.modify_cost')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有修改应收的权限。请联系管理员在权限管理中分配 "finance.modify_cost" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (!editPartnerCostData) return;
     
     setIsSaving(true);
@@ -315,6 +327,16 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
    * 保存合作链路修改
    */
   const handleSaveChain = async (newChainId: string) => {
+    // 权限检查
+    if (!hasButtonAccess('finance.modify_chain')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有修改链路的权限。请联系管理员在权限管理中分配 "finance.modify_chain" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (!editChainData) return;
     
     setIsSaving(true);
@@ -361,6 +383,16 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
    * 打开批量修改应收对话框
    */
   const handleOpenBatchModifyCost = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.modify_cost')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有批量修改应收的权限。请联系管理员在权限管理中分配 "finance.modify_cost" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (selectedIds.size === 0) {
       toast({ title: "提示", description: "请先选择要修改的运单" });
       return;
@@ -400,6 +432,16 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
    * 批量修改应收
    */
   const handleBatchModifyCost = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.modify_cost')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有批量修改应收的权限。请联系管理员在权限管理中分配 "finance.modify_cost" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     const invalidRecords = batchCostRecords.filter(r => {
       const partnerValue = r.new_amount?.toString().trim();
       if (!partnerValue && partnerValue !== '0') return true;
@@ -583,6 +625,16 @@ export const LogisticsRecordModifyActions = forwardRef<LogisticsRecordModifyActi
    * 批量修改合作链路
    */
   const handleBatchModifyChain = async () => {
+    // 权限检查
+    if (!hasButtonAccess('finance.modify_chain')) {
+      toast({ 
+        title: '权限不足', 
+        description: '您没有批量修改链路的权限。请联系管理员在权限管理中分配 "finance.modify_chain" 权限。', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     if (!batchChainId) {
       toast({ title: "错误", description: "请选择合作链路", variant: "destructive" });
       return;

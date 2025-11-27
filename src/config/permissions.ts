@@ -1,4 +1,12 @@
+// ============================================================================
 // 权限系统配置
+// ============================================================================
+// 重要说明：
+// 1. 本文件中的 MENU_PERMISSIONS 和 FUNCTION_PERMISSIONS 是权限元数据定义
+//    用于在权限管理UI中显示所有可用的权限选项，不是实际的权限数据
+// 2. 实际的权限检查和分配完全从数据库读取（role_permission_templates 表）
+// 3. DEFAULT_ROLE_PERMISSIONS 仅用于系统初始化或紧急恢复，不用于日常权限检查
+// ============================================================================
 
 import { PermissionGroup, UserRole, RoleDefinition } from '@/types/permission';
 
@@ -80,7 +88,11 @@ export const ROLES: Record<UserRole, RoleDefinition> = {
   }
 };
 
-// 菜单权限配置 - 与 AppSidebar.tsx 保持一致，只使用子菜单Key
+// ============================================================================
+// 菜单权限元数据定义（仅用于UI显示，不是实际权限数据）
+// 用途：在权限管理页面中显示所有可用的菜单权限选项
+// 实际权限数据存储在数据库的 role_permission_templates 表中
+// ============================================================================
 export const MENU_PERMISSIONS: MenuPermission[] = [
   {
     group: '数据看板',
@@ -191,7 +203,11 @@ export const MENU_PERMISSIONS: MenuPermission[] = [
   }
 ];
 
-// 功能权限配置
+// ============================================================================
+// 功能权限元数据定义（仅用于UI显示，不是实际权限数据）
+// 用途：在权限管理页面中显示所有可用的功能权限选项
+// 实际权限数据存储在数据库的 role_permission_templates 表中
+// ============================================================================
 export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
   {
     group: '数据操作',
@@ -227,7 +243,10 @@ export const FUNCTION_PERMISSIONS: FunctionPermission[] = [
       { key: 'finance.reconcile', label: '财务对账', description: '可以进行财务对账' },
       { key: 'finance.pay_payment', label: '付款按钮', description: '控制"付款"和"批量付款"按钮的显示，允许完成付款申请（单个或批量）' },
       { key: 'finance.cancel_payment', label: '取消付款按钮', description: '控制"取消付款"按钮的显示，允许取消已支付的付款申请' },
-      { key: 'finance.rollback_payment_approval', label: '回滚审批按钮', description: '控制"回滚审批"和"批量回滚审批"按钮的显示，允许回滚付款审批状态（单个或批量）' }
+      { key: 'finance.rollback_payment_approval', label: '回滚审批按钮', description: '控制"回滚审批"和"批量回滚审批"按钮的显示，允许回滚付款审批状态（单个或批量）' },
+      { key: 'finance.generate_payment_request', label: '申请付款按钮', description: '控制"一键申请付款"按钮的显示，允许创建付款申请单' },
+      { key: 'finance.modify_cost', label: '修改应收按钮', description: '控制"修改应收"和"批量修改应收"按钮的显示，允许修改合作方运费' },
+      { key: 'finance.modify_chain', label: '修改链路按钮', description: '控制"修改链路"和"批量修改链路"按钮的显示，允许修改合作链路并重新计算成本' }
     ]
   },
   {
@@ -304,7 +323,15 @@ export const DATA_PERMISSIONS: DataPermission[] = [
   }
 ];
 
-// 默认角色权限模板
+// ============================================================================
+// 默认角色权限模板（仅用于系统初始化或紧急恢复）
+// ⚠️ 重要：这些硬编码权限仅用于以下场景：
+// 1. 系统首次初始化时创建角色模板
+// 2. 紧急恢复时重置角色模板（通过 PermissionResetService.resetRoleTemplateToSystemDefault）
+// 
+// ❌ 不用于日常权限检查，所有权限检查都从数据库读取
+// ✅ 正常情况下，权限应该通过权限管理界面在数据库中配置
+// ============================================================================
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, {
   menu_permissions: string[];
   function_permissions: string[];

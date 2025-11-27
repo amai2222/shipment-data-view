@@ -534,15 +534,17 @@ export default function BusinessEntry() {
               </Button>
             )}
             
-            <Button 
-              onClick={exportFilteredToExcel} 
-              disabled={loading}
-              variant="outline"
-              title="导出当前筛选条件下的所有数据"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              导出筛选
-            </Button>
+            {hasButtonAccess('data.export') && (
+              <Button 
+                onClick={exportFilteredToExcel} 
+                disabled={loading}
+                variant="outline"
+                title="导出当前筛选条件下的所有数据"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                导出筛选
+              </Button>
+            )}
 
             {/* 批量删除按钮 */}
             {hasButtonAccess('data.delete') && (
@@ -557,7 +559,7 @@ export default function BusinessEntry() {
               </Button>
             )}
             
-            {selectedRecordIds.length > 0 && (
+            {hasButtonAccess('data.export') && selectedRecordIds.length > 0 && (
               <Button 
                 onClick={exportSelectedToExcel} 
                 disabled={loading}
@@ -575,10 +577,8 @@ export default function BusinessEntry() {
       <div className="space-y-6">
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
-      {/* @ts-expect-error - pagination 类型推断问题，运行时正常 */}
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} onSelectionChange={handleSelectionChange} />)}
       {hasButtonAccess('data.import') && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
-      {/* @ts-expect-error - LogisticsRecord 类型兼容性问题，运行时正常 */}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}
         onClose={handleFormDialogClose}
