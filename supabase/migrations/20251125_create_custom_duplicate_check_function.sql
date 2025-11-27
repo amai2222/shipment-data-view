@@ -91,8 +91,8 @@ BEGIN
             END IF;
 
             -- 5. 构建重复检查查询（不使用动态SQL，更安全）
-            -- 必须使用 project_id 和 driver_id 来匹配（通过 JOIN）
-            -- 其他字段根据用户选择动态添加条件
+            -- 注意：即使只选择 external_tracking_numbers，也需要通过 project_name 来缩小查询范围
+            -- 前端应该总是传递 project_name、driver_name 等基本字段
             
             SELECT lr.id, lr.auto_number
             INTO existing_record_id, existing_auto_number
@@ -236,20 +236,69 @@ BEGIN
             )
             AND (
                 -- external_tracking_numbers: 如果选择了此字段，检查其他平台运单编号（数组字段，有交集即视为重复）
+                -- 注意：数据库中的字段是 text 类型，存储的是 JSON 数组字符串，如：["2021776033|2021745863|2021719460"] 或 ["YD20251024115056040067"]
                 CASE 
                     WHEN 'external_tracking_numbers' = ANY(p_check_fields) THEN
                         CASE 
                             -- 如果前端传递的是空数组或NULL，检查数据库中的值是否也为空
                             WHEN record_data->'external_tracking_numbers' IS NULL 
                                  OR jsonb_array_length(COALESCE(record_data->'external_tracking_numbers', '[]'::jsonb)) = 0 THEN
-                                (lr.external_tracking_numbers IS NULL OR array_length(lr.external_tracking_numbers, 1) IS NULL)
+                                (
+                                    lr.external_tracking_numbers IS NULL 
+                                    OR lr.external_tracking_numbers = '[]'::text
+                                    OR lr.external_tracking_numbers = ''::text
+                                    OR (
+                                        -- 尝试解析为 JSONB 并检查是否为空数组
+                                        CASE 
+                                            WHEN lr.external_tracking_numbers ~ '^\s*\[\s*\]\s*$' THEN TRUE
+                                            WHEN lr.external_tracking_numbers::jsonb IS NOT NULL THEN
+                                                jsonb_array_length(lr.external_tracking_numbers::jsonb) = 0
+                                            ELSE TRUE
+                                        END
+                                    )
+                                )
                             ELSE
-                                -- 将前端传递的 JSONB 数组转换为 TEXT[] 数组，然后检查是否有交集
-                                -- 使用 && 操作符检查数组是否有交集（只要有一个相同的元素就认为是重复）
-                                lr.external_tracking_numbers && (
-                                    SELECT array_agg(value::text)
-                                    FROM jsonb_array_elements_text(record_data->'external_tracking_numbers')
-                                    WHERE value::text != ''
+                                -- 将前端传递的 JSONB 数组和数据库中的 text 字段（JSON 字符串）都转换为数组，并处理 | 分隔的运单号
+                                -- 1. 先提取前端传递的所有运单号（包括拆分 | 分隔的）
+                                -- 2. 提取数据库中的所有运单号（包括拆分 | 分隔的）
+                                -- 3. 使用 EXISTS 检查是否有交集
+                                EXISTS (
+                                    SELECT 1
+                                    FROM (
+                                        -- 提取前端传递的所有运单号（拆分 | 分隔的）
+                                        SELECT DISTINCT TRIM(unnest_value) as tracking_num
+                                        FROM (
+                                            SELECT unnest(string_to_array(value::text, '|')) as unnest_value
+                                            FROM jsonb_array_elements_text(record_data->'external_tracking_numbers')
+                                            WHERE value::text != ''
+                                        ) AS frontend_split
+                                        WHERE TRIM(unnest_value) != ''
+                                    ) AS frontend_numbers
+                                    INNER JOIN (
+                                        -- 提取数据库中的所有运单号（拆分 | 分隔的）
+                                        -- 数据库字段可能是 text[] 或 text 类型，需要根据类型处理
+                                        SELECT DISTINCT TRIM(unnest_value) as tracking_num
+                                        FROM (
+                                            SELECT unnest(string_to_array(db_value::text, '|')) as unnest_value
+                                            FROM (
+                                                -- 根据字段类型提取数组元素
+                                                -- 数据库字段是 text 类型，存储的是 JSON 数组字符串，如：["2021776033|2021745863|2021719460"]
+                                                -- 需要先转换为 jsonb，然后提取数组元素
+                                                SELECT jsonb_array_elements_text(
+                                                    COALESCE(
+                                                        CASE 
+                                                            WHEN lr.external_tracking_numbers IS NULL OR lr.external_tracking_numbers = '' THEN '[]'::jsonb
+                                                            WHEN lr.external_tracking_numbers::text ~ '^\s*\[\s*\]\s*$' THEN '[]'::jsonb
+                                                            ELSE lr.external_tracking_numbers::text::jsonb
+                                                        END,
+                                                        '[]'::jsonb
+                                                    )
+                                                )::text as db_value
+                                            ) AS db_elements
+                                            WHERE db_value IS NOT NULL AND db_value::text != ''
+                                        ) AS db_split
+                                        WHERE TRIM(unnest_value) != ''
+                                    ) AS db_numbers ON frontend_numbers.tracking_num = db_numbers.tracking_num
                                 )
                         END
                     ELSE TRUE

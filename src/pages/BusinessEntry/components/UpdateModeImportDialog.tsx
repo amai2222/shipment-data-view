@@ -4,8 +4,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2, Siren, RefreshCw, Plus } from "lucide-react";
+import { Loader2, Siren, RefreshCw, Plus, Copy } from "lucide-react";
 import { ImportPreviewResultWithUpdate } from '../hooks/useExcelImportWithUpdate';
+import { useToast } from "@/hooks/use-toast";
 
 interface UpdateModeImportDialogProps {
   isOpen: boolean;
@@ -35,10 +36,45 @@ export function UpdateModeImportDialog({
   approvedDuplicates,
   setApprovedDuplicates
 }: UpdateModeImportDialogProps) {
+  const { toast } = useToast();
+  
   const toggleDuplicate = (index: number) => {
     const next = new Set(approvedDuplicates);
     if (next.has(index)) next.delete(index); else next.add(index);
     setApprovedDuplicates(next);
+  };
+  
+  // 复制新记录的 JSON 数据
+  const copyNewRecordsJSON = () => {
+    if (!importPreview || importPreview.new_records.length === 0) {
+      toast({
+        title: "无新记录",
+        description: "没有新记录可复制",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // 提取新记录的 record 字段
+    const newRecordsData = importPreview.new_records.map(item => item.record);
+    const jsonString = JSON.stringify(newRecordsData, null, 2);
+    
+    // 复制到剪贴板
+    navigator.clipboard.writeText(jsonString).then(() => {
+      toast({
+        title: "复制成功",
+        description: `已复制 ${importPreview.new_records.length} 条新记录的 JSON 数据到剪贴板`,
+      });
+    }).catch((err) => {
+      console.error('复制失败:', err);
+      toast({
+        title: "复制失败",
+        description: "无法复制到剪贴板，请查看浏览器控制台",
+        variant: "destructive"
+      });
+      // 如果复制失败，在控制台输出
+      console.log('新记录 JSON 数据:', jsonString);
+    });
   };
 
   const toggleAllDuplicates = (checked: boolean) => {
@@ -135,13 +171,29 @@ export function UpdateModeImportDialog({
               <div className="grid gap-4 md:grid-cols-3">
                 {/* 新记录统计 */}
                 <div className="p-4 border border-green-200 rounded-md bg-green-50 dark:bg-green-900/20 dark:border-green-700">
-                  <h4 className="font-semibold text-lg text-green-800 dark:text-green-300 flex items-center gap-2">
-                    <Plus className="h-5 w-5" />
-                    {importPreview.new_records.length} 条新记录
-                  </h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    这些记录在数据库中不存在，将被直接导入。
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-lg text-green-800 dark:text-green-300 flex items-center gap-2">
+                        <Plus className="h-5 w-5" />
+                        {importPreview.new_records.length} 条新记录
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        这些记录在数据库中不存在，将被直接导入。
+                      </p>
+                    </div>
+                    {importPreview.new_records.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={copyNewRecordsJSON}
+                        className="shrink-0"
+                        title="复制新记录的 JSON 数据用于调试"
+                      >
+                        <Copy className="h-4 w-4 mr-1" />
+                        复制 JSON
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* 更新记录统计 */}

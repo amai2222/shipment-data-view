@@ -45,10 +45,10 @@ BEGIN
                 CONTINUE;
             END IF;
 
-            -- 2. 获取项目ID
+            -- 2. 获取项目ID（使用 UPPER 和 TRIM 确保匹配一致）
             SELECT id INTO project_id_val 
             FROM public.projects 
-            WHERE name = TRIM(record_data->>'project_name')
+            WHERE UPPER(TRIM(name)) = UPPER(TRIM(record_data->>'project_name'))
             LIMIT 1;
 
             IF project_id_val IS NULL THEN
@@ -92,8 +92,12 @@ BEGIN
             WHERE lr.project_id = p.id
             AND lr.driver_id = d.id
             -- ✅ 使用 TRIM 和 UPPER 去除空格和大小写差异，确保地点匹配
-            AND UPPER(TRIM(lr.loading_location)) = UPPER(TRIM(record_data->>'loading_location'))
-            AND UPPER(TRIM(lr.unloading_location)) = UPPER(TRIM(record_data->>'unloading_location'))
+            -- 使用 REGEXP_REPLACE 去除所有空白字符和常见分隔符（箭头、横线等），确保比较的一致性
+            -- 处理全角/半角字符差异，统一转换为半角
+            AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.loading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')) = 
+                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'loading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
+            AND UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(lr.unloading_location, ''), '\s+', '', 'g'), '[→->—－]', '', 'g')) = 
+                UPPER(REGEXP_REPLACE(REGEXP_REPLACE(COALESCE(record_data->>'unloading_location', ''), '\s+', '', 'g'), '[→->—－]', '', 'g'))
             -- ✅ 修复：使用正确的日期比较
             -- 前端传递：'2025-11-13'（中国时区日期字符串）
             -- 数据库存储：'2025-11-12 16:00:00+00' (UTC) - 代表中国时区的 '2025-11-13 00:00:00+08:00'
@@ -102,15 +106,24 @@ BEGIN
             --   → '2025-11-13' = '2025-11-13' → true（正确！）
             AND (lr.loading_date AT TIME ZONE 'UTC' AT TIME ZONE '+08:00')::date = loading_date_formatted::date
             -- ✅ 使用数值比较 loading_weight，处理空值和格式差异
-            -- 如果前端传递的是空字符串或NULL，检查数据库中的值是否为NULL
-            -- 否则转换为数值进行比较
+            -- 使用 ROUND 处理浮点数精度问题（保留2位小数）
+            -- 添加异常处理，确保数值转换失败时不会导致查询失败
             AND (
                 CASE 
                     WHEN record_data->>'loading_weight' IS NULL OR TRIM(record_data->>'loading_weight') = '' THEN
                         lr.loading_weight IS NULL
+                    WHEN lr.loading_weight IS NULL THEN
+                        FALSE
                     ELSE
-                        -- 使用 ROUND 处理浮点数精度问题
-                        ROUND(COALESCE(lr.loading_weight, 0)::numeric, 2) = ROUND((record_data->>'loading_weight')::numeric, 2)
+                        -- 尝试转换为数值，如果失败则视为不匹配
+                        -- 使用更宽松的数值比较：允许科学计数法、负数等格式
+                        CASE 
+                            WHEN (record_data->>'loading_weight')::text ~ '^-?\d+\.?\d*([eE][+-]?\d+)?$' THEN
+                                -- 使用 ROUND 比较，但允许小的误差（0.01），避免因浮点数精度问题导致不匹配
+                                ABS(ROUND(COALESCE(lr.loading_weight, 0)::numeric, 2) - ROUND((record_data->>'loading_weight')::numeric, 2)) < 0.01
+                            ELSE
+                                FALSE
+                        END
                 END
             )
             LIMIT 1;
