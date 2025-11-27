@@ -75,36 +75,44 @@ BEGIN
             loading_date_formatted := TRIM(record_data->>'loading_date');
             loading_date_china := (loading_date_formatted || ' 00:00:00+08:00')::timestamptz;
 
-            -- 5. ✅ 修复：检查是否存在重复记录（基于8个关键字段）
-            -- ✅ 重要：使用与 batch_import_logistics_records_with_update_1123 完全一致的验重逻辑
-            -- 使用 project_id 和 driver_id 来匹配，而不是直接比较 project_name 和 driver_name
+            -- 5. ✅ 修复：检查是否存在重复记录（基于6个关键字段）
+            -- ✅ 重要：使用 project_id 和 driver_id 来匹配，而不是直接比较 project_name 和 driver_name
             -- 这样可以确保即使项目名称或司机名称有变化，也能正确匹配
-            -- 日期比较：将数据库的UTC时间转换为日期，与前端传递的中国时区日期字符串比较
-            -- 前端传递：'2025-11-13'（中国时区日期字符串）
-            -- 数据库存储：'2025-11-12 16:00:00+00' (UTC)
-            -- 比较：将数据库UTC时间转换为日期 '2025-11-12'，将前端日期字符串转换为日期 '2025-11-13'
-            -- 但这样比较会失败！应该将前端日期转换为UTC日期范围，或者将数据库日期转换为中国时区日期
-            -- 正确方法：将前端日期 '2025-11-13' 转换为UTC日期范围 '2025-11-12 16:00:00+00' 到 '2025-11-13 15:59:59+00'
+            -- 只检查6个关键字段：project_id, driver_id, loading_location, unloading_location, loading_date, loading_weight
             SELECT 
                 lr.id,
                 lr.auto_number
             INTO existing_record_id, existing_auto_number
             FROM public.logistics_records lr
-            JOIN public.projects p ON p.name = TRIM(record_data->>'project_name')
-            JOIN public.drivers d ON d.name = TRIM(record_data->>'driver_name') 
-                AND d.license_plate = TRIM(record_data->>'license_plate')
+            -- ✅ 使用 TRIM 和 UPPER 确保项目名称匹配（处理空格和大小写）
+            JOIN public.projects p ON UPPER(TRIM(p.name)) = UPPER(TRIM(record_data->>'project_name'))
+            -- ✅ 使用 TRIM 和 UPPER 确保司机信息匹配（处理空格和大小写）
+            JOIN public.drivers d ON UPPER(TRIM(d.name)) = UPPER(TRIM(record_data->>'driver_name'))
+                AND UPPER(TRIM(d.license_plate)) = UPPER(TRIM(record_data->>'license_plate'))
             WHERE lr.project_id = p.id
             AND lr.driver_id = d.id
-            AND (lr.chain_id = chain_id_val OR (lr.chain_id IS NULL AND chain_id_val IS NULL))
-            AND lr.loading_location = TRIM(record_data->>'loading_location')
-            AND lr.unloading_location = TRIM(record_data->>'unloading_location')
+            -- ✅ 使用 TRIM 和 UPPER 去除空格和大小写差异，确保地点匹配
+            AND UPPER(TRIM(lr.loading_location)) = UPPER(TRIM(record_data->>'loading_location'))
+            AND UPPER(TRIM(lr.unloading_location)) = UPPER(TRIM(record_data->>'unloading_location'))
             -- ✅ 修复：使用正确的日期比较
             -- 前端传递：'2025-11-13'（中国时区日期字符串）
             -- 数据库存储：'2025-11-12 16:00:00+00' (UTC) - 代表中国时区的 '2025-11-13 00:00:00+08:00'
-            -- 正确比较：将数据库的UTC时间转换为中国时区日期，与前端日期字符串比较
-            -- 方法：将数据库UTC时间转换为中国时区日期 '2025-11-13'，与前端日期 '2025-11-13' 比较
+            -- 正确逻辑：将数据库UTC时间转换为中国时区日期，与前端日期比较
+            --   (lr.loading_date AT TIME ZONE 'UTC' AT TIME ZONE '+08:00')::date = '2025-11-13'::date
+            --   → '2025-11-13' = '2025-11-13' → true（正确！）
             AND (lr.loading_date AT TIME ZONE 'UTC' AT TIME ZONE '+08:00')::date = loading_date_formatted::date
-            AND lr.loading_weight = (record_data->>'loading_weight')::numeric
+            -- ✅ 使用数值比较 loading_weight，处理空值和格式差异
+            -- 如果前端传递的是空字符串或NULL，检查数据库中的值是否为NULL
+            -- 否则转换为数值进行比较
+            AND (
+                CASE 
+                    WHEN record_data->>'loading_weight' IS NULL OR TRIM(record_data->>'loading_weight') = '' THEN
+                        lr.loading_weight IS NULL
+                    ELSE
+                        -- 使用 ROUND 处理浮点数精度问题
+                        ROUND(COALESCE(lr.loading_weight, 0)::numeric, 2) = ROUND((record_data->>'loading_weight')::numeric, 2)
+                END
+            )
             LIMIT 1;
 
             -- 6. 构建处理后的记录，包含所有字段

@@ -32,6 +32,7 @@ import TemplateBasedImport from '@/components/TemplateBasedImport';
 import DeleteWaybills from '@/components/DeleteWaybills';
 import { PageHeader } from "@/components/PageHeader";
 import SelectiveFieldUpdate from '@/components/SelectiveFieldUpdate';
+import { CustomDuplicateCheckDialog } from '@/components/CustomDuplicateCheckDialog';
 import * as XLSX from 'xlsx';
 
 // 导入增强的工具函数
@@ -139,6 +140,11 @@ export default function EnhancedWaybillMaintenance() {
   const [rowRangeInput, setRowRangeInput] = useState<string>('');
   const [totalDataRows, setTotalDataRows] = useState<number>(0);
   const [allValidRecords, setAllValidRecords] = useState<Array<Record<string, unknown>>>([]);
+  
+  // 自定义验重相关状态
+  const [isCustomDuplicateCheckDialogOpen, setIsCustomDuplicateCheckDialogOpen] = useState(false);
+  const [customDuplicateCheckFields, setCustomDuplicateCheckFields] = useState<string[]>([]);
+  const [useCustomDuplicateCheck, setUseCustomDuplicateCheck] = useState(false);
   
   // 创建增强的日志记录器
   const logger = useMemo(() => createEnhancedLogger((logs) => setImportLogs(logs)), []);
@@ -464,7 +470,11 @@ export default function EnhancedWaybillMaintenance() {
       }
 
       // ✅ 修复：调用验重函数检查重复记录
-      logger.info('开始检查重复记录', { recordCount: filteredRecords.length });
+      logger.info('开始检查重复记录', { 
+        recordCount: filteredRecords.length,
+        useCustomCheck: useCustomDuplicateCheck,
+        customFields: customDuplicateCheckFields
+      });
       progressManager.updateProgress(0, '检查重复记录...');
       
       const recordsForDuplicateCheck = filteredRecords.map(record => {
@@ -473,9 +483,26 @@ export default function EnhancedWaybillMaintenance() {
         return dbRecord;
       });
 
-      const { data: previewResult, error: previewError } = await supabase.rpc('preview_import_with_update_mode', {
-        p_records: recordsForDuplicateCheck
-      });
+      // ✅ 根据是否使用自定义验重选择不同的函数
+      let previewResult;
+      let previewError;
+      
+      if (useCustomDuplicateCheck && customDuplicateCheckFields.length > 0) {
+        // 使用自定义验重函数
+        const { data, error } = await supabase.rpc('preview_import_with_custom_duplicate_check', {
+          p_records: recordsForDuplicateCheck,
+          p_check_fields: customDuplicateCheckFields
+        });
+        previewResult = data;
+        previewError = error;
+      } else {
+        // 使用标准验重函数
+        const { data, error } = await supabase.rpc('preview_import_with_update_mode', {
+          p_records: recordsForDuplicateCheck
+        });
+        previewResult = data;
+        previewError = error;
+      }
 
       if (previewError) {
         logger.error('验重检查失败', { error: previewError.message });
@@ -555,7 +582,7 @@ export default function EnhancedWaybillMaintenance() {
       setIsEnhancedImporting(false);
       event.target.value = '';
     }
-  }, [logger, progressManager, validationProcessor, excelErrorHandler, toast, rowRangeInput]);
+  }, [logger, progressManager, validationProcessor, excelErrorHandler, toast, rowRangeInput, useCustomDuplicateCheck, customDuplicateCheckFields]);
 
   // 执行增强的导入
   const executeEnhancedImport = useCallback(async () => {
@@ -859,6 +886,16 @@ export default function EnhancedWaybillMaintenance() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
+                  {/* ✅ 自定义验重按钮 */}
+                  <Button 
+                    onClick={() => setIsCustomDuplicateCheckDialogOpen(true)} 
+                    variant="outline" 
+                    size="sm"
+                    title={useCustomDuplicateCheck ? `当前使用自定义验重 (${customDuplicateCheckFields.length}个字段)` : '点击设置自定义验重字段'}
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    {useCustomDuplicateCheck ? `自定义验重 (${customDuplicateCheckFields.length})` : '自定义验重'}
+                  </Button>
                   <Button onClick={handleEnhancedTemplateDownload} variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     模板
@@ -1111,6 +1148,23 @@ export default function EnhancedWaybillMaintenance() {
             </div>
           </div>
         )}
+
+        {/* ✅ 自定义验重对话框 */}
+        <CustomDuplicateCheckDialog
+          isOpen={isCustomDuplicateCheckDialogOpen}
+          onClose={() => setIsCustomDuplicateCheckDialogOpen(false)}
+          onConfirm={(selectedFields) => {
+            setCustomDuplicateCheckFields(selectedFields);
+            setUseCustomDuplicateCheck(true);
+            logger.info('自定义验重字段已设置', { fields: selectedFields });
+            toast({
+              title: "自定义验重已设置",
+              description: `已选择 ${selectedFields.length} 个验重字段：${selectedFields.join(', ')}`,
+              variant: "default"
+            });
+          }}
+          defaultSelectedFields={['project_name', 'driver_name', 'license_plate', 'loading_location', 'unloading_location', 'loading_date', 'loading_weight']}
+        />
     </div>
   );
 }
