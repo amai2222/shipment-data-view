@@ -306,6 +306,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           current_cost: editingRecord.current_cost,
         });
         
+        // ✅ 根据数据库中的 calculation_mode 设置计算模式
+        const recordCalculationMode = editingRecord.calculation_mode || 'manual';
+        const isAutoMode = recordCalculationMode === 'auto';
+        setCostCalculationMode(isAutoMode ? 'auto' : 'manual');
+        console.log('设置计算模式:', recordCalculationMode, '→', isAutoMode ? 'auto' : 'manual');
+        
         // 直接使用数据库中的信息，不需要复杂的初始化
         const initialProjectId = editingRecord.project_id || '';
         const unitPriceValue = editingRecord.unit_price?.toString() || '';
@@ -314,7 +320,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         
         // 如果有单价，先计算有效数量和运费（在设置 formData 之前）
         let initialCurrentCost = editingRecord.current_cost?.toString() || '';
-        if (hasUnitPrice) {
+        // ✅ 如果是自动模式，根据单价和有效数量重新计算运费
+        if (isAutoMode && hasUnitPrice) {
           // 获取链路的计费模式（优先使用 editingRecord 中的 billing_type_id，否则从 chains 中查找）
           const recordBillingTypeId = editingRecord.billing_type_id || 1;
           const chain = chains.find(c => c.id === editingRecord.chain_id);
@@ -400,7 +407,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         // 清空含税单价计算器
         setTaxIncludedPrice('');
         setTaxRate('');
-        setCostCalculationMode('manual');
+        setCostCalculationMode('manual'); // 新增模式默认为手动模式
       } else if (!isInitializedRef.current && !editingRecord) {
         // 首次打开且是新增模式
         isInitializedRef.current = true;
@@ -769,7 +776,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           recordId: editingRecord.id
         });
         
-        const { error } = await supabase.rpc('update_logistics_record_via_recalc_1120', { 
+        const { error } = await supabase.rpc('update_logistics_record_via_recalc_1128', { 
           p_record_id: editingRecord.id, 
           p_project_id: finalProjectId,
           p_project_name: projects.find(p => p.id === finalProjectId)?.name || editingRecord.project_name || '',

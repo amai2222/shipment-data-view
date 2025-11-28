@@ -288,7 +288,7 @@ export default function MobileBusinessEntryForm() {
     try {
       if (isEditing && id) {
         // 使用数据库函数来更新运单并重新计算合作方成本（✅ 修复：使用_1120版本并传递billing_type_id）
-        const { error } = await supabase.rpc('update_logistics_record_via_recalc_1120', {
+        const { error } = await supabase.rpc('update_logistics_record_via_recalc_1128', {
           p_record_id: id,
           p_project_id: formData.projectId,
           p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
