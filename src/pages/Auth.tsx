@@ -44,8 +44,8 @@ export default function Auth() {
         mobile: '/m/internal/fleet-dashboard'
       },
       driver: {
-        pc: '/m/internal/my-expenses',  // 暂时PC端也用移动端页面
-        mobile: '/m/internal/my-expenses'
+        pc: '/m/internal/driver-dashboard',  // 暂时PC端也用移动端页面
+        mobile: '/m/internal/driver-dashboard'
       },
       finance: {
         pc: '/dashboard/financial',
@@ -68,10 +68,10 @@ export default function Auth() {
       // 强制验证路径
       if (profile.role === 'driver' && !targetPath.startsWith('/m/internal/')) {
         console.error('❌ 错误！司机跳转路径不正确:', targetPath);
-        console.error('应该是: /m/internal/my-expenses');
+        console.error('应该是: /m/internal/driver-dashboard');
         console.error('实际是:', targetPath);
         // 强制修正
-        return <Navigate to="/m/internal/my-expenses" replace />;
+        return <Navigate to="/m/internal/driver-dashboard" replace />;
       }
       
       return <Navigate to={targetPath} replace />;
@@ -113,7 +113,7 @@ export default function Auth() {
       const roleHomePage: Record<string, { pc: string; mobile: string }> = {
         partner: { pc: '/dashboard/shipper', mobile: '/m/dashboard/shipper' },
         fleet_manager: { pc: '/m/internal/fleet-dashboard', mobile: '/m/internal/fleet-dashboard' },
-        driver: { pc: '/m/internal/my-expenses', mobile: '/m/internal/my-expenses' },
+        driver: { pc: '/m/internal/driver-dashboard', mobile: '/m/internal/driver-dashboard' },
         finance: { pc: '/dashboard/financial', mobile: '/m/dashboard/financial' },
         operator: { pc: '/business-entry', mobile: '/m/business-entry' }
       };

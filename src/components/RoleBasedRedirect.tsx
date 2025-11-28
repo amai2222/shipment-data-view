@@ -16,13 +16,8 @@ export default function RoleBasedRedirect() {
 
     // 根据角色和设备跳转
     if (role === 'driver') {
-      // 司机：跳转到移动端我的车辆
-      if (mobile) {
-        navigate('/m/internal/my-vehicles', { replace: true });
-      } else {
-        // PC端司机没有权限，跳转到无权限页面
-        navigate('/unauthorized', { replace: true });
-      }
+      // 司机：跳转到司机工作台
+      navigate('/m/internal/driver-dashboard', { replace: true });
     } else if (role === 'fleet_manager') {
       // 车队长：跳转到移动端工作台
       if (mobile) {

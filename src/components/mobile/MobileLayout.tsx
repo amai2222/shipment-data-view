@@ -215,7 +215,7 @@ const menuGroups = [
       // 司机菜单
       {
         name: '司机工作台',
-        href: '/m/internal/my-expenses',
+        href: '/m/internal/driver-dashboard',
         icon: BarChart3,
         roles: ['driver']
       },

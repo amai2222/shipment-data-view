@@ -18,7 +18,7 @@ export default function Unauthorized() {
   const handleGoHome = () => {
     // 根据角色跳转到对应首页
     const roleHomePage: Record<string, string> = {
-      driver: '/m/internal/my-expenses',
+      driver: '/m/internal/driver-dashboard',
       fleet_manager: '/m/internal/fleet-dashboard',
       partner: '/m/dashboard/shipper',
       finance: '/m/dashboard/financial',

@@ -51,10 +51,10 @@ export function ProtectedRoute({
     const isInternalPermission = requiredPermission.startsWith('internal.');
     
     if (!isInternalPermission && !hasPageAccess(requiredPermission)) {
-      // ✅ 特殊处理：司机角色（PC端和移动端）没有权限时，跳转到司机费用申请页面
+      // ✅ 特殊处理：司机角色（PC端和移动端）没有权限时，跳转到司机工作台
       if (profile?.role === 'driver') {
-        // 统一跳转到司机费用申请页面（移动端和PC端都使用移动端页面）
-        return <Navigate to="/m/internal/my-expenses" replace />;
+        // 统一跳转到司机工作台（移动端和PC端都使用移动端页面）
+        return <Navigate to="/m/internal/driver-dashboard" replace />;
       }
       
       // 如果当前访问的就是货主看板，直接显示错误页面（避免循环检查）
@@ -121,9 +121,9 @@ export function ProtectedRoute({
   // 兼容旧的基于角色的检查
   else if (requiredRoles && requiredRoles.length > 0) {
     if (!hasRole(requiredRoles)) {
-      // ✅ 特殊处理：司机角色（PC端和移动端）没有权限时，跳转到司机费用申请页面
+      // ✅ 特殊处理：司机角色（PC端和移动端）没有权限时，跳转到司机工作台
       if (profile?.role === 'driver') {
-        return <Navigate to="/m/internal/my-expenses" replace />;
+        return <Navigate to="/m/internal/driver-dashboard" replace />;
       }
       
       // 尝试跳转到货主看板（所有角色都可以访问）

@@ -766,8 +766,47 @@ export default function DriverManagement() {
                           {driver.hire_date ? format(new Date(driver.hire_date), 'yyyy-MM-dd') : '-'}
                         </TableCell>
                         <TableCell>{getStatusBadge(driver.employment_status)}</TableCell>
-                        <TableCell className="text-sm">
-                          {driver.fleet_manager_name || <span className="text-muted-foreground">未分配</span>}
+                        <TableCell className="text-sm" onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={driver.fleet_manager_id || 'none'}
+                            onValueChange={async (value) => {
+                              const managerId = value === 'none' ? null : value;
+                              try {
+                                const { error } = await supabase
+                                  .from('internal_drivers')
+                                  .update({ fleet_manager_id: managerId })
+                                  .eq('id', driver.id);
+                                
+                                if (error) throw error;
+                                
+                                const manager = fleetManagers.find(m => m.id === managerId);
+                                toast({
+                                  title: '分配成功',
+                                  description: managerId 
+                                    ? `司机${driver.name}已分配给车队长${manager?.full_name || ''}`
+                                    : `已取消司机${driver.name}的车队长分配`
+                                });
+                                
+                                loadDrivers();
+                              } catch (error: unknown) {
+                                toast({
+                                  title: '分配失败',
+                                  description: error instanceof Error ? error.message : '无法分配车队长',
+                                  variant: 'destructive'
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs">
+                              <SelectValue placeholder="选择车队长" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">未分配</SelectItem>
+                              {fleetManagers.map(fm => (
+                                <SelectItem key={fm.id} value={fm.id}>{fm.full_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="font-mono text-sm">
                           {driver.primary_vehicle || <span className="text-muted-foreground">未分配</span>}

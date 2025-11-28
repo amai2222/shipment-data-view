@@ -827,7 +827,7 @@ const App = () => (
             } />
 
             {/* --- 内部车辆管理 - 移动端路由 ⭐ 新增 --- */}
-            <Route path="/m/internal/my-expenses" element={
+            <Route path="/m/internal/driver-dashboard" element={
               <ProtectedRoute requiredPermission="internal.my_expenses">
                 <MobileMyExpenses />
               </ProtectedRoute>
