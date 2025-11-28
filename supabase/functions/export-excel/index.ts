@@ -362,33 +362,44 @@ serve(async (req)=>{
         if (!finalUnloadingDate) {
           finalUnloadingDate = rec.loading_date;
         }
+        // 提取地址前两个字（用于路线显示）
+        const getLocationPrefix = (location: string | null | undefined): string => {
+          if (!location) return '';
+          // 提取前两个字符（支持中文）
+          return location.substring(0, 2);
+        };
+        const loadingPrefix = getLocationPrefix(rec.loading_location);
+        const unloadingPrefix = getLocationPrefix(rec.unloading_location);
+        const routeDisplay = loadingPrefix && unloadingPrefix 
+          ? `${loadingPrefix} → ${unloadingPrefix}`
+          : (loadingPrefix || unloadingPrefix || '');
+        
         setCell(ws, `A${currentRow}`, rec.auto_number || "");
         setCell(ws, `B${currentRow}`, formatChinaDateForExport(rec.loading_date) || "");
         setCell(ws, `C${currentRow}`, formatChinaDateForExport(finalUnloadingDate) || "");
-        setCell(ws, `D${currentRow}`, rec.loading_location || "");
-        setCell(ws, `E${currentRow}`, rec.unloading_location || "");
-        setCell(ws, `F${currentRow}`, rec.cargo_type || "普货");
-        setCell(ws, `G${currentRow}`, rec.driver_name || "");
-        setCell(ws, `H${currentRow}`, rec.driver_phone || "");
-        setCell(ws, `I${currentRow}`, rec.license_plate || "");
-        setCell(ws, `J${currentRow}`, rec.loading_weight ?? null, "n");
-        setCell(ws, `K${currentRow}`, item.payable_amount ?? null, "n");
-        setCell(ws, `L${currentRow}`, payingPartnerName);
-        setCell(ws, `M${currentRow}`, bankAccount);
-        setCell(ws, `N${currentRow}`, bankName);
-        setCell(ws, `O${currentRow}`, branchName);
+        setCell(ws, `D${currentRow}`, routeDisplay);
+        setCell(ws, `E${currentRow}`, rec.cargo_type || "普货");
+        setCell(ws, `F${currentRow}`, rec.driver_name || "");
+        setCell(ws, `G${currentRow}`, rec.driver_phone || "");
+        setCell(ws, `H${currentRow}`, rec.license_plate || "");
+        setCell(ws, `I${currentRow}`, rec.loading_weight ?? null, "n");
+        setCell(ws, `J${currentRow}`, item.payable_amount ?? null, "n");
+        setCell(ws, `K${currentRow}`, payingPartnerName);
+        setCell(ws, `L${currentRow}`, bankAccount);
+        setCell(ws, `M${currentRow}`, bankName);
+        setCell(ws, `N${currentRow}`, branchName);
         currentRow++;
       }
       const totalAndRemarksRow = startRow + Math.max(sorted.length, TEMPLATE_DATA_ROWS);
       setCell(ws, `B${totalAndRemarksRow}`, `备注：${sheet.footer?.remarks || ""}`);
       if (sorted.length > 0) {
+        ws[`I${totalAndRemarksRow}`] = {
+          t: "n",
+          f: `SUM(I${startRow}:I${totalAndRemarksRow - 1})`
+        };
         ws[`J${totalAndRemarksRow}`] = {
           t: "n",
           f: `SUM(J${startRow}:J${totalAndRemarksRow - 1})`
-        };
-        ws[`K${totalAndRemarksRow}`] = {
-          t: "n",
-          f: `SUM(K${startRow}:K${totalAndRemarksRow - 1})`
         };
       }
       const approverRow = totalAndRemarksRow + 2;

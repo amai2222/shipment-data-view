@@ -991,10 +991,10 @@ export default function PaymentAudit() {
               <tr class="header-row">
                 <th rowspan="2">货主单位</th>
                 <th rowspan="2">序号</th>
+                <th rowspan="2">运单号</th>
                 <th rowspan="2">实际出发时间</th>
                 <th rowspan="2">实际到达时间</th>
-                <th rowspan="2">起始地</th>
-                <th rowspan="2">目的地</th>
+                <th rowspan="2">路线</th>
                 <th rowspan="2">货物</th>
                 <th rowspan="2">司机</th>
                 <th rowspan="2">车牌号</th>
@@ -1047,10 +1047,10 @@ export default function PaymentAudit() {
                 <thead style="display: table-header-group !important;">
                   <tr class="header-row" style="display: table-row !important;">
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">序号</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">运单号</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">实际出发时间</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">实际到达时间</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">起始地</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">目的地</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">路线</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">货物</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">车牌号</th>
@@ -1069,7 +1069,7 @@ export default function PaymentAudit() {
                 </thead>
                 <tbody>
                   ${sorted.map((item: unknown, index: number) => {
-                    const itemData = item as { record: { unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; unloading_weight?: number; billing_type_id?: number; payable_cost?: number; payable_amount?: number }; payable_amount?: number };
+                    const itemData = item as { record: { auto_number?: string; unloading_date?: string; loading_date?: string; loading_location?: string; unloading_location?: string; cargo_type?: string; driver_name?: string; driver_phone?: string; license_plate?: string; loading_weight?: number; unloading_weight?: number; billing_type_id?: number; payable_cost?: number; payable_amount?: number }; payable_amount?: number };
                     const rec = itemData.record;
                     let finalUnloadingDate = rec.unloading_date;
                     if (!finalUnloadingDate) {
@@ -1094,13 +1094,25 @@ export default function PaymentAudit() {
                       }
                     };
                     
+                    // 提取地址前两个字（用于路线显示）
+                    const getLocationPrefix = (location: string | null | undefined): string => {
+                      if (!location) return '';
+                      // 提取前两个字符（支持中文）
+                      return location.substring(0, 2);
+                    };
+                    const loadingPrefix = getLocationPrefix(rec.loading_location);
+                    const unloadingPrefix = getLocationPrefix(rec.unloading_location);
+                    const routeDisplay = loadingPrefix && unloadingPrefix 
+                      ? `${loadingPrefix} → ${unloadingPrefix}`
+                      : (loadingPrefix || unloadingPrefix || '');
+                    
                     return `
                       <tr class="data-row">
                         <td class="serial-number">${index + 1}</td>
+                        <td>${rec.auto_number || ''}</td>
                         <td>${formatDateForPDF(rec.loading_date)}</td>
                         <td>${formatDateForPDF(finalUnloadingDate)}</td>
-                        <td>${rec.loading_location || ''}</td>
-                        <td>${rec.unloading_location || ''}</td>
+                        <td>${routeDisplay}</td>
                         <td>${rec.cargo_type || '普货'}</td>
                         <td>${rec.driver_name || ''}</td>
                         <td>${rec.license_plate || ''}</td>
