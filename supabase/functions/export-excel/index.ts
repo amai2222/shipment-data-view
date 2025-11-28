@@ -156,9 +156,16 @@ serve(async (req)=>{
     const finalWb = XLSX.utils.book_new();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setCell = (ws: any, addr: string, v: string | number | null | undefined, tOverride?: string): void => {
+      // 保留原有单元格的样式和其他属性
+      const existingCell = ws[addr];
       ws[addr] = {
         t: tOverride ?? (typeof v === "number" ? "n" : "s"),
-        v
+        v,
+        // 如果原单元格有样式，保留样式
+        s: existingCell?.s || undefined,
+        // 保留其他属性（如公式、注释等）
+        f: existingCell?.f || undefined,
+        c: existingCell?.c || undefined
       };
     };
     
@@ -372,15 +379,22 @@ serve(async (req)=>{
     }
     
     const FOLDER_PATH = 'generated/';
-    const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.xlsx`;
+    // 使用 xls 格式以更好地保留样式（xls 格式在某些情况下能保留更多格式）
+    const useXlsFormat = false; // 设置为 true 使用 xls 格式，false 使用 xlsx 格式
+    const fileExtension = useXlsFormat ? 'xls' : 'xlsx';
+    const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.${fileExtension}`;
     const fullPath = FOLDER_PATH + fileName;
     const excelBuffer = XLSX.write(finalWb, {
       type: "array",
-      bookType: "xlsx"
+      bookType: useXlsFormat ? "xls" : "xlsx",
+      cellStyles: true
     });
     
+    const contentType = useXlsFormat 
+      ? "application/vnd.ms-excel" 
+      : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     const { error: uploadError } = await adminClient.storage.from("payment-requests").upload(fullPath, excelBuffer, {
-      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      contentType: contentType,
       upsert: true
     });
     if (uploadError) throw new Error(`Failed to upload Excel file to storage: ${uploadError.message}`);
