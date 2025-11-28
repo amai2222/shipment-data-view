@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X, Plus, Package, Banknote, Weight } from "lucide-react";
+import { CalendarIcon, Save, X, Plus, Package, Banknote, Weight, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
@@ -81,6 +81,13 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [taxIncludedPrice, setTaxIncludedPrice] = useState(''); // 含税单价
   const [taxRate, setTaxRate] = useState(''); // 税点
   const [costCalculationMode, setCostCalculationMode] = useState<'manual' | 'auto'>('manual'); // 费用计算模式
+  
+  // 磅单上传相关状态
+  const [loadingScaleFiles, setLoadingScaleFiles] = useState<File[]>([]); // 装货磅单新选择的文件
+  const [unloadingScaleFiles, setUnloadingScaleFiles] = useState<File[]>([]); // 卸货磅单新选择的文件
+  const [existingLoadingScaleUrl, setExistingLoadingScaleUrl] = useState<string | null>(null); // 现有装货磅单URL
+  const [existingUnloadingScaleUrl, setExistingUnloadingScaleUrl] = useState<string | null>(null); // 现有卸货磅单URL
+  const [uploadingScale, setUploadingScale] = useState(false); // 磅单上传中
   
   // 地点编辑对话框状态
   const [locationEditDialogOpen, setLocationEditDialogOpen] = useState(false);
@@ -508,6 +515,95 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     }
   };
 
+  // 磅单上传相关函数
+  const handleScaleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'loading' | 'unloading') => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      toast({
+        title: "警告",
+        description: "只能上传图片文件",
+        variant: "destructive",
+      });
+    }
+
+    if (type === 'loading') {
+      setLoadingScaleFiles(prev => [...prev, ...imageFiles]);
+    } else {
+      setUnloadingScaleFiles(prev => [...prev, ...imageFiles]);
+    }
+  };
+
+  const removeScaleFile = (index: number, type: 'loading' | 'unloading') => {
+    if (type === 'loading') {
+      setLoadingScaleFiles(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setUnloadingScaleFiles(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const uploadScaleFiles = async (files: File[], type: 'loading' | 'unloading'): Promise<string[]> => {
+    if (files.length === 0) return [];
+
+    setUploadingScale(true);
+    try {
+      const filesToUpload = files.map(file => ({
+        fileName: file.name,
+        fileData: ''
+      }));
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const reader = new FileReader();
+        await new Promise((resolve) => {
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            filesToUpload[i].fileData = base64.split(',')[1];
+            resolve(null);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // 获取项目信息用于文件命名
+      const selectedProject = projects.find(p => p.id === formData.projectId);
+      const projectName = selectedProject?.name || 'UnknownProject';
+      const loadingDate = formData.loadingDate 
+        ? formatChinaDateString(formData.loadingDate) 
+        : formatChinaDateString(new Date());
+      const licensePlate = formData.licensePlate || 'UnknownPlate';
+
+      const { data, error } = await supabase.functions.invoke('qiniu-upload', {
+        body: { 
+          files: filesToUpload,
+          namingParams: {
+            date: loadingDate,
+            licensePlate: licensePlate,
+            tripNumber: 1,
+            projectName: projectName
+          } 
+        }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Upload failed');
+
+      // 返回所有图片URL数组（支持多图上传）
+      return (data.urls || []).filter((url): url is string => typeof url === 'string' && url.length > 0);
+    } catch (error) {
+      console.error('磅单上传失败:', error);
+      toast({
+        title: "上传失败",
+        description: error instanceof Error ? error.message : "磅单图片上传失败",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploadingScale(false);
+    }
+  };
+
 
   const populateFormWithRecord = (record: LogisticsRecord) => {
     // 解析装卸货地点
@@ -586,6 +682,24 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     setLoading(true);
 
     try {
+      // 上传磅单图片（如果有新选择的文件，支持多图）
+      let loadingScaleUrls: string[] = existingLoadingScaleUrl ? [existingLoadingScaleUrl] : [];
+      let unloadingScaleUrls: string[] = existingUnloadingScaleUrl ? [existingUnloadingScaleUrl] : [];
+      
+      if (loadingScaleFiles.length > 0) {
+        const uploadedUrls = await uploadScaleFiles(loadingScaleFiles, 'loading');
+        if (uploadedUrls.length > 0) {
+          loadingScaleUrls = [...loadingScaleUrls, ...uploadedUrls];
+        }
+      }
+      
+      if (unloadingScaleFiles.length > 0) {
+        const uploadedUrls = await uploadScaleFiles(unloadingScaleFiles, 'unloading');
+        if (uploadedUrls.length > 0) {
+          unloadingScaleUrls = [...unloadingScaleUrls, ...uploadedUrls];
+        }
+      }
+      
       // 将地点ID数组转换为地点名称字符串
       // 在编辑模式下，如果地点ID为空，使用原始地点数据
       let loadingLocationNames = formData.loadingLocationIds
@@ -699,17 +813,83 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
           console.error('验证保存结果失败:', verifyError);
         }
         
-        // 更新平台运单信息
+        // 更新平台运单信息（磅单图片已同步到 scale_records 表，不再更新 logistics_records 表的字段）
         if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
-          const { error: platformError } = await supabase
+          const updateData: Record<string, unknown> = {};
+          if (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0) {
+            updateData.external_tracking_numbers = externalTrackingNumbers;
+            updateData.other_platform_names = otherPlatformNames;
+          }
+          
+          const { error: updateError } = await supabase
             .from('logistics_records')
-            .update({
-              external_tracking_numbers: externalTrackingNumbers,
-              other_platform_names: otherPlatformNames,
-            })
+            .update(updateData)
             .eq('id', editingRecord.id);
           
-          if (platformError) throw platformError;
+          if (updateError) throw updateError;
+        }
+        
+        // 同步磅单到 scale_records 表（用于磅单管理显示，支持多图）
+        if (loadingScaleUrls.length > 0 || unloadingScaleUrls.length > 0) {
+          try {
+            // 获取运单信息
+            const { data: waybillData, error: waybillError } = await supabase
+              .from('logistics_records')
+              .select('auto_number, project_id, project_name, loading_date, license_plate, driver_name, billing_type_id, loading_weight')
+              .eq('id', editingRecord.id)
+              .single();
+            
+            if (!waybillError && waybillData) {
+              // 合并所有磅单图片URL（装货和卸货）
+              const scaleImageUrls: string[] = [...loadingScaleUrls, ...unloadingScaleUrls];
+              
+              // 检查是否已存在关联的磅单记录
+              const { data: existingScaleRecord } = await supabase
+                .from('scale_records')
+                .select('id, image_urls')
+                .eq('logistics_number', waybillData.auto_number)
+                .eq('trip_number', 1)
+                .maybeSingle();
+              
+              if (existingScaleRecord) {
+                // 更新现有记录：合并图片URL（避免重复）
+                const existingUrls = (existingScaleRecord.image_urls || []) as string[];
+                const mergedUrls = [...new Set([...existingUrls, ...scaleImageUrls])];
+                
+                await supabase
+                  .from('scale_records')
+                  .update({
+                    image_urls: mergedUrls,
+                    valid_quantity: waybillData.loading_weight || null,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', existingScaleRecord.id);
+              } else {
+                // 创建新记录
+                const loadingDate = waybillData.loading_date 
+                  ? new Date(waybillData.loading_date).toISOString().split('T')[0]
+                  : formatChinaDateString(new Date());
+                
+                await supabase
+                  .from('scale_records')
+                  .insert({
+                    project_id: waybillData.project_id,
+                    project_name: waybillData.project_name || '',
+                    logistics_number: waybillData.auto_number,
+                    trip_number: 1,
+                    loading_date: loadingDate,
+                    license_plate: waybillData.license_plate,
+                    driver_name: waybillData.driver_name,
+                    billing_type_id: waybillData.billing_type_id || 1,
+                    image_urls: scaleImageUrls,
+                    valid_quantity: waybillData.loading_weight || null
+                  });
+              }
+            }
+          } catch (scaleSyncError) {
+            // 磅单同步失败不影响主流程，只记录错误
+            console.warn('同步磅单到磅单管理失败:', scaleSyncError);
+          }
         }
         
         toast({ title: "成功", description: "运单已更新" });
@@ -749,20 +929,63 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         
         console.log('运单创建成功，ID:', newRecordId);
         
-        // 使用函数返回的ID更新平台运单信息
+        // 使用函数返回的ID更新平台运单信息（磅单图片已同步到 scale_records 表，不再更新 logistics_records 表的字段）
         if (newRecordId && (externalTrackingNumbers.length > 0 || otherPlatformNames.length > 0)) {
-          const { error: platformError } = await supabase
+          const updateData: Record<string, unknown> = {
+            external_tracking_numbers: externalTrackingNumbers,
+            other_platform_names: otherPlatformNames
+          };
+          
+          const { error: updateError } = await supabase
             .from('logistics_records')
-            .update({ 
-              external_tracking_numbers: externalTrackingNumbers,
-              other_platform_names: otherPlatformNames
-            })
+            .update(updateData)
             .eq('id', newRecordId);
-          if (platformError) {
-            console.error('更新平台运单信息失败:', platformError);
-            throw platformError;
+          
+          if (updateError) {
+            console.error('更新运单信息失败:', updateError);
+            throw updateError;
           }
         }
+          
+          // 同步磅单到 scale_records 表（用于磅单管理显示，支持多图）
+          if (loadingScaleUrls.length > 0 || unloadingScaleUrls.length > 0) {
+            try {
+              // 获取新创建的运单信息
+              const { data: waybillData, error: waybillError } = await supabase
+                .from('logistics_records')
+                .select('auto_number, project_id, project_name, loading_date, license_plate, driver_name, billing_type_id, loading_weight')
+                .eq('id', newRecordId)
+                .single();
+              
+              if (!waybillError && waybillData) {
+                // 合并所有磅单图片URL（装货和卸货）
+                const scaleImageUrls: string[] = [...loadingScaleUrls, ...unloadingScaleUrls];
+                
+                // 创建磅单记录
+                const loadingDate = waybillData.loading_date 
+                  ? new Date(waybillData.loading_date).toISOString().split('T')[0]
+                  : formatChinaDateString(new Date());
+                
+                await supabase
+                  .from('scale_records')
+                  .insert({
+                    project_id: waybillData.project_id,
+                    project_name: waybillData.project_name || '',
+                    logistics_number: waybillData.auto_number,
+                    trip_number: 1,
+                    loading_date: loadingDate,
+                    license_plate: waybillData.license_plate,
+                    driver_name: waybillData.driver_name,
+                    billing_type_id: waybillData.billing_type_id || 1,
+                    image_urls: scaleImageUrls,
+                    valid_quantity: waybillData.loading_weight || null
+                  });
+              }
+            } catch (scaleSyncError) {
+              // 磅单同步失败不影响主流程，只记录错误
+              console.warn('同步磅单到磅单管理失败:', scaleSyncError);
+            }
+          }
         
         toast({ title: "成功", description: "运单已创建" });
       }
@@ -1028,6 +1251,155 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   placeholder={`输入卸货${quantityLabel}`} 
                   className="mt-1"
                 />
+              </div>
+            </div>
+          </div>
+          
+          {/* 磅单上传 */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Upload className="h-4 w-4 text-blue-600" />
+              </div>
+              <Label className="text-sm font-semibold text-blue-800">磅单上传</Label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 装货磅单 */}
+              <div>
+                <Label className="text-xs text-blue-600 font-medium">装货磅单</Label>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleScaleFileSelect(e, 'loading')}
+                    className="hidden"
+                    id="loadingScaleInput"
+                    disabled={uploadingScale}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('loadingScaleInput')?.click()}
+                    className="w-full"
+                    disabled={uploadingScale}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploadingScale ? '上传中...' : '选择图片'}
+                  </Button>
+                </div>
+                
+                {/* 现有装货磅单图片 */}
+                {existingLoadingScaleUrl && (
+                  <div className="mt-2">
+                    <Label className="text-xs text-gray-600">现有图片:</Label>
+                    <div className="mt-1 relative">
+                      <img 
+                        src={existingLoadingScaleUrl} 
+                        alt="装货磅单"
+                        className="w-full h-32 object-contain rounded border bg-white"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-1 right-1"
+                        onClick={() => setExistingLoadingScaleUrl(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 新选择的装货磅单文件 */}
+                {loadingScaleFiles.length > 0 && (
+                  <div className="mt-2">
+                    <Label className="text-xs text-gray-600">新选择的文件:</Label>
+                    {loadingScaleFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 border rounded mt-1 bg-white">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeScaleFile(index, 'loading')}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* 卸货磅单 */}
+              <div>
+                <Label className="text-xs text-blue-600 font-medium">卸货磅单</Label>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleScaleFileSelect(e, 'unloading')}
+                    className="hidden"
+                    id="unloadingScaleInput"
+                    disabled={uploadingScale}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('unloadingScaleInput')?.click()}
+                    className="w-full"
+                    disabled={uploadingScale}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploadingScale ? '上传中...' : '选择图片'}
+                  </Button>
+                </div>
+                
+                {/* 现有卸货磅单图片 */}
+                {existingUnloadingScaleUrl && (
+                  <div className="mt-2">
+                    <Label className="text-xs text-gray-600">现有图片:</Label>
+                    <div className="mt-1 relative">
+                      <img 
+                        src={existingUnloadingScaleUrl} 
+                        alt="卸货磅单"
+                        className="w-full h-32 object-contain rounded border bg-white"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-1 right-1"
+                        onClick={() => setExistingUnloadingScaleUrl(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 新选择的卸货磅单文件 */}
+                {unloadingScaleFiles.length > 0 && (
+                  <div className="mt-2">
+                    <Label className="text-xs text-gray-600">新选择的文件:</Label>
+                    {unloadingScaleFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 border rounded mt-1 bg-white">
+                        <span className="text-sm">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeScaleFile(index, 'unloading')}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

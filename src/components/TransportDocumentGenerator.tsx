@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Printer } from 'lucide-react';
 import { LogisticsRecord } from '@/pages/BusinessEntry/types';
 import { RouteMapService } from '@/services/RouteMapService';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 interface TransportDocumentGeneratorProps {
   record: LogisticsRecord;
@@ -64,6 +65,29 @@ export const generatePrintVersion = async (record: LogisticsRecord) => {
   if (!record.auto_number) {
     throw new Error('运输单号不能为空');
   }
+  
+  // 从 scale_records 表查询磅单图片（统一数据源）
+  let scaleImageUrls: string[] = [];
+  if (record.auto_number) {
+    try {
+      const { data: scaleRecords, error } = await supabase
+        .from('scale_records')
+        .select('image_urls')
+        .eq('logistics_number', record.auto_number)
+        .order('trip_number', { ascending: true });
+      
+      if (!error && scaleRecords) {
+        // 合并所有磅单记录的图片URL
+        scaleImageUrls = scaleRecords
+          .flatMap(scaleRecord => scaleRecord.image_urls || [])
+          .filter((url): url is string => typeof url === 'string' && url.length > 0);
+      }
+    } catch (error) {
+      console.warn('加载磅单图片失败:', error);
+      // 继续执行，不阻塞PDF生成
+    }
+  }
+  
   const basicInfo = [
     { label: '客户名称:', value: record.project_name || '未知' },
     { label: '运输单号:', value: record.auto_number || '未知' },
@@ -79,20 +103,22 @@ export const generatePrintVersion = async (record: LogisticsRecord) => {
     { label: '装货吨数:', value: `${record.loading_weight?.toFixed(2) || '0.00'} 吨` }
   ];
 
-  // 如果有装货磅单图片，添加到装货信息中
-  if (record.loading_weighbridge_image_url) {
-    loadingInfo.push({ label: '装货磅单:', value: record.loading_weighbridge_image_url });
-  }
-
   const unloadingInfo = [
     { label: '收货地址:', value: record.unloading_location || '未知' },
     { label: '卸货时间:', value: record.unloading_date ? new Date(record.unloading_date).toLocaleString('zh-CN') : '待定' },
     { label: '卸货吨数:', value: `${record.unloading_weight?.toFixed(2) || '0.00'} 吨` }
   ];
-
-  // 如果有卸货磅单图片，添加到卸货信息中
-  if (record.unloading_weighbridge_image_url) {
-    unloadingInfo.push({ label: '卸货磅单:', value: record.unloading_weighbridge_image_url });
+  
+  // 如果有磅单图片，添加到信息中（统一显示所有磅单图片）
+  if (scaleImageUrls.length > 0) {
+    // 将磅单图片添加到装货信息或单独显示
+    // 由于 scale_records 表不区分装货/卸货，我们统一显示所有磅单图片
+    scaleImageUrls.forEach((imageUrl, index) => {
+      const label = scaleImageUrls.length === 1 
+        ? '磅单:' 
+        : `磅单 ${index + 1}:`;
+      loadingInfo.push({ label, value: imageUrl });
+    });
   }
 
   const barcode = generateBarcode(record.auto_number || 'UNKNOWN');
