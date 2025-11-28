@@ -1014,8 +1014,20 @@ export default function PaymentAudit() {
           // ✅ 表单标题规则：使用付款方（上级合作方）名称 + "支付申请表"
           // 直接使用分组时已存储的 parent_partner_name，确保与分组逻辑一致
           const parentPartnerName = (sheetData as { parent_partner_name?: string }).parent_partner_name;
-          // 如果有付款方名称，使用付款方名称；否则使用默认值
-          const parentTitle = parentPartnerName || "中科智运(云南)供应链科技有限公司";
+          
+          // ✅ 定义允许使用动态付款方名称的公司列表
+          const allowedParentCompanies = [
+            '红河云谷供应链管理有限公司',
+            '中科智运(云南)供应链科技有限公司',
+            '哈尔滨数创科技有限公司'
+          ];
+          
+          // ✅ 判断逻辑：
+          // 1. 如果付款方名称存在且在允许列表中，使用该付款方名称
+          // 2. 否则统一使用默认公司名称
+          const parentTitle = (parentPartnerName && allowedParentCompanies.includes(parentPartnerName))
+            ? parentPartnerName
+            : "中科智运(云南)供应链科技有限公司";
           
           return `
             <div class="partner-section">

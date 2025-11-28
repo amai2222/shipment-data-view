@@ -57,7 +57,7 @@ const MENU_PERMISSIONS = [
     group: '财务对账',
     permissions: [
       { key: 'finance.reconciliation', label: '运费对账' },
-      { key: 'finance.payment_invoice', label: '付款与开票' }
+      { key: 'finance.payment_invoice', label: '财务收款' }
     ]
   }
 ];

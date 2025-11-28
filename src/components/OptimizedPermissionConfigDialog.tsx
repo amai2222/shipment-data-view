@@ -80,8 +80,8 @@ const PERMISSION_CATEGORIES = {
     
     // 财务管理
     { id: 'finance.reconciliation', name: '运费对账', description: '运费对账管理' },
-    { id: 'finance.payment_invoice', name: '付款与开票', description: '付款与开票管理' },
-    { id: 'finance.invoice_request_management', name: '财务开票', description: '开票申请单管理' },
+    { id: 'finance.payment_invoice', name: '财务收款', description: '财务收款管理' },
+    { id: 'finance.invoice_request_management', name: '财务开票', description: '财务开票管理' },
     { id: 'finance.payment_requests', name: '财务付款', description: '付款申请单管理' },
     
     // 数据维护

@@ -171,7 +171,7 @@ const menuGroups = [
         roles: ['admin', 'finance', 'business', 'operator']
       },
       {
-        name: '付款与开票',
+        name: '财务收款',
         href: '/m/finance/payment-invoice',
         icon: Banknote,
         roles: ['admin', 'finance', 'operator']

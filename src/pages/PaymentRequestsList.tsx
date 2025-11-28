@@ -858,6 +858,13 @@ export default function PaymentRequestsList() {
           const maxLevelInChain = partnersInChain.length > 0 ? Math.max(...partnersInChain.map((p) => p.level || 0)) : 0;
           const currentPartnerInfo = partnersInChain.find((p) => p.partner_id === sheetData.paying_partner_id);
           
+          // ✅ 定义允许使用动态付款方名称的公司列表
+          const allowedParentCompanies = [
+            '红河云谷供应链管理有限公司',
+            '中科智运(云南)供应链科技有限公司',
+            '哈尔滨数创科技有限公司'
+          ];
+          
           if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
             if (currentPartnerInfo.level < maxLevelInChain - 1) {
               const parentLevel = currentPartnerInfo.level + 1;
@@ -867,7 +874,14 @@ export default function PaymentRequestsList() {
                 const parentPartner = partnersById.get(parentInfo.partner_id);
                 if (parentPartner) {
                   const partnerData = parentPartner as { full_name?: string; name?: string };
-                  parentTitle = partnerData.full_name || partnerData.name || parentTitle;
+                  const parentPartnerName = partnerData.full_name || partnerData.name || null;
+                  
+                  // ✅ 判断逻辑：
+                  // 1. 如果付款方名称存在且在允许列表中，使用该付款方名称
+                  // 2. 否则统一使用默认公司名称
+                  parentTitle = (parentPartnerName && allowedParentCompanies.includes(parentPartnerName))
+                    ? parentPartnerName
+                    : "中科智运(云南)供应链科技有限公司";
                 }
               }
             }

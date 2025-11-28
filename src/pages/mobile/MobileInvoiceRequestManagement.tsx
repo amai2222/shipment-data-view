@@ -1,4 +1,4 @@
-// 移动端开票申请单管理页面
+// 移动端财务开票页面
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

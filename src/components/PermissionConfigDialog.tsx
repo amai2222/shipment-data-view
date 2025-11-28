@@ -48,7 +48,7 @@ interface PermissionConfigDialogProps {
   user: User | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (userId: string, permissions: any) => void;
+  onSave: (userId: string, permissions: Record<string, string[]>) => void;
 }
 
 // 根据角色获取默认权限 - 使用数据库中的实际权限ID
@@ -155,8 +155,8 @@ const mockPermissions = {
     
     // 财务管理
     { id: 'finance.reconciliation', name: '运费对账', description: '运费对账管理' },
-    { id: 'finance.payment_invoice', name: '付款与开票', description: '付款与开票管理' },
-    { id: 'finance.invoice_request_management', name: '财务开票', description: '开票申请单管理' },
+    { id: 'finance.payment_invoice', name: '财务收款', description: '财务收款管理' },
+    { id: 'finance.invoice_request_management', name: '财务开票', description: '财务开票管理' },
     { id: 'finance.payment_requests', name: '财务付款', description: '付款申请单管理' },
     
     // 数据维护
@@ -224,7 +224,13 @@ export function PermissionConfigDialog({
 
   const [activeTab, setActiveTab] = useState('menu');
   const [loading, setLoading] = useState(false);
-  const [availablePermissions, setAvailablePermissions] = useState<Record<string, any[]>>({
+  interface PermissionItem {
+    id: string;
+    name: string;
+    description: string;
+  }
+  
+  const [availablePermissions, setAvailablePermissions] = useState<Record<string, PermissionItem[]>>({
     menu: [],
     function: [],
     project: [],
@@ -309,13 +315,14 @@ export function PermissionConfigDialog({
       
       onClose();
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('保存权限失败:', error);
       
       // 显示错误提示
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast({
         title: "保存失败",
-        description: `权限保存失败: ${error.message || '未知错误'}`,
+        description: `权限保存失败: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
