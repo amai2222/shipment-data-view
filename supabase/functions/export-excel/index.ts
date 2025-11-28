@@ -273,6 +273,14 @@ serve(async (req)=>{
         range.e.r += numberOfRowsToInsert;
         ws["!ref"] = XLSX.utils.encode_range(range);
       }
+      // ✅ 标题逻辑：与 PDF 保持一致
+      // 定义允许使用动态付款方名称的公司列表
+      const allowedParentCompanies = [
+        '红河云谷供应链管理有限公司',
+        '中科智运(云南)供应链科技有限公司',
+        '哈尔滨数创科技有限公司'
+      ];
+      
       let parentTitle = DEFAULT_PARENT;
       if (currentPartnerInfo && currentPartnerInfo.level !== undefined) {
         if (currentPartnerInfo.level < maxLevelInChain - 1) {
@@ -281,7 +289,13 @@ serve(async (req)=>{
           if (parentInfo) {
             const parentPartner = partnersById.get(parentInfo.partner_id);
             if (parentPartner) {
-              parentTitle = parentPartner.full_name || parentPartner.name || DEFAULT_PARENT;
+              const parentPartnerName = parentPartner.full_name || parentPartner.name || null;
+              // ✅ 判断逻辑：
+              // 1. 如果付款方名称存在且在允许列表中，使用该付款方名称
+              // 2. 否则统一使用默认公司名称
+              parentTitle = (parentPartnerName && allowedParentCompanies.includes(parentPartnerName))
+                ? parentPartnerName
+                : DEFAULT_PARENT;
             }
           }
         }
@@ -372,15 +386,15 @@ serve(async (req)=>{
       setCell(ws, `E${approverRow}`, `业务负责人签字：${sheet.footer?.biz_lead || ""}`);
       setCell(ws, `G${approverRow}`, `复核审批人签字：${sheet.footer?.reviewer || ""}`);
       setCell(ws, `I${approverRow}`, `业务经理：${sheet.footer?.biz_manager || ""}`);
-      setCell(ws, `K${approverRow}`, `业务总经理：${sheet.footer?.biz_general_manager || ""}`);
+      setCell(ws, `K${approverRow}`, `业务总签字：${sheet.footer?.biz_general_manager || ""}`);
       setCell(ws, `M${approverRow}`, `财务部审核签字：${sheet.footer?.finance_audit || ""}`);
       const finalSheetName = `${payingPartnerName || "Sheet"}_${index + 1}`.substring(0, 31);
       XLSX.utils.book_append_sheet(finalWb, ws, finalSheetName);
     }
     
     const FOLDER_PATH = 'generated/';
-    // 使用 xls 格式以更好地保留样式（xls 格式在某些情况下能保留更多格式）
-    const useXlsFormat = true; // ✅ 已启用 xls 格式以尝试保留更多样式
+    // 使用 xlsx 格式（标准格式，支持更多功能和更大的数据量）
+    const useXlsFormat = false; // ✅ 使用 xlsx 格式
     const fileExtension = useXlsFormat ? 'xls' : 'xlsx';
     const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.${fileExtension}`;
     const fullPath = FOLDER_PATH + fileName;

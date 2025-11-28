@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2, Copy, Download, Image as ImageIcon } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2, Copy, Download } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -1209,8 +1209,6 @@ export default function PaymentAudit() {
               .action-buttons { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
               .action-button { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
               .action-button:hover { background: #1d4ed8; }
-              .action-button.save-image { background: #10b981; }
-              .action-button.save-image:hover { background: #059669; }
               .action-button.export-excel { background: #f59e0b; }
               .action-button.export-excel:hover { background: #d97706; }
               @media print { .action-buttons { display: none; } }
@@ -1218,7 +1216,6 @@ export default function PaymentAudit() {
           </head>
           <body>
             <div class="action-buttons">
-              <button class="action-button save-image" onclick="saveAsImage(this)">📷 保存为图片</button>
               <button class="action-button export-excel" onclick="exportToExcel(this)">📊 导出Excel</button>
               <button class="action-button" onclick="window.print()">🖨️ 打印申请表</button>
             </div>
@@ -1226,91 +1223,6 @@ export default function PaymentAudit() {
             <script>
               // 等待页面加载完成
               window.addEventListener('DOMContentLoaded', function() {
-                // 保存为图片功能
-                window.saveAsImage = async function(btn) {
-                  try {
-                    const button = btn || this;
-                    if (!button) {
-                      console.error('无法获取按钮元素');
-                      return;
-                    }
-                    button.disabled = true;
-                    button.textContent = '生成中...';
-                    
-                    // 动态加载html2canvas库（使用CDN）
-                    let html2canvas;
-                    if (window.html2canvas) {
-                      html2canvas = window.html2canvas;
-                    } else {
-                      // 加载html2canvas库
-                      const script = document.createElement('script');
-                      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-                      script.async = true;
-                      await new Promise((resolve, reject) => {
-                        script.onload = () => {
-                          html2canvas = window.html2canvas;
-                          if (html2canvas) {
-                            resolve(html2canvas);
-                          } else {
-                            reject(new Error('html2canvas加载后未找到'));
-                          }
-                        };
-                        script.onerror = () => reject(new Error('无法加载html2canvas库'));
-                        document.head.appendChild(script);
-                      });
-                    }
-                    
-                    if (!html2canvas) {
-                      throw new Error('无法加载html2canvas库');
-                    }
-                    
-                    // 等待页面完全渲染
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    // 获取body元素
-                    const body = document.body;
-                    
-                    // 使用html2canvas截图
-                    const canvas = await html2canvas(body, {
-                      scale: 2,
-                      useCORS: true,
-                      logging: false,
-                      backgroundColor: '#ffffff',
-                      width: body.scrollWidth,
-                      height: body.scrollHeight,
-                      windowWidth: body.scrollWidth,
-                      windowHeight: body.scrollHeight
-                    });
-                    
-                    // 转换为blob并下载
-                    canvas.toBlob((blob) => {
-                      if (!blob) {
-                        throw new Error('生成图片失败');
-                      }
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = '付款申请表_' + new Date().toISOString().split('T')[0] + '.png';
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                      
-                      button.disabled = false;
-                      button.textContent = '📷 保存为图片';
-                      alert('图片已保存成功！');
-                    }, 'image/png');
-                  } catch (error) {
-                    console.error('保存图片失败:', error);
-                    alert('保存图片失败: ' + (error instanceof Error ? error.message : '未知错误'));
-                    const button = btn || this;
-                    if (button) {
-                      button.disabled = false;
-                      button.textContent = '📷 保存为图片';
-                    }
-                  }
-                };
-                
                 // 导出Excel功能
                 window.exportToExcel = async function(btn) {
                   try {
