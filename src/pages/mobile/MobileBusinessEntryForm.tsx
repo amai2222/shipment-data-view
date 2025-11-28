@@ -342,8 +342,8 @@ export default function MobileBusinessEntryForm() {
         const timeStr = Math.floor(Date.now() / 1000).toString().slice(-5);
         const autoNumber = `YDN${dateStr}-${timeStr}`;
 
-        // 使用数据库函数来添加运单并自动计算合作方成本（✅ 修复：使用_1120版本并传递billing_type_id）
-        const { error } = await supabase.rpc('add_logistics_record_with_costs_1120', {
+        // 使用数据库函数来添加运单并自动计算合作方成本（✅ 修复：使用_1126版本并传递billing_type_id）
+        const { error } = await supabase.rpc('add_logistics_record_with_costs_1126', {
           p_project_id: formData.projectId,
           p_project_name: projects.find(p => p.id === formData.projectId)?.name || '',
           p_chain_id: formData.chainId,
