@@ -997,8 +997,8 @@ export default function PaymentAudit() {
                 <th rowspan="2">目的地</th>
                 <th rowspan="2">货物</th>
                 <th rowspan="2">司机</th>
-                <th rowspan="2">司机电话</th>
                 <th rowspan="2">车牌号</th>
+                <th rowspan="2">司机电话</th>
                 <th rowspan="2">吨位</th>
                 <th rowspan="2">承运人运费</th>
                 <th colspan="4">收款人信息</th>
@@ -1053,8 +1053,8 @@ export default function PaymentAudit() {
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">目的地</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">货物</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机</th>
-                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机电话</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">车牌号</th>
+                    <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机电话</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;" id="quantity-header">数量</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">司机运费</th>
                     <th rowspan="2" style="display: table-cell !important; visibility: visible !important; background: transparent !important; border: 1px solid #000 !important; padding: 4px 6px !important; text-align: center !important; font-size: 11px !important; font-weight: bold !important;">承运人运费</th>
@@ -1103,8 +1103,8 @@ export default function PaymentAudit() {
                         <td>${rec.unloading_location || ''}</td>
                         <td>${rec.cargo_type || '普货'}</td>
                         <td>${rec.driver_name || ''}</td>
-                        <td>${rec.driver_phone || ''}</td>
                         <td>${rec.license_plate || ''}</td>
+                        <td>${rec.driver_phone || ''}</td>
                         <td>${quantityDisplay}</td>
                         <td class="amount-cell">${(rec.payable_cost || 0).toFixed(2)}</td>
                         <td class="amount-cell">${(itemData.payable_amount || 0).toFixed(2)}</td>

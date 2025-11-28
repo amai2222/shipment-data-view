@@ -224,15 +224,20 @@ export function formatChinaDateForExport(
     
     if (isNaN(date.getTime())) return '';
     
-    // 将UTC时间转换为中国时区（加8小时）
-    const chinaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+    // ✅ 将UTC时间转换为中国时区（加8小时）得到UTC+8的时间戳
+    const chinaTime = date.getTime() + 8 * 60 * 60 * 1000;
+    const chinaDate = new Date(chinaTime);
+    
+    // ✅ 从UTC+8时间戳中提取年月日（使用UTC方法，因为时间戳已经是UTC+8的了）
+    // 例如：UTC 2025-11-27 00:00:00 -> 加8小时 -> UTC 2025-11-27 08:00:00
+    // getUTCFullYear() 会返回 2025，getUTCMonth() 会返回 10（11月），getUTCDate() 会返回 27
+    const year = chinaDate.getUTCFullYear();
+    const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(chinaDate.getUTCDate()).padStart(2, '0');
     
     // 根据格式字符串格式化
     if (formatStr.includes('HH:mm:ss') || formatStr.includes('HH:mm')) {
       // 包含时间的格式
-      const year = chinaDate.getUTCFullYear();
-      const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(chinaDate.getUTCDate()).padStart(2, '0');
       const hours = String(chinaDate.getUTCHours()).padStart(2, '0');
       const minutes = String(chinaDate.getUTCMinutes()).padStart(2, '0');
       const seconds = String(chinaDate.getUTCSeconds()).padStart(2, '0');
@@ -243,8 +248,18 @@ export function formatChinaDateForExport(
         return `${year}-${month}-${day} ${hours}:${minutes}`;
       }
     } else {
-      // 只包含日期的格式，使用date-fns格式化
-      return format(chinaDate, formatStr, { locale: zhCN });
+      // ✅ 只包含日期的格式：直接从UTC+8时间戳提取年月日，不使用format函数（避免本地时区干扰）
+      // 根据formatStr格式化日期字符串
+      if (formatStr === 'yyyy-MM-dd') {
+        return `${year}-${month}-${day}`;
+      } else if (formatStr === 'yyyy年MM月dd日') {
+        return `${year}年${month}月${day}日`;
+      } else if (formatStr === 'yyyy/MM/dd') {
+        return `${year}/${month}/${day}`;
+      } else {
+        // 其他格式，使用date-fns格式化（但需要确保时区正确）
+        return format(chinaDate, formatStr, { locale: zhCN });
+      }
     }
   } catch (error) {
     console.error('导出日期格式化错误:', error);

@@ -338,14 +338,13 @@ serve(async (req)=>{
           
           if (isNaN(date.getTime())) return '';
           
-          // 将UTC时间转换为中国时区（加8小时）
+          // ✅ 将UTC时间转换为中国时区（加8小时）得到UTC+8的时间戳
           const chinaTime = date.getTime() + 8 * 60 * 60 * 1000;
           const chinaDate = new Date(chinaTime);
           
-          // ✅ 使用UTC方法提取年月日
-          // 因为chinaDate的时间戳已经是UTC+8的，使用getUTCFullYear()等方法会正确提取中国时区的年月日
+          // ✅ 从UTC+8时间戳中提取年月日（使用UTC方法，因为时间戳已经是UTC+8的了）
           // 例如：UTC 2025-11-27 00:00:00 -> 加8小时 -> UTC 2025-11-27 08:00:00
-          // getUTCFullYear()会返回2025，getUTCMonth()会返回10（11月），getUTCDate()会返回27
+          // getUTCFullYear() 会返回 2025，getUTCMonth() 会返回 10（11月），getUTCDate() 会返回 27
           const year = chinaDate.getUTCFullYear();
           const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
           const day = String(chinaDate.getUTCDate()).padStart(2, '0');

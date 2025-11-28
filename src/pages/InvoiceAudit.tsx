@@ -789,14 +789,14 @@ export default function InvoiceAudit() {
           const [logisticsResult, projectsResult, driversResult] = await Promise.all([
             supabase
               .from('logistics_records')
-              .select('id, auto_number, project_id, driver_id, loading_location, unloading_location, loading_date, loading_weight')
+              .select('id, auto_number, project_id, driver_id, license_plate, loading_location, unloading_location, loading_date, loading_weight')
               .in('id', logisticsRecordIds),
             supabase
               .from('projects')
               .select('id, name'),
             supabase
               .from('drivers')
-              .select('id, name')
+              .select('id, name, license_plate')
           ]);
 
           if (logisticsResult.error) throw logisticsResult.error;
@@ -808,7 +808,7 @@ export default function InvoiceAudit() {
 
           // 组合数据
           details = detailsData.map(detail => {
-            const logisticsRecord = logisticsMap.get(detail.logistics_record_id) as LogisticsRecordQueryResult | undefined;
+            const logisticsRecord = logisticsMap.get(detail.logistics_record_id) as LogisticsRecordQueryResult & { license_plate?: string } | undefined;
             return {
               id: detail.id,
               invoice_request_id: detail.invoice_request_id,
@@ -818,6 +818,7 @@ export default function InvoiceAudit() {
                 auto_number: logisticsRecord?.auto_number || '',
                 project_name: logisticsRecord?.project_id ? projectsMap.get(logisticsRecord.project_id) || '' : '',
                 driver_name: logisticsRecord?.driver_id ? driversMap.get(logisticsRecord.driver_id) || '' : '',
+                license_plate: logisticsRecord?.license_plate || '',
                 loading_location: logisticsRecord?.loading_location || '',
                 unloading_location: logisticsRecord?.unloading_location || '',
                 loading_date: logisticsRecord?.loading_date || '',
@@ -867,16 +868,17 @@ export default function InvoiceAudit() {
     invoice_request_id: string;
     logistics_record_id: string;
     amount: number;
-    logistics_record: {
-      auto_number: string;
-      project_name: string;
-      driver_name: string;
-      loading_location: string;
-      unloading_location: string;
-      loading_date: string;
-      loading_weight?: number;
-      cargo_type?: string;
-    };
+      logistics_record: {
+        auto_number: string;
+        project_name: string;
+        driver_name: string;
+        license_plate?: string;
+        loading_location: string;
+        unloading_location: string;
+        loading_date: string;
+        loading_weight?: number;
+        cargo_type?: string;
+      };
   }>) => {
     const totalWeight = details.reduce((sum, d) => sum + (d.logistics_record.loading_weight || 0), 0);
     
@@ -1127,6 +1129,8 @@ export default function InvoiceAudit() {
         <th style="width: 80px;">货物</th>
         <th style="width: 100px;">业务期限</th>
         <th>目的地</th>
+        <th style="width: 80px;">司机</th>
+        <th style="width: 100px;">车牌号</th>
         <th style="width: 60px;">运单数</th>
         <th style="width: 120px;">开票金额</th>
       </tr>
@@ -1139,11 +1143,13 @@ export default function InvoiceAudit() {
         <td>${cargoType}</td>
         <td>${format(new Date(createdAt), 'yyyy年MM月')}</td>
         <td class="text-left">${details.length > 0 ? details[0].logistics_record.unloading_location : '-'}</td>
+        <td>${details.length > 0 ? (details[0].logistics_record.driver_name || '-') : '-'}</td>
+        <td>${details.length > 0 ? (details[0].logistics_record.license_plate || '-') : '-'}</td>
         <td>${recordCount}</td>
         <td class="text-right">¥${totalAmount.toLocaleString()}</td>
       </tr>
       <tr>
-        <td colspan="7" class="text-left" style="padding-left: 20px;">
+        <td colspan="9" class="text-left" style="padding-left: 20px;">
           <strong>备注：${dynamicSummary}</strong>
         </td>
         <td class="text-right">
@@ -1151,7 +1157,7 @@ export default function InvoiceAudit() {
         </td>
       </tr>
       <tr>
-        <td colspan="7" class="text-right" style="padding-right: 20px;">
+        <td colspan="9" class="text-right" style="padding-right: 20px;">
           <strong>运单数：${recordCount}</strong>
         </td>
         <td class="text-right">
