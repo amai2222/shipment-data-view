@@ -977,7 +977,7 @@ export default function PaymentRequestsList() {
                     <td class="signature-cell">业务负责人签字</td>
                     <td class="signature-cell">财务会计审核</td>
                     <td class="signature-cell">复核审批人签字</td>
-                    <td class="signature-cell">总经理签字</td>
+                    <td class="signature-cell">业务总签字</td>
                     <td class="signature-cell">办公室领导复核</td>
                     <td class="signature-cell">董事长签字</td>
                   </tr>

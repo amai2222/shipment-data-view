@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShipperProjectCascadeFilter } from '@/components/ShipperProjectCascadeFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2, Copy } from 'lucide-react';
+import { Loader2, FileSpreadsheet, Trash2, ClipboardList, FileText, Banknote, RotateCcw, Users, Merge, Undo2, Copy, Download, Image as ImageIcon } from 'lucide-react';
 // ✅ 导入可复用组件
 import {
   PaginationControl,
@@ -1128,7 +1128,7 @@ export default function PaymentAudit() {
                     <td class="signature-cell">业务负责人签字</td>
                     <td class="signature-cell">财务会计审核</td>
                     <td class="signature-cell">复核审批人签字</td>
-                    <td class="signature-cell">总经理签字</td>
+                    <td class="signature-cell">业务总签字</td>
                     <td class="signature-cell">办公室领导复核</td>
                     <td class="signature-cell">董事长签字</td>
                   </tr>
@@ -1206,14 +1206,151 @@ export default function PaymentAudit() {
               .signature-table .signature-cell { background: #f9f9f9; font-weight: bold; height: 30px; }
               .signature-table .signature-space { height: 80px; background: white; }
               .remarks-label { text-align: left !important; font-weight: bold; }
-              .print-button { position: fixed; top: 20px; right: 20px; z-index: 1000; background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
-              .print-button:hover { background: #1d4ed8; }
-              @media print { .print-button { display: none; } }
+              .action-buttons { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
+              .action-button { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+              .action-button:hover { background: #1d4ed8; }
+              .action-button.save-image { background: #10b981; }
+              .action-button.save-image:hover { background: #059669; }
+              .action-button.export-excel { background: #f59e0b; }
+              .action-button.export-excel:hover { background: #d97706; }
+              @media print { .action-buttons { display: none; } }
             </style>
           </head>
           <body>
-            <button class="print-button" onclick="window.print()">🖨️ 打印申请表</button>
+            <div class="action-buttons">
+              <button class="action-button save-image" onclick="saveAsImage()">📷 保存为图片</button>
+              <button class="action-button export-excel" onclick="exportToExcel()">📊 导出Excel</button>
+              <button class="action-button" onclick="window.print()">🖨️ 打印申请表</button>
+            </div>
             
+            <script>
+              // 保存为图片功能
+              async function saveAsImage() {
+                try {
+                  const button = event.target;
+                  button.disabled = true;
+                  button.textContent = '生成中...';
+                  
+                  // 动态加载html2canvas库（使用CDN）
+                  let html2canvas;
+                  if (window.html2canvas) {
+                    html2canvas = window.html2canvas;
+                  } else {
+                    // 加载html2canvas库
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                    script.async = true;
+                    await new Promise((resolve, reject) => {
+                      script.onload = resolve;
+                      script.onerror = reject;
+                      document.head.appendChild(script);
+                    });
+                    html2canvas = window.html2canvas;
+                  }
+                  
+                  if (!html2canvas) {
+                    throw new Error('无法加载html2canvas库');
+                  }
+                  
+                  // 等待页面完全加载
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  
+                  // 获取body元素
+                  const body = document.body;
+                  
+                  // 使用html2canvas截图
+                  const canvas = await html2canvas(body, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    width: body.scrollWidth,
+                    height: body.scrollHeight,
+                    windowWidth: body.scrollWidth,
+                    windowHeight: body.scrollHeight
+                  });
+                  
+                  // 转换为blob并下载
+                  canvas.toBlob((blob) => {
+                    if (!blob) {
+                      throw new Error('生成图片失败');
+                    }
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '付款申请表_' + new Date().toISOString().split('T')[0] + '.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    button.disabled = false;
+                    button.textContent = '📷 保存为图片';
+                    alert('图片已保存成功！');
+                  }, 'image/png');
+                } catch (error) {
+                  console.error('保存图片失败:', error);
+                  alert('保存图片失败: ' + (error instanceof Error ? error.message : '未知错误'));
+                  if (event.target) {
+                    event.target.disabled = false;
+                    event.target.textContent = '📷 保存为图片';
+                  }
+                }
+              }
+              
+              // 导出Excel功能
+              async function exportToExcel() {
+                try {
+                  const button = event.target;
+                  button.disabled = true;
+                  button.textContent = '导出中...';
+                  
+                  // 通过postMessage通知父窗口导出Excel
+                  if (window.opener) {
+                    window.opener.postMessage({ type: 'export-excel' }, '*');
+                    
+                    // 监听父窗口返回的下载链接
+                    const messageHandler = (event: MessageEvent) => {
+                      if (event.data.type === 'excel-download-url') {
+                        const a = document.createElement('a');
+                        a.href = event.data.url;
+                        a.download = event.data.filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        button.disabled = false;
+                        button.textContent = '📊 导出Excel';
+                        alert('Excel文件已开始下载！');
+                        window.removeEventListener('message', messageHandler);
+                      } else if (event.data.type === 'excel-error') {
+                        throw new Error(event.data.error);
+                      }
+                    };
+                    
+                    window.addEventListener('message', messageHandler);
+                    
+                    // 设置超时
+                    setTimeout(() => {
+                      window.removeEventListener('message', messageHandler);
+                      if (button.disabled) {
+                        button.disabled = false;
+                        button.textContent = '📊 导出Excel';
+                        alert('导出超时，请重试');
+                      }
+                    }, 30000);
+                  } else {
+                    throw new Error('无法访问父窗口');
+                  }
+                } catch (error) {
+                  console.error('导出Excel失败:', error);
+                  alert('导出Excel失败: ' + (error instanceof Error ? error.message : '未知错误'));
+                  if (event.target) {
+                    event.target.disabled = false;
+                    event.target.textContent = '📊 导出Excel';
+                  }
+                }
+              }
+            </script>
 
             ${sheetData.sheets.map((sheet: unknown, index: number) => 
               generatePartnerTable(sheet, index)
@@ -1236,8 +1373,44 @@ export default function PaymentAudit() {
         previewWindow.document.write(printHTML);
         previewWindow.document.close();
         
+        // 在父窗口中监听来自新窗口的导出Excel消息
+        const messageHandler = async (event: MessageEvent) => {
+          // 验证消息来源（可选，提高安全性）
+          if (event.data.type === 'export-excel' && event.source === previewWindow) {
+            try {
+              const { data: excelData, error } = await supabase.functions.invoke('export-excel', { 
+                body: { requestId: req.request_id } 
+              });
+              if (error) throw error;
+              const { signedUrl } = excelData;
+              if (!signedUrl) throw new Error('未返回有效下载链接');
+              
+              // 发送下载链接回新窗口
+              previewWindow.postMessage({ 
+                type: 'excel-download-url', 
+                url: signedUrl,
+                filename: `付款申请表_${req.request_id}.xlsx`
+              }, '*');
+            } catch (error) {
+              previewWindow.postMessage({ 
+                type: 'excel-error', 
+                error: error instanceof Error ? error.message : '未知错误'
+              }, '*');
+            }
+          }
+        };
+        
+        window.addEventListener('message', messageHandler);
+        
+        // 窗口关闭时移除监听器
+        previewWindow.addEventListener('beforeunload', () => {
+          window.removeEventListener('message', messageHandler);
+        });
+        
         // 处理窗口关闭事件
-        previewWindow.onbeforeunload = () => {};
+        previewWindow.onbeforeunload = () => {
+          window.removeEventListener('message', messageHandler);
+        };
       } else {
         throw new Error('无法打开预览窗口，请检查浏览器弹窗设置');
       }
