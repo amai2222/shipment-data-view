@@ -313,32 +313,44 @@ serve(async (req)=>{
       const bankName = sheet.paying_partner_bank_name || "";
       const branchName = sheet.paying_partner_branch_name || "";
       // 将UTC日期转换为中国时区日期字符串（用于导出）
+      // ✅ 修复：与前端formatChinaDateForExport保持一致，将UTC时间转换为中国时区（UTC+8）
       const formatChinaDateForExport = (dateValue: string | null | undefined): string => {
         if (!dateValue) return '';
         
         try {
-          // 如果已经是日期字符串格式（YYYY-MM-DD），假设是UTC日期，转换为中国时区
-          if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-            // UTC日期转换为中国时区：'2025-11-02' (UTC) -> '2025-11-03' (中国时区)
-            const date = new Date(dateValue + 'T00:00:00.000Z');
-            const chinaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-            const year = chinaDate.getUTCFullYear();
-            const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(chinaDate.getUTCDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+          let date: Date;
+          
+          // 解析日期字符串
+          if (typeof dateValue === 'string') {
+            if (dateValue.includes('T')) {
+              // ISO格式（包含T），解析为UTC时间
+              date = new Date(dateValue);
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+              // 纯日期字符串，假设是UTC日期，转换为UTC时间
+              date = new Date(dateValue + 'T00:00:00.000Z');
+            } else {
+              // 其他格式，尝试直接解析
+              date = new Date(dateValue);
+            }
+          } else {
+            return '';
           }
           
-          // 如果是ISO格式（包含T和Z），解析为UTC然后转换为中国时区
-          if (typeof dateValue === 'string' && dateValue.includes('T')) {
-            const date = new Date(dateValue);
-            const chinaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-            const year = chinaDate.getUTCFullYear();
-            const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
-            const day = String(chinaDate.getUTCDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          }
+          if (isNaN(date.getTime())) return '';
           
-          return dateValue;
+          // 将UTC时间转换为中国时区（加8小时）
+          const chinaTime = date.getTime() + 8 * 60 * 60 * 1000;
+          const chinaDate = new Date(chinaTime);
+          
+          // ✅ 使用UTC方法提取年月日
+          // 因为chinaDate的时间戳已经是UTC+8的，使用getUTCFullYear()等方法会正确提取中国时区的年月日
+          // 例如：UTC 2025-11-27 00:00:00 -> 加8小时 -> UTC 2025-11-27 08:00:00
+          // getUTCFullYear()会返回2025，getUTCMonth()会返回10（11月），getUTCDate()会返回27
+          const year = chinaDate.getUTCFullYear();
+          const month = String(chinaDate.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(chinaDate.getUTCDate()).padStart(2, '0');
+          
+          return `${year}-${month}-${day}`;
         } catch (error) {
           console.error('日期格式化错误:', error);
           return dateValue || '';

@@ -829,17 +829,24 @@ export default function FinanceReconciliation() {
         toast({ title: "提示", description: "没有可导出的数据" });
         return;
     }
-    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '运费金额', '额外费用', '司机应收'];
-    displayedPartners.forEach(p => headers.push(`${p.name}(应付)`));
+    const headers = ['运单编号', '项目名称', '司机姓名', '路线', '装货日期', '装货数量', '卸货数量', '运费金额', '额外费用', '司机应收'];
+    displayedPartners.forEach(p => headers.push(p.name));
     const dataToExport = (reportData.records || []).map((record) => {
       const row: Record<string, string | number> = {
-        '运单编号': record.auto_number, '项目名称': record.project_name, '司机姓名': record.driver_name,
-        '路线': `${record.loading_location} → ${record.unloading_location}`, '装货日期': record.loading_date,
-        '运费金额': record.current_cost || 0, '额外费用': record.extra_cost || 0, '司机应收': record.payable_cost || 0,
+        '运单编号': record.auto_number, 
+        '项目名称': record.project_name, 
+        '司机姓名': record.driver_name,
+        '路线': `${record.loading_location} → ${record.unloading_location}`, 
+        '装货日期': record.loading_date,
+        '装货数量': record.loading_weight || 0,
+        '卸货数量': record.unloading_weight || 0,
+        '运费金额': record.current_cost || 0, 
+        '额外费用': record.extra_cost || 0, 
+        '司机应收': record.payable_cost || 0,
       };
       displayedPartners.forEach(p => {
         const cost = (record.partner_costs || []).find((c) => c.partner_id === p.id);
-        row[`${p.name}(应付)`] = cost ? cost.payable_amount : 0;
+        row[p.name] = cost ? cost.payable_amount : 0;
       });
       return row;
     });

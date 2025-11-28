@@ -27,6 +27,7 @@ import { PaymentApproval } from '@/components/PaymentApproval';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
+import { formatChinaDateForExport } from '@/utils/dateUtils';
 // ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 import { convertUTCDateStringToChinaDateString } from '@/utils/dateRangeUtils';
 import { addDays } from 'date-fns';
@@ -1080,11 +1081,24 @@ export default function PaymentAudit() {
                       rec.loading_weight,
                       rec.unloading_weight
                     );
+                    // 格式化日期：与运单管理保持一致，将UTC时间转换为中国时区后再格式化
+                    // 使用 formatChinaDateForExport 函数，它会将UTC时间转换为UTC+8（中国时区）
+                    const formatDateForPDF = (dateString: string | null | undefined): string => {
+                      if (!dateString) return '';
+                      try {
+                        // 使用与运单管理相同的函数，将UTC时间转换为中国时区日期
+                        return formatChinaDateForExport(dateString, 'yyyy-MM-dd');
+                      } catch (error) {
+                        console.warn('日期格式化失败:', dateString, error);
+                        return dateString || '';
+                      }
+                    };
+                    
                     return `
                       <tr class="data-row">
                         <td class="serial-number">${index + 1}</td>
-                        <td>${rec.loading_date || ''}</td>
-                        <td>${finalUnloadingDate || ''}</td>
+                        <td>${formatDateForPDF(rec.loading_date)}</td>
+                        <td>${formatDateForPDF(finalUnloadingDate)}</td>
                         <td>${rec.loading_location || ''}</td>
                         <td>${rec.unloading_location || ''}</td>
                         <td>${rec.cargo_type || '普货'}</td>

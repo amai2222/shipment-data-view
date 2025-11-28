@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 // ✅ 修改：移除日期转换函数，直接传递中国时区日期字符串给后端
 import { convertUTCDateStringToChinaDateString } from '@/utils/dateRangeUtils';
+import { formatChinaDateForExport } from '@/utils/dateUtils';
 import { addDays } from 'date-fns';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
@@ -932,6 +933,17 @@ export default function PaymentRequestsList() {
                     if (!finalUnloadingDate) {
                       finalUnloadingDate = rec.loading_date;
                     }
+                    // 格式化日期：与运单管理保持一致，将UTC时间转换为中国时区后再格式化
+                    const formatDateForPDF = (dateString: string | null | undefined): string => {
+                      if (!dateString) return '';
+                      try {
+                        // 使用与运单管理相同的函数，将UTC时间转换为中国时区日期
+                        return formatChinaDateForExport(dateString, 'yyyy-MM-dd');
+                      } catch (error) {
+                        console.warn('日期格式化失败:', dateString, error);
+                        return dateString || '';
+                      }
+                    };
                     // 根据billing_type_id格式化数量显示
                     const quantityDisplay = formatQuantityByBillingType(
                       rec.billing_type_id,
@@ -941,8 +953,8 @@ export default function PaymentRequestsList() {
                     return `
                       <tr class="data-row">
                         <td class="serial-number">${index + 1}</td>
-                        <td>${rec.loading_date || ''}</td>
-                        <td>${finalUnloadingDate || ''}</td>
+                        <td>${formatDateForPDF(rec.loading_date)}</td>
+                        <td>${formatDateForPDF(finalUnloadingDate)}</td>
                         <td>${rec.loading_location || ''}</td>
                         <td>${rec.unloading_location || ''}</td>
                         <td>${rec.cargo_type || '普货'}</td>
