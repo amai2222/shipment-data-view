@@ -380,7 +380,7 @@ serve(async (req)=>{
     
     const FOLDER_PATH = 'generated/';
     // 使用 xls 格式以更好地保留样式（xls 格式在某些情况下能保留更多格式）
-    const useXlsFormat = false; // 设置为 true 使用 xls 格式，false 使用 xlsx 格式
+    const useXlsFormat = true; // ✅ 已启用 xls 格式以尝试保留更多样式
     const fileExtension = useXlsFormat ? 'xls' : 'xlsx';
     const fileName = `payment_request_${requestId}_${new Date().toISOString().split("T")[0]}.${fileExtension}`;
     const fullPath = FOLDER_PATH + fileName;
