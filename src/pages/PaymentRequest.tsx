@@ -43,6 +43,7 @@ import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeF
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
+import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 
 // 占位符图标组件
 const Loader2 = ({ className }: { className?: string }) => <span className={className}>⏳</span>;
@@ -2121,32 +2122,14 @@ export default function PaymentRequest() {
 
       {/* ===== 对话框区域 ===== */}
       {/* 对话框1: 运单详情对话框 */}
-      <Dialog open={!!viewingRecord} onOpenChange={(isOpen) => !isOpen && setViewingRecord(null)}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader><DialogTitle>运单详情 (编号: {viewingRecord?.auto_number})</DialogTitle></DialogHeader>
-          {viewingRecord && (
-            <div className="grid grid-cols-4 gap-x-4 gap-y-6 py-4 text-sm">
-              <div className="space-y-1"><Label className="text-muted-foreground">项目</Label><p>{viewingRecord.project_name}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">合作链路</Label><p>{viewingRecord.chain_name || '未指定'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货日期</Label><p>{formatDate(viewingRecord.loading_date)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">支付状态</Label><p>{getPaymentStatusBadge(viewingRecord.payment_status)}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机</Label><p>{viewingRecord.driver_name}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">车牌号</Label><p>{viewingRecord.license_plate || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">司机电话</Label><p>{viewingRecord.driver_phone || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运输类型</Label><p>{(viewingRecord as LogisticsRecordWithPartners & { transport_type?: string }).transport_type || '未填写'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货地点</Label><p>{viewingRecord.loading_location}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">装货重量</Label><p>{viewingRecord.loading_weight ? `${viewingRecord.loading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">卸货地点</Label><p>{viewingRecord.unloading_location}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">卸货重量</Label><p>{viewingRecord.unloading_weight ? `${viewingRecord.unloading_weight} 吨` : '-'}</p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">运费金额</Label><p><CurrencyDisplay value={viewingRecord.current_cost} /></p></div>
-              <div className="space-y-1"><Label className="text-muted-foreground">额外费用</Label><p><CurrencyDisplay value={viewingRecord.extra_cost} /></p></div>
-              <div className="space-y-1 col-span-2"><Label className="text-muted-foreground">司机应收</Label><p className="font-bold text-primary"><CurrencyDisplay value={viewingRecord.payable_cost} /></p></div>
-              <div className="col-span-4 space-y-1"><Label className="text-muted-foreground">备注</Label><p className="min-h-[40px]">{viewingRecord.remarks || '无'}</p></div>
-            </div>
-          )}
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setViewingRecord(null)}>关闭</Button></div>
-        </DialogContent>
-      </Dialog>
+      {/* ✅ 使用公共运单详情组件 */}
+      {viewingRecord && (
+        <WaybillDetailDialog 
+          isOpen={!!viewingRecord} 
+          onClose={() => setViewingRecord(null)} 
+          record={viewingRecord as unknown as import('@/types').LogisticsRecord} 
+        />
+      )}
 
       {/* 对话框2: 付款申请预览对话框 */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>

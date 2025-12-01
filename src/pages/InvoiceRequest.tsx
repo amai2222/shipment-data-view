@@ -24,6 +24,7 @@ import { InvoiceRequestFilterBar } from "@/pages/InvoiceRequest/components/Invoi
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { TableSkeleton, PageSummaryPagination, SummaryCard, generateSummaryTitle, type PageSummaryItem, type SummaryItem } from "@/components/common";
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
+import { WaybillDetailDialog } from '@/components/WaybillDetailDialog';
 
 // ✅ 合计卡片组件
 const InvoiceSummaryCard = ({ 
@@ -526,7 +527,8 @@ export default function InvoiceRequest() {
     }
 
     return sortedRecords.reduce((acc, record) => {
-      const billingTypeId = record.billing_type_id || 1;
+      // ✅ 修复：使用实际的 billing_type_id，不默认值为 1
+      const billingTypeId = record.billing_type_id ?? null;
       const loadingWeight = record.loading_weight || 0;
       const unloadingWeight = record.unloading_weight || 0;
       
@@ -541,24 +543,24 @@ export default function InvoiceRequest() {
         acc.totalInvoiceableAmount += (record as LogisticsRecordWithPartners).total_invoiceable_for_partner || 0;
       }
       
-      // 根据计费类型统计数量
-      switch (billingTypeId) {
-        case 1: // 计重
-          acc.totalWeightLoading += loadingWeight;
-          acc.totalWeightUnloading += unloadingWeight;
-          break;
-        case 2: // 计车
-          acc.totalTrips += 1;
-          break;
-        case 3: // 计体积
-          acc.totalVolumeLoading += loadingWeight;
-          acc.totalVolumeUnloading += unloadingWeight;
-          break;
-        case 4: // 计件
-          acc.totalPiecesLoading += loadingWeight;
-          acc.totalPiecesUnloading += unloadingWeight;
-          break;
+      // ✅ 根据计费类型统计数量（严格按 billing_type_id 区分）
+      if (billingTypeId === 1) {
+        // 计重
+        acc.totalWeightLoading += loadingWeight;
+        acc.totalWeightUnloading += unloadingWeight;
+      } else if (billingTypeId === 2) {
+        // 计车
+        acc.totalTrips += 1;
+      } else if (billingTypeId === 3) {
+        // 计体积
+        acc.totalVolumeLoading += loadingWeight;
+        acc.totalVolumeUnloading += unloadingWeight;
+      } else if (billingTypeId === 4) {
+        // 计件
+        acc.totalPiecesLoading += loadingWeight;
+        acc.totalPiecesUnloading += unloadingWeight;
       }
+      // 如果 billing_type_id 为 null 或其他值，不累加到任何合计中
       
       acc.totalCount += 1;
       return acc;
@@ -1441,83 +1443,14 @@ export default function InvoiceRequest() {
       </Dialog>
 
       {/* 详情对话框 */}
-      <Dialog open={!!viewingRecord} onOpenChange={() => setViewingRecord(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>运单详情</DialogTitle>
-          </DialogHeader>
-          
-          {viewingRecord && (
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">运单号</Label>
-                <p className="font-mono">{viewingRecord.auto_number}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">项目</Label>
-                <p>{viewingRecord.project_name}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">司机</Label>
-                <p>{viewingRecord.driver_name}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">装货地点</Label>
-                <p>{viewingRecord.loading_location}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">卸货地点</Label>
-                <p>{viewingRecord.unloading_location}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">装货日期</Label>
-                <p>{formatChineseDate(viewingRecord.loading_date)}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">开票状态</Label>
-                <p>{getInvoiceStatusBadge(viewingRecord.invoice_status)}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground">应收金额（司机）</Label>
-                <p className="font-bold text-primary"><CurrencyDisplay 
-                  value={
-                    viewingRecord.payable_cost || 
-                    (Array.isArray(viewingRecord.partner_costs) && viewingRecord.partner_costs.find((c: PartnerCost) => c.level === 0)?.payable_amount) ||
-                    viewingRecord.current_cost ||
-                    null
-                  }
-                  className="text-primary"
-                /></p>
-              </div>
-              
-              {viewingRecord.loading_weight && (
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground">装货重量</Label>
-                  <p>{viewingRecord.loading_weight} 吨</p>
-                </div>
-              )}
-              {viewingRecord.unloading_weight && (
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground">卸货重量</Label>
-                  <p>{viewingRecord.unloading_weight} 吨</p>
-                </div>
-              )}
-              {viewingRecord.current_cost && (
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground">运费金额</Label>
-                  <p><CurrencyDisplay value={viewingRecord.current_cost} /></p>
-                </div>
-              )}
-              {viewingRecord.extra_cost && (
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground">额外费用</Label>
-                  <p><CurrencyDisplay value={viewingRecord.extra_cost} /></p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ✅ 使用公共运单详情组件 */}
+      {viewingRecord && (
+        <WaybillDetailDialog 
+          isOpen={!!viewingRecord} 
+          onClose={() => setViewingRecord(null)} 
+          record={viewingRecord as unknown as import('@/types').LogisticsRecord} 
+        />
+      )}
       </div>
     </div>
   );
