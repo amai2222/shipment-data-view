@@ -1291,8 +1291,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   step="0.01" 
                   value={formData.loading_weight} 
                   onChange={(e) => setFormData(prev => ({ ...prev, loading_weight: e.target.value }))} 
+                  onKeyDown={(e) => {
+                    // 禁用上下箭头键调整数值
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    // 禁用鼠标滚轮调整数值
+                    if (e.currentTarget === document.activeElement) {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder={`输入装货${quantityLabel}`} 
-                  className="mt-1"
+                  className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div>
@@ -1302,8 +1314,20 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   step="0.01" 
                   value={formData.unloading_weight} 
                   onChange={(e) => setFormData(prev => ({ ...prev, unloading_weight: e.target.value }))} 
+                  onKeyDown={(e) => {
+                    // 禁用上下箭头键调整数值
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    // 禁用鼠标滚轮调整数值
+                    if (e.currentTarget === document.activeElement) {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder={`输入卸货${quantityLabel}`} 
-                  className="mt-1"
+                  className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>
@@ -1628,9 +1652,19 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                       step="0.01" 
                       min="0" 
                       placeholder="含税价格"
-                      className="mt-1 text-sm"
+                      className="mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={taxIncludedPrice}
                       onChange={(e) => setTaxIncludedPrice(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onWheel={(e) => {
+                        if (e.currentTarget === document.activeElement) {
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                   <div>
@@ -1641,9 +1675,19 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                       min="0" 
                       max="100"
                       placeholder="如：3"
-                      className="mt-1 text-sm"
+                      className="mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={taxRate}
                       onChange={(e) => setTaxRate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onWheel={(e) => {
+                        if (e.currentTarget === document.activeElement) {
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -1663,8 +1707,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   min="0" 
                   value={formData.unitPrice} 
                   onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: e.target.value }))} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    if (e.currentTarget === document.activeElement) {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder="单价（自动从含税单价计算）" 
-                  className="mt-1"
+                  className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             )}
@@ -1702,8 +1756,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   min="0" 
                   value={formData.currentCost} 
                   onChange={(e) => setFormData(prev => ({ ...prev, currentCost: e.target.value }))} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    if (e.currentTarget === document.activeElement) {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder={costCalculationMode === 'auto' ? "自动计算" : "输入运费"} 
-                  className="mt-1"
+                  className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   disabled={costCalculationMode === 'auto'}
                   style={costCalculationMode === 'auto' ? { backgroundColor: '#f3f4f6', fontWeight: '600' } : {}}
                 />
@@ -1720,8 +1784,18 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                   step="0.01" 
                   value={formData.extraCost} 
                   onChange={(e) => setFormData(prev => ({ ...prev, extraCost: e.target.value }))} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => {
+                    if (e.currentTarget === document.activeElement) {
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder="输入额外费用，支持负数" 
-                  className="mt-1"
+                  className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
             </div>
