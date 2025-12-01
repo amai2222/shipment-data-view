@@ -104,7 +104,7 @@ export function useLogisticsData() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced_1120', {
+      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced_1201', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
