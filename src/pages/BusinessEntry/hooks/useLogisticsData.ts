@@ -209,24 +209,17 @@ export function useLogisticsData() {
     setDeletingIds(prev => new Set(prev).add(id));
 
     try {
-      // ✅ 修复：在删除运单前，先删除关联的 dispatch_orders 记录
-      const { error: dispatchError } = await supabase
-        .from('dispatch_orders')
-        .delete()
-        .eq('logistics_record_id', id);
-      
-      if (dispatchError) {
-        // 如果是 409 冲突，可能是记录已被删除，继续执行
-        if (dispatchError.code === '409' || dispatchError.message?.includes('409')) {
-          console.warn('派单记录可能已被删除:', dispatchError);
-        } else {
-          console.warn('删除关联派单记录失败:', dispatchError);
-        }
-        // 不阻止删除，继续执行
-      }
-      
-      // 删除运单记录
-      const { error } = await supabase.from('logistics_records').delete().eq('id', id);
+      // ✅ 使用数据库函数安全删除运单（确保所有关联数据都被正确处理）
+      const { data, error } = await supabase.rpc<{
+        success: boolean;
+        message?: string;
+        error?: string;
+        auto_number?: string;
+        deleted_dispatch_count?: number;
+        deleted_cost_count?: number;
+      }>('delete_single_logistics_record', {
+        p_record_id: id
+      });
       
       if (error) {
         // ✅ 特殊处理 409 冲突错误
@@ -243,7 +236,23 @@ export function useLogisticsData() {
         throw error;
       }
       
-      toast({ title: "成功", description: "运单记录及关联派单已删除" });
+      // 检查函数返回结果
+      if (data && !data.success) {
+        throw new Error(data.error || '删除失败');
+      }
+      
+      // 构建成功消息
+      const dispatchCount = data?.deleted_dispatch_count || 0;
+      const costCount = data?.deleted_cost_count || 0;
+      let description = "运单记录已删除";
+      if (dispatchCount > 0 || costCount > 0) {
+        const parts: string[] = [];
+        if (dispatchCount > 0) parts.push(`${dispatchCount}条派单`);
+        if (costCount > 0) parts.push(`${costCount}条成本记录`);
+        description += `（同时删除了${parts.join('和')}）`;
+      }
+      
+      toast({ title: "成功", description });
       // 重新加载当前页数据
       await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
     } catch (error: unknown) {
