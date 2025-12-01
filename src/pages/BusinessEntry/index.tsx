@@ -281,6 +281,13 @@ export default function BusinessEntry() {
         return;
       }
 
+      // ✅ 按运单编号降序排序
+      allRecords.sort((a, b) => {
+        const numA = a.auto_number || '';
+        const numB = b.auto_number || '';
+        return numB.localeCompare(numA, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
       exportRecordsToExcel(allRecords, '勾选数据');
     } catch(e: unknown) {
       const errorMessage = e instanceof Error ? e.message : '导出失败';
@@ -301,8 +308,15 @@ export default function BusinessEntry() {
 
   // 统一的导出Excel函数
   const exportRecordsToExcel = (records: LogisticsRecord[], exportType: '筛选结果' | '勾选数据') => {
+    // ✅ 确保按运单编号降序排序
+    const sortedRecords = [...records].sort((a, b) => {
+      const numA = a.auto_number || '';
+      const numB = b.auto_number || '';
+      return numB.localeCompare(numA, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    
     // 格式化导出数据（日期从UTC转换为中国时区）
-    const dataToExport = records.map((r: LogisticsRecord) => ({
+    const dataToExport = sortedRecords.map((r: LogisticsRecord) => ({
       '运单编号': r.auto_number || '',
       '项目名称': r.project_name || '',
       '合作链路': r.chain_name || '默认',
