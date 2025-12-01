@@ -617,6 +617,18 @@ export default function FinanceReconciliation() {
     }
   };
 
+  // 选择全部筛选记录
+  const handleSelectAllFiltered = useCallback(() => {
+    if (reportData?.count && reportData.count > 0) {
+      setSelection({ mode: 'all_filtered', selectedIds: new Set() });
+    }
+  }, [reportData?.count]);
+
+  // 清除选择
+  const handleClearSelection = useCallback(() => {
+    setSelection({ mode: 'none', selectedIds: new Set() });
+  }, []);
+
   // 对账操作函数（新增）
   const handleReconcile = async () => {
     if (reconciliationDialog.costIds.length === 0) {
@@ -1254,15 +1266,15 @@ export default function FinanceReconciliation() {
         </CardContent>
       </Card>
 
-      {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count > (reportData?.records?.length || 0) && (
+      {selection.selectedIds.size > 0 && selection.mode !== 'all_filtered' && isAllOnPageSelected && reportData?.count && reportData.count > (reportData?.records?.length || 0) && (
         <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
           <span>已选择当前页的所有 <b>{reportData?.records?.length}</b> 条记录。</span>
-          <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'all_filtered', selectedIds: new Set() })}>选择全部 <b>{reportData?.count}</b> 条匹配的记录</Button>
+          <Button variant="link" className="p-0 h-auto" onClick={handleSelectAllFiltered}>选择全部 <b>{reportData?.count}</b> 条匹配的记录</Button>
         </div>
       )}
       {selection.mode === 'all_filtered' && (
         <div className="flex items-center justify-center gap-4 p-2 text-sm font-medium text-center bg-secondary text-secondary-foreground rounded-md">
-          <span>已选择全部 <b>{reportData?.count}</b> 条匹配的记录。</span>
+          <span>已选择全部 <b>{reportData?.count || 0}</b> 条匹配的记录。</span>
           <Button variant="link" className="p-0 h-auto" onClick={() => setSelection({ mode: 'none', selectedIds: new Set() })}>清除选择</Button>
         </div>
       )}
@@ -1540,6 +1552,9 @@ export default function FinanceReconciliation() {
                           allSummary={allSummary}
                           isAllOnPageSelected={isAllOnPageSelected}
                           onSelectAllOnPage={handleSelectAllOnPage}
+                          totalCount={reportData.count}
+                          onSelectAllFiltered={handleSelectAllFiltered}
+                          onClearSelection={handleClearSelection}
                         />
                       );
                     } catch (error) {

@@ -25,7 +25,7 @@ export function useAllFilteredRecords() {
     setLoading(true);
     try {
       // ✅ 修改：使用新的后端函数，直接传递中国时区日期字符串
-      const { data, error } = await (supabase.rpc as any)('get_all_filtered_record_ids_1120', {
+      const { data, error } = await supabase.rpc<AllFilteredRecordsResult>('get_all_filtered_record_ids_1201', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
@@ -42,12 +42,13 @@ export function useAllFilteredRecords() {
 
       if (error) throw error;
 
-      return data as AllFilteredRecordsResult;
-    } catch (error: any) {
+      return data;
+    } catch (error: unknown) {
       console.error('获取所有筛选记录失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({
         title: "错误",
-        description: `获取所有筛选记录失败: ${error.message || error}`,
+        description: `获取所有筛选记录失败: ${errorMessage}`,
         variant: "destructive"
       });
       return null;

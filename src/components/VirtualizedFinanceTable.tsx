@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { cn } from "@/lib/utils";
 
 interface Partner {
   id: string;
@@ -85,6 +86,10 @@ interface VirtualizedFinanceTableProps {
   // ✅ 新增：全选相关
   isAllOnPageSelected?: boolean;
   onSelectAllOnPage?: (isChecked: boolean) => void;
+  // ✅ 新增：选择全部筛选记录
+  totalCount?: number; // 全部筛选记录总数
+  onSelectAllFiltered?: () => void; // 选择全部筛选记录的回调
+  onClearSelection?: () => void; // 清除选择的回调
 }
 
 // 获取对账状态徽章
@@ -334,7 +339,10 @@ export function VirtualizedFinanceTable({
   pageSummary,
   allSummary,
   isAllOnPageSelected = false,
-  onSelectAllOnPage
+  onSelectAllOnPage,
+  totalCount,
+  onSelectAllFiltered,
+  onClearSelection
 }: VirtualizedFinanceTableProps) {
   const listRef = useRef<List>(null);
 
@@ -389,16 +397,53 @@ export function VirtualizedFinanceTable({
         role="rowgroup"
       >
         <div className="flex" style={{ minWidth: `${tableWidth}px` }} role="row">
-          <div className="flex-shrink-0 w-12 px-2 py-3 flex items-center justify-center" role="columnheader">
+          <div className="flex-shrink-0 w-16 px-2 py-3 flex flex-col items-center justify-center gap-1" role="columnheader">
             {onSelectAllOnPage ? (
-              <Checkbox 
-                checked={selectionMode === 'all_filtered' || isAllOnPageSelected}
-                onCheckedChange={(checked) => {
-                  if (onSelectAllOnPage) {
-                    onSelectAllOnPage(checked === true);
-                  }
-                }}
-              />
+              <>
+                <Checkbox 
+                  checked={selectionMode === 'all_filtered' || isAllOnPageSelected}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      // 如果点击选中，且当前页已全部选中，且有更多记录，则选择全部筛选记录
+                      if (selectionMode !== 'all_filtered' && isAllOnPageSelected && totalCount && totalCount > data.length && onSelectAllFiltered) {
+                        onSelectAllFiltered();
+                      } else if (onSelectAllOnPage) {
+                        // 否则选择当前页
+                        onSelectAllOnPage(true);
+                      }
+                    } else {
+                      // 如果取消选中，清除选择（包括全选模式）
+                      if (selectionMode === 'all_filtered') {
+                        // 如果当前是全选模式，需要清除全选
+                        if (onClearSelection) {
+                          onClearSelection();
+                        }
+                      } else if (onSelectAllOnPage) {
+                        onSelectAllOnPage(false);
+                      }
+                    }
+                  }}
+                />
+                {totalCount && totalCount > data.length && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectAllFiltered) {
+                        onSelectAllFiltered();
+                      }
+                    }}
+                    className={cn(
+                      "text-xs hover:underline cursor-pointer transition-colors",
+                      selectionMode === 'all_filtered' 
+                        ? "text-primary font-semibold" 
+                        : "text-muted-foreground hover:text-primary"
+                    )}
+                    title={`选择全部 ${totalCount} 条记录`}
+                  >
+                    {selectionMode === 'all_filtered' ? '已全选' : '全选'}
+                  </button>
+                )}
+              </>
             ) : (
               <span>选择</span>
             )}
