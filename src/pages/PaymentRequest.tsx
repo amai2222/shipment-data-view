@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { BatchInputDialog } from "@/pages/BusinessEntry/components/BatchInputDialog";
 import { PageHeader } from "@/components/PageHeader";
-import { PaginationControl } from "@/components/common";
+import { PaginationControl, PageSummaryPagination, SummaryCard, generateSummaryTitle, type PageSummaryItem, type SummaryItem } from "@/components/common";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ShipperProjectCascadeFilter } from "@/components/ShipperProjectCascadeFilter";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
@@ -202,6 +202,7 @@ export default function PaymentRequest() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false); // 控制高级筛选展开/收起
   const [selectedShipperId, setSelectedShipperId] = useState('all');
   const [selectedProjectId, setSelectedProjectId] = useState('all');
@@ -313,7 +314,9 @@ export default function PaymentRequest() {
       });
       if (error) throw error;
       setReportData(data as PaymentRequestResponse);
-      setTotalPages(Math.ceil(((data as PaymentRequestResponse)?.count || 0) / pageSize) || 1);
+      const count = (data as PaymentRequestResponse)?.count || 0;
+      setTotalCount(count);
+      setTotalPages(Math.ceil(count / pageSize) || 1);
     } catch (error) {
       console.error("加载财务对账数据失败:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -393,6 +396,62 @@ export default function PaymentRequest() {
     
     return records;
   }, [reportData?.records, sortField, sortDirection]);
+
+  // ✅ 计算合计数据（用于合计卡片）
+  const summaryData = useMemo(() => {
+    if (!reportData?.overview) {
+      return {
+        totalCount: 0,
+        totalFreight: 0,
+        totalExtraCost: 0,
+        totalDriverReceivable: 0,
+        totalPartnerPayable: 0
+      };
+    }
+
+    // 计算所有合作方应收合计
+    const totalPartnerPayable = reportData.partner_summary?.reduce((sum, p) => sum + (p.total_payable || 0), 0) || 0;
+
+    return {
+      totalCount: reportData.overview.total_records || 0,
+      totalFreight: reportData.overview.total_freight || 0,
+      totalExtraCost: reportData.overview.total_extra_cost || 0,
+      totalDriverReceivable: reportData.overview.total_driver_receivable || 0,
+      totalPartnerPayable: totalPartnerPayable
+    };
+  }, [reportData]);
+
+  // ✅ 计算本页合计数据（用于分页组件）
+  const pageSummary = useMemo(() => {
+    if (!sortedRecords || sortedRecords.length === 0) {
+      return {
+        totalFreight: 0,
+        totalExtraCost: 0,
+        totalDriverReceivable: 0,
+        totalPartnerPayable: 0
+      };
+    }
+
+    return sortedRecords.reduce((acc, record) => {
+      // 运费合计
+      acc.totalFreight += record.current_cost || 0;
+      // 额外费用合计
+      acc.totalExtraCost += record.extra_cost || 0;
+      // 司机应收合计
+      acc.totalDriverReceivable += record.payable_cost || 0;
+      // 合作方应收合计（从 partner_costs 中计算）
+      if (record.partner_costs && Array.isArray(record.partner_costs)) {
+        const partnerPayable = record.partner_costs.reduce((sum, cost) => sum + (cost.payable_amount || 0), 0);
+        acc.totalPartnerPayable += partnerPayable;
+      }
+      return acc;
+    }, {
+      totalFreight: 0,
+      totalExtraCost: 0,
+      totalDriverReceivable: 0,
+      totalPartnerPayable: 0
+    });
+  }, [sortedRecords]);
   
   // 检查运单是否可编辑（需要同时满足：未支付 且 未开票）
   const isRecordEditable = (record: LogisticsRecordWithPartners): boolean => {
@@ -1858,6 +1917,40 @@ export default function PaymentRequest() {
         </div>
       )}
 
+      {/* ===== 合计卡片 ===== */}
+      {!isStale && reportData && summaryData.totalCount > 0 && (
+        <SummaryCard
+          title={generateSummaryTitle(activeFilters as unknown as Record<string, unknown>, projects)}
+          items={[
+            { 
+              label: '', 
+              value: `${summaryData.totalCount}条运单`,
+              formatter: (val) => <span>{val}</span>
+            },
+            { 
+              label: '运费', 
+              value: summaryData.totalFreight,
+              className: 'text-primary'
+            },
+            { 
+              label: '额外费用', 
+              value: summaryData.totalExtraCost,
+              className: 'text-orange-600'
+            },
+            { 
+              label: '司机应收', 
+              value: summaryData.totalDriverReceivable,
+              className: 'text-green-600'
+            },
+            { 
+              label: '合作方应收', 
+              value: summaryData.totalPartnerPayable,
+              className: 'text-blue-600'
+            }
+          ]}
+        />
+      )}
+
       {/* ===== 主数据表格区域 ===== */}
       {isStale ? ( <StaleDataPrompt /> ) : (
         <>
@@ -2004,16 +2097,25 @@ export default function PaymentRequest() {
       
       {/* ===== 分页组件 ===== */}
       {!isStale && (
-        <PaginationControl
-          currentPage={currentPage}
-          pageSize={pageSize}
-          totalPages={totalPages}
-          totalCount={reportData?.count}
-          onPageChange={(page) => setCurrentPage(page)}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setCurrentPage(1);
+        <PageSummaryPagination
+          pagination={{
+            currentPage,
+            totalPages,
+            pageSize,
+            totalCount
           }}
+          onPaginationChange={(newPagination) => {
+            setCurrentPage(newPagination.currentPage);
+            setPageSize(newPagination.pageSize);
+            setTotalPages(newPagination.totalPages);
+            setTotalCount(newPagination.totalCount);
+          }}
+          pageSummaryItems={[
+            { label: '运费', value: pageSummary.totalFreight },
+            { label: '额外', value: pageSummary.totalExtraCost },
+            { label: '司机应收', value: pageSummary.totalDriverReceivable },
+            { label: '合作方应收', value: pageSummary.totalPartnerPayable }
+          ]}
         />
       )}
 

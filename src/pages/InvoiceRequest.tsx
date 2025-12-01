@@ -22,8 +22,90 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
 import { InvoiceRequestFilterBar } from "@/pages/InvoiceRequest/components/InvoiceRequestFilterBar";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
-import { TableSkeleton } from "@/components/common";
+import { TableSkeleton, PageSummaryPagination, SummaryCard, generateSummaryTitle, type PageSummaryItem, type SummaryItem } from "@/components/common";
 import { useUnifiedPermissions } from '@/hooks/useUnifiedPermissions';
+
+// ✅ 合计卡片组件
+const InvoiceSummaryCard = ({ 
+  summaryData, 
+  activeFilters,
+  projects = []
+}: { 
+  summaryData: {
+    totalCount: number;
+    totalDriverReceivable: number;
+    totalInvoiceableAmount: number;
+    totalWeightLoading: number;
+    totalWeightUnloading: number;
+    totalTrips: number;
+    totalVolumeLoading: number;
+    totalVolumeUnloading: number;
+    totalPiecesLoading: number;
+    totalPiecesUnloading: number;
+  };
+  activeFilters: InvoiceFilters;
+  projects?: Array<{id: string, name: string}>;
+}) => {
+  // ✅ 使用公共合计卡片组件
+  const summaryTitle = generateSummaryTitle(activeFilters as unknown as Record<string, unknown>, projects);
+  
+  const summaryItems: SummaryItem[] = useMemo(() => {
+    const items: SummaryItem[] = [
+      { 
+        label: '', 
+        value: `${summaryData.totalCount}条运单`,
+        formatter: (val) => <span>{val}</span>
+      },
+      { 
+        label: '司机应收', 
+        value: summaryData.totalDriverReceivable,
+        className: 'text-green-600'
+      },
+      { 
+        label: '开票金额', 
+        value: summaryData.totalInvoiceableAmount,
+        className: 'text-primary'
+      }
+    ];
+
+    if (summaryData.totalWeightLoading > 0) {
+      items.push({
+        label: '计重合计',
+        value: `装 ${summaryData.totalWeightLoading.toFixed(2)}吨 / 卸 ${summaryData.totalWeightUnloading.toFixed(2)}吨`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+    if (summaryData.totalTrips > 0) {
+      items.push({
+        label: '计车合计',
+        value: `${summaryData.totalTrips.toFixed(0)}车`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+    if (summaryData.totalVolumeLoading > 0) {
+      items.push({
+        label: '计体积合计',
+        value: `装 ${summaryData.totalVolumeLoading.toFixed(2)}立方 / 卸 ${summaryData.totalVolumeUnloading.toFixed(2)}立方`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+    if (summaryData.totalPiecesLoading > 0) {
+      items.push({
+        label: '计件合计',
+        value: `装 ${summaryData.totalPiecesLoading.toFixed(0)}件 / 卸 ${summaryData.totalPiecesUnloading.toFixed(0)}件`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+
+    return items;
+  }, [summaryData]);
+
+  return <SummaryCard title={summaryTitle} items={summaryItems} />;
+};
 
 // --- 类型定义 (与付款申请完全一致) ---
 interface PartnerCost { 
@@ -111,7 +193,9 @@ interface ProjectPartnerData {
 
 interface PaginationState { 
   currentPage: number; 
-  totalPages: number; 
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
 }
 
 interface SelectionState { 
@@ -208,7 +292,12 @@ export default function InvoiceRequest() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showAllLevels, setShowAllLevels] = useState(false); // 控制是否显示所有层级的合作方
   const { uiFilters, setUiFilters, activeFilters, handleSearch, handleClear, isStale } = useFilterState(INITIAL_INVOICE_FILTERS);
-  const [pagination, setPagination] = useState<PaginationState>({ currentPage: 1, totalPages: 1 });
+  const [pagination, setPagination] = useState<PaginationState>({ 
+    currentPage: 1, 
+    totalPages: 1,
+    pageSize: PAGE_SIZE,
+    totalCount: 0
+  });
   const [selection, setSelection] = useState<SelectionState>({ mode: 'none', selectedIds: new Set() });
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [invoicePreviewData, setInvoicePreviewData] = useState<InvoicePreviewData | null>(null);
@@ -272,7 +361,7 @@ export default function InvoiceRequest() {
         p_end_date: toNullIfEmpty(activeFilters.endDate),
         p_partner_id: toNullIfEmpty(activeFilters.partnerId),
         p_invoice_status_array: statusArray,
-        p_page_size: PAGE_SIZE,
+        p_page_size: pagination.pageSize,
         p_page_number: pagination.currentPage,
         // 新增高级筛选参数
         p_waybill_numbers: toNullIfEmpty(activeFilters.waybillNumbers),
@@ -283,9 +372,11 @@ export default function InvoiceRequest() {
       });
       if (error) throw error;
       setReportData(data);
+      const totalCount = (data as InvoiceRequestResponse)?.count || 0;
       setPagination(prev => ({ 
         ...prev, 
-        totalPages: Math.ceil(((data as InvoiceRequestResponse)?.count || 0) / PAGE_SIZE) || 1 
+        totalPages: Math.ceil(totalCount / prev.pageSize) || 1,
+        totalCount: totalCount
       }));
     } catch (error) {
       console.error("加载开票申请数据失败:", error);
@@ -298,7 +389,7 @@ export default function InvoiceRequest() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilters, pagination.currentPage, toast]);
+  }, [activeFilters, pagination.currentPage, pagination.pageSize, toast]);
 
   // --- 效果钩子 ---
   useEffect(() => {
@@ -388,6 +479,102 @@ export default function InvoiceRequest() {
     
     return records;
   }, [reportData?.records, sortField, sortDirection]);
+
+  // ✅ 计算本页合计数据（用于分页底部显示）
+  const pageSummary = useMemo(() => {
+    if (!sortedRecords || sortedRecords.length === 0) {
+      return {
+        totalDriverReceivable: 0,
+        totalInvoiceableAmount: 0,
+      };
+    }
+
+    return sortedRecords.reduce((acc, record) => {
+      // 司机应收合计
+      acc.totalDriverReceivable += record.payable_cost || 0;
+      
+      // 开票金额合计（从 partner_costs 中计算）
+      if (record.partner_costs && Array.isArray(record.partner_costs)) {
+        const invoiceableAmount = record.partner_costs.reduce((sum, cost) => sum + (cost.payable_amount || 0), 0);
+        acc.totalInvoiceableAmount += invoiceableAmount;
+      } else if ((record as LogisticsRecordWithPartners).total_invoiceable_for_partner) {
+        acc.totalInvoiceableAmount += (record as LogisticsRecordWithPartners).total_invoiceable_for_partner || 0;
+      }
+      
+      return acc;
+    }, {
+      totalDriverReceivable: 0,
+      totalInvoiceableAmount: 0,
+    });
+  }, [sortedRecords]);
+
+  // ✅ 计算合计数据
+  const summaryData = useMemo(() => {
+    if (!sortedRecords || sortedRecords.length === 0) {
+      return {
+        totalCount: 0,
+        totalDriverReceivable: 0,
+        totalInvoiceableAmount: 0,
+        totalWeightLoading: 0,
+        totalWeightUnloading: 0,
+        totalTrips: 0,
+        totalVolumeLoading: 0,
+        totalVolumeUnloading: 0,
+        totalPiecesLoading: 0,
+        totalPiecesUnloading: 0,
+      };
+    }
+
+    return sortedRecords.reduce((acc, record) => {
+      const billingTypeId = record.billing_type_id || 1;
+      const loadingWeight = record.loading_weight || 0;
+      const unloadingWeight = record.unloading_weight || 0;
+      
+      // 司机应收合计
+      acc.totalDriverReceivable += record.payable_cost || 0;
+      
+      // 开票金额合计（从 partner_costs 中计算）
+      if (record.partner_costs && Array.isArray(record.partner_costs)) {
+        const invoiceableAmount = record.partner_costs.reduce((sum, cost) => sum + (cost.payable_amount || 0), 0);
+        acc.totalInvoiceableAmount += invoiceableAmount;
+      } else if ((record as LogisticsRecordWithPartners).total_invoiceable_for_partner) {
+        acc.totalInvoiceableAmount += (record as LogisticsRecordWithPartners).total_invoiceable_for_partner || 0;
+      }
+      
+      // 根据计费类型统计数量
+      switch (billingTypeId) {
+        case 1: // 计重
+          acc.totalWeightLoading += loadingWeight;
+          acc.totalWeightUnloading += unloadingWeight;
+          break;
+        case 2: // 计车
+          acc.totalTrips += 1;
+          break;
+        case 3: // 计体积
+          acc.totalVolumeLoading += loadingWeight;
+          acc.totalVolumeUnloading += unloadingWeight;
+          break;
+        case 4: // 计件
+          acc.totalPiecesLoading += loadingWeight;
+          acc.totalPiecesUnloading += unloadingWeight;
+          break;
+      }
+      
+      acc.totalCount += 1;
+      return acc;
+    }, {
+      totalCount: 0,
+      totalDriverReceivable: 0,
+      totalInvoiceableAmount: 0,
+      totalWeightLoading: 0,
+      totalWeightUnloading: 0,
+      totalTrips: 0,
+      totalVolumeLoading: 0,
+      totalVolumeUnloading: 0,
+      totalPiecesLoading: 0,
+      totalPiecesUnloading: 0,
+    });
+  }, [sortedRecords]);
 
   // 统一的数量显示函数，根据 billing_type_id 动态返回带单位的字符串（参考运单管理）
   const formatQuantity = (record: LogisticsRecord): string => {
@@ -977,6 +1164,17 @@ export default function InvoiceRequest() {
                 <TableSkeleton rowCount={10} colCount={12} showCheckbox={true} />
               ) : (
                 <>
+                  {/* ✅ 合计卡片 */}
+                  {!loading && sortedRecords && sortedRecords.length > 0 && (
+                    <div className="mb-4">
+                      <InvoiceSummaryCard 
+                        summaryData={summaryData}
+                        activeFilters={activeFilters}
+                        projects={projects}
+                      />
+                    </div>
+                  )}
+                  
                   <div className="overflow-x-auto -mx-4 px-4">
                     <Table className="min-w-full">
                       <TableHeader>
@@ -1129,40 +1327,18 @@ export default function InvoiceRequest() {
                     </Table>
                   </div>
 
-                  {/* 分页 */}
-                  <div className="mt-4">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious 
-                            onClick={() => setPagination(prev => ({ ...prev, currentPage: Math.max(1, prev.currentPage - 1) }))}
-                            className={cn(pagination.currentPage <= 1 && "pointer-events-none opacity-50")}
-                          />
-                        </PaginationItem>
-                        
-                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                          const pageNum = i + 1;
-                          return (
-                            <PaginationItem key={pageNum}>
-                              <PaginationLink
-                                onClick={() => setPagination(prev => ({ ...prev, currentPage: pageNum }))}
-                                isActive={pagination.currentPage === pageNum}
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        })}
-                        
-                        <PaginationItem>
-                          <PaginationNext 
-                            onClick={() => setPagination(prev => ({ ...prev, currentPage: Math.min(prev.totalPages, prev.currentPage + 1) }))}
-                            className={cn(pagination.currentPage >= pagination.totalPages && "pointer-events-none opacity-50")}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
+                  {/* ✅ 使用公共分页组件 */}
+                  <PageSummaryPagination
+                    pagination={pagination}
+                    onPaginationChange={(newPagination) => {
+                      setPagination(newPagination);
+                      // useEffect 会自动触发数据重新加载
+                    }}
+                    pageSummaryItems={[
+                      { label: '司机应收', value: pageSummary.totalDriverReceivable },
+                      { label: '开票金额', value: pageSummary.totalInvoiceableAmount }
+                    ]}
+                  />
                 </>
               )}
             </CardContent>

@@ -19,4 +19,8 @@ export type { ActionButtonConfig } from './ActionButton';
 export { EmptyState } from './EmptyState';
 export { LoadingState, TableLoadingState, CardLoadingState } from './LoadingState';
 export { TableSkeleton } from './TableSkeleton';
+export { PageSummaryPagination } from './PageSummaryPagination';
+export type { PageSummaryItem, PaginationState as PageSummaryPaginationState } from './PageSummaryPagination';
+export { SummaryCard, generateSummaryTitle } from './SummaryCard';
+export type { SummaryItem } from './SummaryCard';
 

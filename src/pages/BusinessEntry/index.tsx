@@ -29,6 +29,7 @@ import { ConfirmDialog, DirectConfirmDialog } from '@/components/ConfirmDialog';
 import { LogisticsTable } from './components/LogisticsTable';
 import { PageHeader } from "@/components/PageHeader";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
+import { SummaryCard, generateSummaryTitle, type SummaryItem } from "@/components/common";
 
 const formatCurrency = (value: number | null | undefined): string => {
   if (value == null || isNaN(value)) return '¥0.00';
@@ -38,41 +39,71 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value);
 };
 
+// ✅ 使用公共合计卡片组件
 const SummaryDisplay = ({ totalSummary, activeFilters }: { totalSummary: TotalSummary, activeFilters: LogisticsFilters }) => {
-  const summaryTitle = useMemo(() => {
-    const parts: string[] = [];
-    if (activeFilters.projectName) { parts.push(`项目: ${activeFilters.projectName}`); }
-    if (activeFilters.driverName) { parts.push(`司机: ${activeFilters.driverName}`); }
-    if (activeFilters.licensePlate) { parts.push(`车牌: ${activeFilters.licensePlate}`); }
-    if (activeFilters.driverPhone) { parts.push(`电话: ${activeFilters.driverPhone}`); }
-    if (activeFilters.startDate && activeFilters.endDate) { parts.push(`日期: ${activeFilters.startDate} 至 ${activeFilters.endDate}`); }
-    else if (activeFilters.startDate) { parts.push(`日期: 从 ${activeFilters.startDate}`); }
-    else if (activeFilters.endDate) { parts.push(`日期: 截至 ${activeFilters.endDate}`); }
-    if (parts.length === 0) { return "全部记录合计"; }
-    return `${parts.join(' | ')} 合计`;
-  }, [activeFilters]);
+  const summaryTitle = generateSummaryTitle(activeFilters as unknown as Record<string, unknown>);
+  
+  const summaryItems: SummaryItem[] = useMemo(() => {
+    const items: SummaryItem[] = [
+      { 
+        label: '', 
+        value: `${totalSummary.actualCount}实际 / ${totalSummary.returnCount}退货`,
+        formatter: (val) => <span>{val}</span>
+      },
+      { 
+        label: '司机运费', 
+        value: totalSummary.totalCurrentCost,
+        className: 'text-primary'
+      },
+      { 
+        label: '额外费用', 
+        value: totalSummary.totalExtraCost,
+        className: 'text-orange-600'
+      },
+      { 
+        label: '司机应收', 
+        value: totalSummary.totalDriverPayableCost,
+        className: 'text-green-600'
+      }
+    ];
 
-  return (
-    <div className="flex items-center justify-start gap-x-6 rounded-lg border p-4 text-sm font-medium flex-nowrap overflow-x-auto scrollbar-thin">
-      <span className="font-bold whitespace-nowrap">{summaryTitle}:</span>
-      <span className="whitespace-nowrap">{totalSummary.actualCount}实际 / {totalSummary.returnCount}退货</span>
-      <span className="whitespace-nowrap">司机运费: <span className="font-bold text-primary"><CurrencyDisplay value={totalSummary.totalCurrentCost} className="text-primary" /></span></span>
-      <span className="whitespace-nowrap">额外费用: <span className="font-bold text-orange-600"><CurrencyDisplay value={totalSummary.totalExtraCost} className="text-orange-600" /></span></span>
-      <span className="whitespace-nowrap">司机应收: <span className="font-bold text-green-600"><CurrencyDisplay value={totalSummary.totalDriverPayableCost} className="text-green-600" /></span></span>
-      {totalSummary.totalWeightLoading > 0 && (
-        <span className="whitespace-nowrap">计重合计: 装 <span className="font-bold text-primary">{totalSummary.totalWeightLoading.toFixed(2)}吨</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalWeightUnloading.toFixed(2)}吨</span></span>
-      )}
-      {totalSummary.totalTripsLoading > 0 && (
-        <span className="whitespace-nowrap">计车合计: <span className="font-bold text-primary">{totalSummary.totalTripsLoading.toFixed(0)}车</span></span>
-      )}
-      {totalSummary.totalVolumeLoading > 0 && (
-        <span className="whitespace-nowrap">计体积合计: 装 <span className="font-bold text-primary">{totalSummary.totalVolumeLoading.toFixed(2)}立方</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalVolumeUnloading.toFixed(2)}立方</span></span>
-      )}
-      {totalSummary.totalPiecesLoading > 0 && (
-        <span className="whitespace-nowrap">计件合计: 装 <span className="font-bold text-primary">{totalSummary.totalPiecesLoading.toFixed(0)}件</span> / 卸 <span className="font-bold text-primary">{totalSummary.totalPiecesUnloading.toFixed(0)}件</span></span>
-      )}
-    </div>
-  );
+    if (totalSummary.totalWeightLoading > 0) {
+      items.push({
+        label: '计重合计',
+        value: `装 ${totalSummary.totalWeightLoading.toFixed(2)}吨 / 卸 ${totalSummary.totalWeightUnloading.toFixed(2)}吨`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+    if (totalSummary.totalTripsLoading > 0) {
+      items.push({
+        label: '计车合计',
+        value: `${totalSummary.totalTripsLoading.toFixed(0)}车`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+    if (totalSummary.totalVolumeLoading > 0) {
+      items.push({
+        label: '计体积合计',
+        value: `装 ${totalSummary.totalVolumeLoading.toFixed(2)}立方 / 卸 ${totalSummary.totalVolumeUnloading.toFixed(2)}立方`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+    if (totalSummary.totalPiecesLoading > 0) {
+      items.push({
+        label: '计件合计',
+        value: `装 ${totalSummary.totalPiecesLoading.toFixed(0)}件 / 卸 ${totalSummary.totalPiecesUnloading.toFixed(0)}件`,
+        className: 'text-primary',
+        formatter: (val) => <span className="font-bold">{val}</span>
+      });
+    }
+
+    return items;
+  }, [totalSummary]);
+
+  return <SummaryCard title={summaryTitle} items={summaryItems} />;
 };
 
 const PageSummaryFooter = ({ records }: { records: LogisticsRecord[] }) => {

@@ -14,7 +14,7 @@ import { useAllFilteredRecords } from '../hooks/useAllFilteredRecords';
 import { LogisticsFilters } from '../hooks/useLogisticsData';
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
-import { TableSkeleton } from "@/components/common";
+import { TableSkeleton, PageSummaryPagination, type PageSummaryItem } from "@/components/common";
 
 interface LogisticsTableProps {
   records: LogisticsRecord[];
@@ -572,78 +572,23 @@ export const LogisticsTable = ({ records, loading, deletingIds = new Set(), pagi
           )}
         </Table>
       </div>
-      {/* 完整的分页控件 */}
-      <div className="flex items-center justify-between py-4 px-6 border-t border-gray-200 bg-white">
-        {/* 左侧：本页合计信息 */}
-        <div className="flex-1 text-sm text-slate-600">
-          <span className="text-slate-600">本页合计:</span>
-          <span className="ml-3 text-slate-700">运费 <CurrencyDisplay value={summaryTotals.currentCost} /></span>
-          <span className="ml-3 text-slate-700">额外 <CurrencyDisplay value={summaryTotals.extraCost} /></span>
-          <span className="ml-3 text-slate-700">应付款司机 <CurrencyDisplay value={summaryTotals.driverPayable} /></span>
-          <span className="ml-3 text-slate-600">共{pagination.totalCount} 条记录</span>
-        </div>
-        
-        {/* 右侧：分页控制 */}
-        <div className="flex items-center space-x-4">
-          {/* 每页显示条数选择 */}
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-slate-600">每页显示</span>
-            <select
-              value={pagination.pageSize}
-              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-600">条</span>
-          </div>
-          
-          {/* 分页按钮 */}
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handlePageChange(pagination.currentPage - 1)} 
-              disabled={pagination.currentPage <= 1}
-              className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors duration-150"
-            >
-              上一页
-            </Button>
-            
-            {/* 页码输入 */}
-            <div className="flex items-center space-x-1">
-              <span className="text-sm text-slate-600">第</span>
-              <input
-                type="number"
-                value={pagination.currentPage}
-                onChange={(e) => {
-                  const page = Number(e.target.value);
-                  if (page >= 1 && page <= Math.ceil(pagination.totalCount / pagination.pageSize)) {
-                    handlePageChange(page);
-                  }
-                }}
-                className="w-10 px-1 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                min="1"
-                max={Math.ceil(pagination.totalCount / pagination.pageSize)}
-              />
-              <span className="text-sm text-slate-600">页,共{Math.ceil(pagination.totalCount / pagination.pageSize)}页</span>
-            </div>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handlePageChange(pagination.currentPage + 1)} 
-              disabled={pagination.currentPage >= Math.ceil(pagination.totalCount / pagination.pageSize)}
-              className="px-3 py-1 text-sm border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors duration-150"
-            >
-              下一页
-            </Button>
-          </div>
-        </div>
-      </div>
+      {/* ✅ 使用公共分页组件 */}
+      <PageSummaryPagination
+        pagination={pagination}
+        onPaginationChange={(newPagination) => {
+          setPagination(newPagination);
+          if (newPagination.pageSize !== pagination.pageSize && onPageSizeChange) {
+            onPageSizeChange(newPagination.pageSize);
+          } else if (newPagination.currentPage !== pagination.currentPage) {
+            handlePageChange(newPagination.currentPage);
+          }
+        }}
+        pageSummaryItems={[
+          { label: '运费', value: summaryTotals.currentCost },
+          { label: '额外', value: summaryTotals.extraCost },
+          { label: '应付款司机', value: summaryTotals.driverPayable }
+        ]}
+      />
     </div>
   );
 };
