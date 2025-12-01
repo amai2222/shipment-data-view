@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarIcon, Save, X, Plus, Package, Banknote, Weight, Upload } from "lucide-react";
+import { CalendarIcon, Save, X, Plus, Package, Banknote, Weight, Upload, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { relaxedSupabase as supabase } from "@/lib/supabase-helpers";
 import { LogisticsRecord, Project, PlatformTracking } from '../types';
@@ -21,6 +21,12 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { formatChinaDateString, convertUTCDateToChinaDate } from "@/utils/dateUtils";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
 interface Driver { id: string; name: string; license_plate: string | null; phone: string | null; }
 interface Location { id: string; name: string; nickname?: string | null; }
@@ -88,6 +94,8 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
   const [existingLoadingScaleUrl, setExistingLoadingScaleUrl] = useState<string | null>(null); // 现有装货磅单URL
   const [existingUnloadingScaleUrl, setExistingUnloadingScaleUrl] = useState<string | null>(null); // 现有卸货磅单URL
   const [uploadingScale, setUploadingScale] = useState(false); // 磅单上传中
+  const [deletedLoadingScaleUrls, setDeletedLoadingScaleUrls] = useState<string[]>([]); // 待删除的装货磅单URL（编辑模式下）
+  const [deletedUnloadingScaleUrls, setDeletedUnloadingScaleUrls] = useState<string[]>([]); // 待删除的卸货磅单URL（编辑模式下）
   
   // 地点编辑对话框状态
   const [locationEditDialogOpen, setLocationEditDialogOpen] = useState(false);
@@ -689,20 +697,48 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
     setLoading(true);
 
     try {
+      // 删除标记为待删除的磅单图片（编辑模式下）
+      if (editingRecord && (deletedLoadingScaleUrls.length > 0 || deletedUnloadingScaleUrls.length > 0)) {
+        const allDeletedUrls = [...deletedLoadingScaleUrls, ...deletedUnloadingScaleUrls];
+        if (allDeletedUrls.length > 0) {
+          try {
+            const { error: deleteError } = await supabase.functions.invoke('qiniu-delete', {
+              body: { urls: allDeletedUrls }
+            });
+            if (deleteError) {
+              console.warn('删除磅单图片失败:', deleteError);
+              toast({
+                title: "警告",
+                description: "部分磅单图片删除失败，但运单已保存",
+                variant: "destructive"
+              });
+            } else {
+              console.log('成功删除磅单图片:', allDeletedUrls.length, '张');
+            }
+          } catch (deleteErr) {
+            console.error('删除磅单图片异常:', deleteErr);
+          }
+        }
+      }
+      
       // 上传磅单图片（如果有新选择的文件，支持多图）
-      let loadingScaleUrls: string[] = existingLoadingScaleUrl ? [existingLoadingScaleUrl] : [];
-      let unloadingScaleUrls: string[] = existingUnloadingScaleUrl ? [existingUnloadingScaleUrl] : [];
+      let loadingScaleUrls: string[] = existingLoadingScaleUrl && !deletedLoadingScaleUrls.includes(existingLoadingScaleUrl) 
+        ? [existingLoadingScaleUrl] 
+        : [];
+      let unloadingScaleUrls: string[] = existingUnloadingScaleUrl && !deletedUnloadingScaleUrls.includes(existingUnloadingScaleUrl)
+        ? [existingUnloadingScaleUrl]
+        : [];
       
       if (loadingScaleFiles.length > 0) {
         const uploadedUrls = await uploadScaleFiles(loadingScaleFiles, 'loading');
-        if (uploadedUrls.length > 0) {
+        if (uploadedUrls && uploadedUrls.length > 0) {
           loadingScaleUrls = [...loadingScaleUrls, ...uploadedUrls];
         }
       }
       
       if (unloadingScaleFiles.length > 0) {
         const uploadedUrls = await uploadScaleFiles(unloadingScaleFiles, 'unloading');
-        if (uploadedUrls.length > 0) {
+        if (uploadedUrls && uploadedUrls.length > 0) {
           unloadingScaleUrls = [...unloadingScaleUrls, ...uploadedUrls];
         }
       }
@@ -837,69 +873,77 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         }
         
         // 同步磅单到 scale_records 表（用于磅单管理显示，支持多图）
-        if (loadingScaleUrls.length > 0 || unloadingScaleUrls.length > 0) {
-          try {
-            // 获取运单信息
-            const { data: waybillData, error: waybillError } = await supabase
-              .from('logistics_records')
-              .select('auto_number, project_id, project_name, loading_date, license_plate, driver_name, billing_type_id, loading_weight')
-              .eq('id', editingRecord.id)
-              .single();
+        // 无论是否有新上传的图片，都需要更新（因为可能删除了图片）
+        try {
+          // 获取运单信息
+          const { data: waybillData, error: waybillError } = await supabase
+            .from('logistics_records')
+            .select('auto_number, project_id, project_name, loading_date, license_plate, driver_name, billing_type_id, loading_weight')
+            .eq('id', editingRecord.id)
+            .single();
+          
+          if (!waybillError && waybillData) {
+            // 合并所有磅单图片URL（装货和卸货）
+            const scaleImageUrls: string[] = [...loadingScaleUrls, ...unloadingScaleUrls];
             
-            if (!waybillError && waybillData) {
-              // 合并所有磅单图片URL（装货和卸货）
-              const scaleImageUrls: string[] = [...loadingScaleUrls, ...unloadingScaleUrls];
+            // 检查是否已存在关联的磅单记录
+            const { data: existingScaleRecord } = await supabase
+              .from('scale_records')
+              .select('id, image_urls')
+              .eq('logistics_number', waybillData.auto_number)
+              .eq('trip_number', 1)
+              .maybeSingle();
+            
+            if (existingScaleRecord) {
+              // 更新现有记录：移除已删除的图片，添加新上传的图片
+              const existingUrls = (existingScaleRecord.image_urls || []) as string[];
+              // 移除待删除的URL
+              const filteredUrls = existingUrls.filter(url => 
+                !deletedLoadingScaleUrls.includes(url) && 
+                !deletedUnloadingScaleUrls.includes(url)
+              );
+              // 合并新上传的URL（避免重复）
+              const mergedUrls = [...new Set([...filteredUrls, ...scaleImageUrls])];
               
-              // 检查是否已存在关联的磅单记录
-              const { data: existingScaleRecord } = await supabase
+              await supabase
                 .from('scale_records')
-                .select('id, image_urls')
-                .eq('logistics_number', waybillData.auto_number)
-                .eq('trip_number', 1)
-                .maybeSingle();
+                .update({
+                  image_urls: mergedUrls,
+                  valid_quantity: waybillData.loading_weight || null,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', existingScaleRecord.id);
+            } else if (scaleImageUrls.length > 0) {
+              // 创建新记录（只有在有图片时才创建）
+              const loadingDate = waybillData.loading_date 
+                ? new Date(waybillData.loading_date).toISOString().split('T')[0]
+                : formatChinaDateString(new Date());
               
-              if (existingScaleRecord) {
-                // 更新现有记录：合并图片URL（避免重复）
-                const existingUrls = (existingScaleRecord.image_urls || []) as string[];
-                const mergedUrls = [...new Set([...existingUrls, ...scaleImageUrls])];
-                
-                await supabase
-                  .from('scale_records')
-                  .update({
-                    image_urls: mergedUrls,
-                    valid_quantity: waybillData.loading_weight || null,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', existingScaleRecord.id);
-              } else {
-                // 创建新记录
-                const loadingDate = waybillData.loading_date 
-                  ? new Date(waybillData.loading_date).toISOString().split('T')[0]
-                  : formatChinaDateString(new Date());
-                
-                await supabase
-                  .from('scale_records')
-                  .insert({
-                    project_id: waybillData.project_id,
-                    project_name: waybillData.project_name || '',
-                    logistics_number: waybillData.auto_number,
-                    trip_number: 1,
-                    loading_date: loadingDate,
-                    license_plate: waybillData.license_plate,
-                    driver_name: waybillData.driver_name,
-                    billing_type_id: waybillData.billing_type_id || 1,
-                    image_urls: scaleImageUrls,
-                    valid_quantity: waybillData.loading_weight || null
-                  });
-              }
+              await supabase
+                .from('scale_records')
+                .insert({
+                  project_id: waybillData.project_id,
+                  project_name: waybillData.project_name || '',
+                  logistics_number: waybillData.auto_number,
+                  trip_number: 1,
+                  loading_date: loadingDate,
+                  license_plate: waybillData.license_plate,
+                  driver_name: waybillData.driver_name,
+                  billing_type_id: waybillData.billing_type_id || 1,
+                  image_urls: scaleImageUrls,
+                  valid_quantity: waybillData.loading_weight || null
+                });
             }
-          } catch (scaleSyncError) {
-            // 磅单同步失败不影响主流程，只记录错误
-            console.warn('同步磅单到磅单管理失败:', scaleSyncError);
           }
+        } catch (scaleSyncError) {
+          // 磅单同步失败不影响主流程，只记录错误
+          console.warn('同步磅单到磅单管理失败:', scaleSyncError);
         }
         
         toast({ title: "成功", description: "运单已更新" });
+        // 清空待删除列表
+        setDeletedLoadingScaleUrls([]);
+        setDeletedUnloadingScaleUrls([]);
       } else {
         // 使用数据库函数来添加运单并自动计算合作方成本
         const { data: newRecordId, error } = await supabase.rpc('add_logistics_record_with_costs_1126', {
@@ -1026,6 +1070,9 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         });
       } else {
         // 正常模式，关闭对话框
+        // 清空待删除列表
+        setDeletedLoadingScaleUrls([]);
+        setDeletedUnloadingScaleUrls([]);
         onClose();
       }
     } catch (error) {
@@ -1297,24 +1344,54 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 </div>
                 
                 {/* 现有装货磅单图片 */}
-                {existingLoadingScaleUrl && (
+                {existingLoadingScaleUrl && !deletedLoadingScaleUrls.includes(existingLoadingScaleUrl) && (
                   <div className="mt-2">
                     <Label className="text-xs text-gray-600">现有图片:</Label>
                     <div className="mt-1 relative">
-                      <img 
-                        src={existingLoadingScaleUrl} 
-                        alt="装货磅单"
-                        className="w-full h-32 object-contain rounded border bg-white"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-1 right-1"
-                        onClick={() => setExistingLoadingScaleUrl(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          <div className="relative">
+                            <img 
+                              src={existingLoadingScaleUrl} 
+                              alt="装货磅单"
+                              className="w-full h-32 object-contain rounded border bg-white cursor-pointer hover:opacity-80 transition-opacity"
+                            />
+                            {editingRecord && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExistingLoadingScaleUrl(null);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </ContextMenuTrigger>
+                        {editingRecord && (
+                          <ContextMenuContent>
+                            <ContextMenuItem
+                              onClick={() => {
+                                // 标记为待删除
+                                setDeletedLoadingScaleUrls(prev => [...prev, existingLoadingScaleUrl]);
+                                setExistingLoadingScaleUrl(null);
+                                toast({
+                                  title: "已标记删除",
+                                  description: "磅单图片将在保存时删除",
+                                });
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              删除磅单
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        )}
+                      </ContextMenu>
                     </div>
                   </div>
                 )}
@@ -1325,7 +1402,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                     <Label className="text-xs text-gray-600">新选择的文件:</Label>
                     {loadingScaleFiles.map((file, index) => (
                       <div key={index} className="flex items-center justify-between p-2 border rounded mt-1 bg-white">
-                        <span className="text-sm">{file.name}</span>
+                        <span className="text-sm truncate flex-1">{file.name}</span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1336,6 +1413,40 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                         </Button>
                       </div>
                     ))}
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={async () => {
+                        const uploadedUrls = await uploadScaleFiles(loadingScaleFiles, 'loading');
+                        if (uploadedUrls && uploadedUrls.length > 0) {
+                          // 合并现有图片和新上传的图片
+                          const allUrls = existingLoadingScaleUrl 
+                            ? [existingLoadingScaleUrl, ...uploadedUrls]
+                            : uploadedUrls;
+                          setExistingLoadingScaleUrl(allUrls[0]); // 显示第一张图片
+                          setLoadingScaleFiles([]); // 清空已选择的文件
+                          toast({
+                            title: "上传成功",
+                            description: `已上传 ${uploadedUrls.length} 张图片`,
+                          });
+                        }
+                      }}
+                      disabled={uploadingScale || loadingScaleFiles.length === 0}
+                    >
+                      {uploadingScale ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          上传中...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          立即上传 ({loadingScaleFiles.length} 张)
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1366,24 +1477,54 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                 </div>
                 
                 {/* 现有卸货磅单图片 */}
-                {existingUnloadingScaleUrl && (
+                {existingUnloadingScaleUrl && !deletedUnloadingScaleUrls.includes(existingUnloadingScaleUrl) && (
                   <div className="mt-2">
                     <Label className="text-xs text-gray-600">现有图片:</Label>
                     <div className="mt-1 relative">
-                      <img 
-                        src={existingUnloadingScaleUrl} 
-                        alt="卸货磅单"
-                        className="w-full h-32 object-contain rounded border bg-white"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-1 right-1"
-                        onClick={() => setExistingUnloadingScaleUrl(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          <div className="relative">
+                            <img 
+                              src={existingUnloadingScaleUrl} 
+                              alt="卸货磅单"
+                              className="w-full h-32 object-contain rounded border bg-white cursor-pointer hover:opacity-80 transition-opacity"
+                            />
+                            {editingRecord && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExistingUnloadingScaleUrl(null);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </ContextMenuTrigger>
+                        {editingRecord && (
+                          <ContextMenuContent>
+                            <ContextMenuItem
+                              onClick={() => {
+                                // 标记为待删除
+                                setDeletedUnloadingScaleUrls(prev => [...prev, existingUnloadingScaleUrl]);
+                                setExistingUnloadingScaleUrl(null);
+                                toast({
+                                  title: "已标记删除",
+                                  description: "磅单图片将在保存时删除",
+                                });
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              删除磅单
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        )}
+                      </ContextMenu>
                     </div>
                   </div>
                 )}
@@ -1394,7 +1535,7 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                     <Label className="text-xs text-gray-600">新选择的文件:</Label>
                     {unloadingScaleFiles.map((file, index) => (
                       <div key={index} className="flex items-center justify-between p-2 border rounded mt-1 bg-white">
-                        <span className="text-sm">{file.name}</span>
+                        <span className="text-sm truncate flex-1">{file.name}</span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1405,6 +1546,40 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
                         </Button>
                       </div>
                     ))}
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={async () => {
+                        const uploadedUrls = await uploadScaleFiles(unloadingScaleFiles, 'unloading');
+                        if (uploadedUrls && uploadedUrls.length > 0) {
+                          // 合并现有图片和新上传的图片
+                          const allUrls = existingUnloadingScaleUrl 
+                            ? [existingUnloadingScaleUrl, ...uploadedUrls]
+                            : uploadedUrls;
+                          setExistingUnloadingScaleUrl(allUrls[0]); // 显示第一张图片
+                          setUnloadingScaleFiles([]); // 清空已选择的文件
+                          toast({
+                            title: "上传成功",
+                            description: `已上传 ${uploadedUrls.length} 张图片`,
+                          });
+                        }
+                      }}
+                      disabled={uploadingScale || unloadingScaleFiles.length === 0}
+                    >
+                      {uploadingScale ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          上传中...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          立即上传 ({unloadingScaleFiles.length} 张)
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
               </div>
