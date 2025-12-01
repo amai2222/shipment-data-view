@@ -118,7 +118,7 @@ export default function BusinessEntry() {
   const [isBatchPDFOpen, setIsBatchPDFOpen] = useState(false);
   const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { records, loading, activeFilters, setActiveFilters, pagination: paginationState, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort, handlePageSizeChange } = useLogisticsData();
+  const { records, loading, deletingIds, activeFilters, setActiveFilters, pagination: paginationState, setPagination, totalSummary, handleDelete, refetch, sortField, sortDirection, handleSort, handlePageSizeChange } = useLogisticsData();
   const pagination = paginationState as PaginationState;
   const { isImporting, isImportModalOpen, importStep, importPreview, approvedDuplicates, duplicateActions, importLogs, importLogRef, handleExcelImport, executeFinalImport, closeImportModal, setApprovedDuplicates, setDuplicateActions } = useExcelImport(() => { refetch(); });
   const isSummaryStale = useMemo(() => JSON.stringify(uiFilters) !== JSON.stringify(activeFilters), [uiFilters, activeFilters]);
@@ -651,7 +651,7 @@ export default function BusinessEntry() {
         </div>
       )}
       
-      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} onSelectionChange={handleSelectionChange} />)}
+      {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} deletingIds={deletingIds} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} onSelectionChange={handleSelectionChange} />)}
       {hasButtonAccess('data.import') && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
         isOpen={isFormDialogOpen}

@@ -19,6 +19,7 @@ import { TableSkeleton } from "@/components/common";
 interface LogisticsTableProps {
   records: LogisticsRecord[];
   loading: boolean;
+  deletingIds?: Set<string>; // ✅ 新增：正在删除的记录ID集合
   pagination: PaginationState;
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>;
   onDelete: (id: string, autoNumber: string) => void;
@@ -36,7 +37,7 @@ interface LogisticsTableProps {
   onSelectionChange?: (selectedIds: string[]) => void; // 新增：选中状态改变回调
 }
 
-export const LogisticsTable = ({ records, loading, pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode, activeFilters, onSelectionChange }: LogisticsTableProps) => {
+export const LogisticsTable = ({ records, loading, deletingIds = new Set(), pagination, setPagination, onDelete, onView, onEdit, sortField, sortDirection, onSort, onPageSizeChange, billingTypes = {}, onBatchAction, isBatchMode = false, onToggleBatchMode, activeFilters, onSelectionChange }: LogisticsTableProps) => {
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   const [allFilteredRecordIds, setAllFilteredRecordIds] = useState<string[]>([]);
   const { getAllFilteredRecordIds, loading: loadingAllRecords } = useAllFilteredRecords();
@@ -509,16 +510,24 @@ export const LogisticsTable = ({ records, loading, pagination, setPagination, on
                             <Edit className="mr-2 h-4 w-4" />
                             <span>编辑</span>
                           </DropdownMenuItem>
-                          <ConfirmDialog
-                            title="确认删除"
-                            description={`您确定要删除运单 "${record.auto_number}" 吗？此操作不可撤销。`}
-                            onConfirm={() => onDelete(record.id, record.auto_number)}
-                          >
-                            <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              <span>删除</span>
+                          {deletingIds.has(record.id) ? (
+                            // ✅ 正在删除时显示禁用状态
+                            <div className="relative flex cursor-not-allowed select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors opacity-50 text-destructive">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              <span>删除中...</span>
                             </div>
-                          </ConfirmDialog>
+                          ) : (
+                            <ConfirmDialog
+                              title="确认删除"
+                              description={`您确定要删除运单 "${record.auto_number}" 吗？此操作不可撤销。`}
+                              onConfirm={() => onDelete(record.id, record.auto_number)}
+                            >
+                              <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>删除</span>
+                              </div>
+                            </ConfirmDialog>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

@@ -81,6 +81,7 @@ export function useLogisticsData() {
   const { toast } = useToast();
   const [records, setRecords] = useState<LogisticsRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set()); // ✅ 新增：跟踪正在删除的记录ID
   const [activeFilters, setActiveFilters] = useState<LogisticsFilters>(INITIAL_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({ 
     page: 1,
@@ -199,6 +200,14 @@ export function useLogisticsData() {
   }, []);
 
   const handleDelete = useCallback(async (id: string) => {
+    // ✅ 防重复点击：如果正在删除该记录，直接返回
+    if (deletingIds.has(id)) {
+      return;
+    }
+
+    // 标记为正在删除
+    setDeletingIds(prev => new Set(prev).add(id));
+
     try {
       // ✅ 修复：在删除运单前，先删除关联的 dispatch_orders 记录
       const { error: dispatchError } = await supabase
@@ -207,13 +216,32 @@ export function useLogisticsData() {
         .eq('logistics_record_id', id);
       
       if (dispatchError) {
-        console.warn('删除关联派单记录失败:', dispatchError);
+        // 如果是 409 冲突，可能是记录已被删除，继续执行
+        if (dispatchError.code === '409' || dispatchError.message?.includes('409')) {
+          console.warn('派单记录可能已被删除:', dispatchError);
+        } else {
+          console.warn('删除关联派单记录失败:', dispatchError);
+        }
         // 不阻止删除，继续执行
       }
       
       // 删除运单记录
       const { error } = await supabase.from('logistics_records').delete().eq('id', id);
-      if (error) throw error;
+      
+      if (error) {
+        // ✅ 特殊处理 409 冲突错误
+        if (error.code === '409' || error.message?.includes('409') || error.message?.includes('conflict')) {
+          // 409 通常表示资源已被删除或状态冲突，尝试刷新数据
+          toast({ 
+            title: "提示", 
+            description: "该运单可能已被删除，正在刷新数据...", 
+            variant: "default" 
+          });
+          await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
+          return;
+        }
+        throw error;
+      }
       
       toast({ title: "成功", description: "运单记录及关联派单已删除" });
       // 重新加载当前页数据
@@ -221,15 +249,22 @@ export function useLogisticsData() {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
+    } finally {
+      // 清除删除标记
+      setDeletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
-  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize]);
+  }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize, deletingIds]);
 
   const refetch = useCallback(() => {
     loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
   }, [loadPaginatedRecords, activeFilters, pagination.currentPage, sortField, sortDirection, pagination.pageSize]);
 
   return {
-    records, loading, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch,
+    records, loading, deletingIds, activeFilters, setActiveFilters, pagination, setPagination, totalSummary, handleDelete, refetch,
     sortField, sortDirection, handleSort, handlePageSizeChange,
   };
 }
