@@ -26,8 +26,7 @@ DECLARE
     v_driver_array text[];
     v_license_array text[];
     v_phone_array text[];
-    v_record_ids jsonb;
-    v_date_range jsonb;
+    v_result jsonb;
 BEGIN
     -- 解析批量输入参数
     IF p_waybill_numbers IS NOT NULL AND p_waybill_numbers != '' THEN
@@ -50,87 +49,87 @@ BEGIN
         v_phone_array := array_remove(v_phone_array, '');
     END IF;
 
-    -- 获取所有符合筛选条件的记录ID
-    SELECT jsonb_agg(id)
-    INTO v_record_ids
-    FROM public.logistics_records lr
-    WHERE
-        (p_start_date IS NULL OR p_start_date = '' OR 
-         lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz) AND
-        (p_end_date IS NULL OR p_end_date = '' OR 
-         lr.loading_date < ((p_end_date || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second')) AND
-        (p_project_name IS NULL OR lr.project_name = p_project_name) AND
-        (v_driver_array IS NULL OR lr.driver_name = ANY(v_driver_array)) AND
-        (v_license_array IS NULL OR lr.license_plate = ANY(v_license_array)) AND
-        (v_phone_array IS NULL OR lr.driver_phone = ANY(v_phone_array)) AND
-        (p_other_platform_name IS NULL OR 
-         p_other_platform_name = '' OR 
-         p_other_platform_name = ANY(lr.other_platform_names)) AND
-        (v_waybill_array IS NULL OR 
-         EXISTS (
-            SELECT 1 
-            FROM unnest(lr.external_tracking_numbers) AS etn 
-            WHERE etn = ANY(v_waybill_array)
-         ) OR
-         lr.auto_number = ANY(v_waybill_array)) AND
-        -- ✅ 修复：使用 scale_records 表判断是否有磅单记录，而不是使用不存在的字段
-        (p_has_scale_record IS NULL OR 
-         p_has_scale_record = '' OR
-         CASE 
-            WHEN p_has_scale_record = 'yes' THEN 
-                EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
-            WHEN p_has_scale_record = 'no' THEN 
-                NOT EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
-            ELSE true
-         END) AND
-        (p_invoice_status IS NULL OR p_invoice_status = '' OR lr.invoice_status = p_invoice_status) AND
-        (p_payment_status IS NULL OR p_payment_status = '' OR lr.payment_status = p_payment_status) AND
-        (p_receipt_status IS NULL OR p_receipt_status = '' OR lr.receipt_status = p_receipt_status);
-    
-    -- 获取日期范围
-    SELECT jsonb_build_object(
-        'earliest', TO_CHAR(MIN(lr.loading_date) AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD'),
-        'latest', TO_CHAR(MAX(lr.loading_date) AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')
+    -- ✅ 修复：使用CTE优化查询，一次性获取所有需要的数据
+    WITH filtered_records AS (
+        SELECT 
+            lr.id,
+            lr.project_name,
+            lr.driver_name,
+            lr.loading_date
+        FROM public.logistics_records lr
+        WHERE
+            (p_start_date IS NULL OR p_start_date = '' OR 
+             lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz) AND
+            (p_end_date IS NULL OR p_end_date = '' OR 
+             lr.loading_date < ((p_end_date || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second')) AND
+            (p_project_name IS NULL OR lr.project_name = p_project_name) AND
+            (v_driver_array IS NULL OR lr.driver_name = ANY(v_driver_array)) AND
+            (v_license_array IS NULL OR lr.license_plate = ANY(v_license_array)) AND
+            (v_phone_array IS NULL OR lr.driver_phone = ANY(v_phone_array)) AND
+            (p_other_platform_name IS NULL OR 
+             p_other_platform_name = '' OR 
+             p_other_platform_name = ANY(lr.other_platform_names)) AND
+            (v_waybill_array IS NULL OR 
+             EXISTS (
+                SELECT 1 
+                FROM unnest(lr.external_tracking_numbers) AS etn 
+                WHERE etn = ANY(v_waybill_array)
+             ) OR
+             lr.auto_number = ANY(v_waybill_array)) AND
+            -- ✅ 修复：使用 scale_records 表判断是否有磅单记录，而不是使用不存在的字段
+            (p_has_scale_record IS NULL OR 
+             p_has_scale_record = '' OR
+             CASE 
+                WHEN p_has_scale_record = 'yes' THEN 
+                    EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
+                WHEN p_has_scale_record = 'no' THEN 
+                    NOT EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
+                ELSE true
+             END) AND
+            (p_invoice_status IS NULL OR p_invoice_status = '' OR lr.invoice_status = p_invoice_status) AND
+            (p_payment_status IS NULL OR p_payment_status = '' OR lr.payment_status = p_payment_status) AND
+            (p_receipt_status IS NULL OR p_receipt_status = '' OR lr.receipt_status = p_receipt_status)
+    ),
+    aggregated_data AS (
+        SELECT 
+            COALESCE(jsonb_agg(fr.id ORDER BY fr.loading_date DESC), '[]'::jsonb) as record_ids,
+            COUNT(*)::int as total_count,
+            COALESCE(jsonb_agg(DISTINCT fr.project_name ORDER BY fr.project_name) FILTER (WHERE fr.project_name IS NOT NULL), '[]'::jsonb) as project_names,
+            COALESCE(jsonb_agg(DISTINCT fr.driver_name ORDER BY fr.driver_name) FILTER (WHERE fr.driver_name IS NOT NULL), '[]'::jsonb) as driver_names,
+            TO_CHAR(MIN(fr.loading_date) AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') as earliest_date,
+            TO_CHAR(MAX(fr.loading_date) AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD') as latest_date
+        FROM filtered_records fr
     )
-    INTO v_date_range
-    FROM public.logistics_records lr
-    WHERE
-        (p_start_date IS NULL OR p_start_date = '' OR 
-         lr.loading_date >= (p_start_date || ' 00:00:00+08:00')::timestamptz) AND
-        (p_end_date IS NULL OR p_end_date = '' OR 
-         lr.loading_date < ((p_end_date || ' 23:59:59+08:00')::timestamptz + INTERVAL '1 second')) AND
-        (p_project_name IS NULL OR lr.project_name = p_project_name) AND
-        (v_driver_array IS NULL OR lr.driver_name = ANY(v_driver_array)) AND
-        (v_license_array IS NULL OR lr.license_plate = ANY(v_license_array)) AND
-        (v_phone_array IS NULL OR lr.driver_phone = ANY(v_phone_array)) AND
-        (p_other_platform_name IS NULL OR 
-         p_other_platform_name = '' OR 
-         p_other_platform_name = ANY(lr.other_platform_names)) AND
-        (v_waybill_array IS NULL OR 
-         EXISTS (
-            SELECT 1 
-            FROM unnest(lr.external_tracking_numbers) AS etn 
-            WHERE etn = ANY(v_waybill_array)
-         ) OR
-         lr.auto_number = ANY(v_waybill_array)) AND
-        -- ✅ 修复：使用 scale_records 表判断是否有磅单记录，而不是使用不存在的字段
-        (p_has_scale_record IS NULL OR 
-         p_has_scale_record = '' OR
-         CASE 
-            WHEN p_has_scale_record = 'yes' THEN 
-                EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
-            WHEN p_has_scale_record = 'no' THEN 
-                NOT EXISTS (SELECT 1 FROM public.scale_records sr WHERE sr.logistics_number = lr.auto_number)
-            ELSE true
-         END) AND
-        (p_invoice_status IS NULL OR p_invoice_status = '' OR lr.invoice_status = p_invoice_status) AND
-        (p_payment_status IS NULL OR p_payment_status = '' OR lr.payment_status = p_payment_status) AND
-        (p_receipt_status IS NULL OR p_receipt_status = '' OR lr.receipt_status = p_receipt_status);
+    SELECT jsonb_build_object(
+        'recordIds', COALESCE(ad.record_ids, '[]'::jsonb),
+        'totalCount', COALESCE(ad.total_count, 0),
+        'summary', jsonb_build_object(
+            'projectNames', COALESCE(ad.project_names, '[]'::jsonb),
+            'driverNames', COALESCE(ad.driver_names, '[]'::jsonb),
+            'dateRange', jsonb_build_object(
+                'earliest', ad.earliest_date,
+                'latest', ad.latest_date
+            )
+        )
+    )
+    INTO v_result
+    FROM aggregated_data ad;
     
-    RETURN jsonb_build_object(
-        'record_ids', COALESCE(v_record_ids, '[]'::jsonb),
-        'date_range', COALESCE(v_date_range, jsonb_build_object('earliest', null, 'latest', null))
-    );
+    -- 处理空结果的情况（当 filtered_records 为空时，aggregated_data 可能为 NULL）
+    IF v_result IS NULL THEN
+        v_result := jsonb_build_object(
+            'recordIds', '[]'::jsonb,
+            'totalCount', 0,
+            'summary', jsonb_build_object(
+                'projectNames', '[]'::jsonb,
+                'driverNames', '[]'::jsonb,
+                'dateRange', jsonb_build_object('earliest', null, 'latest', null)
+            )
+        );
+    END IF;
+    
+    -- ✅ 修复：返回格式与前端期望的格式匹配
+    RETURN v_result;
 END;
 $function$;
 

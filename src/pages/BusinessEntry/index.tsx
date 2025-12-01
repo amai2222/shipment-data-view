@@ -213,8 +213,8 @@ export default function BusinessEntry() {
         allRecords = allRecords.concat(records);
         currentPage++;
         
-        // 防止无限循环，最多导出50000条
-        if (allRecords.length >= 50000) {
+        // 防止无限循环，最多导出100000条（提高限制）
+        if (allRecords.length >= 100000) {
           toast({ 
             title: "提示", 
             description: `数据量较大，已导出前 ${allRecords.length} 条记录。如需导出更多，请使用更精确的筛选条件。`,
@@ -246,19 +246,42 @@ export default function BusinessEntry() {
 
     toast({ title: "导出", description: `正在准备导出 ${selectedRecordIds.length} 条勾选的记录...` });
     try {
-      // 根据勾选的记录ID获取完整数据
-      const { data, error } = await supabase
-        .from('logistics_records_view')
-        .select('*')
-        .in('id', selectedRecordIds);
+      // ✅ 修复：分批查询，避免 URL 过长导致请求失败
+      // 每批最多 100 个 ID，避免 URL 超过浏览器限制（通常 2048 字符）
+      const BATCH_SIZE = 100;
+      const allRecords: LogisticsRecord[] = [];
+      
+      for (let i = 0; i < selectedRecordIds.length; i += BATCH_SIZE) {
+        const batch = selectedRecordIds.slice(i, i + BATCH_SIZE);
+        
+        const { data, error } = await supabase
+          .from('logistics_records_view')
+          .select('*')
+          .in('id', batch);
 
-      if (error) throw error;
-      if (!data || data.length === 0) {
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allRecords.push(...data);
+        }
+        
+        // 显示进度
+        if (selectedRecordIds.length > BATCH_SIZE) {
+          const progress = Math.min(i + BATCH_SIZE, selectedRecordIds.length);
+          toast({ 
+            title: "导出中", 
+            description: `正在获取数据 ${progress}/${selectedRecordIds.length}...`,
+            duration: 1000
+          });
+        }
+      }
+
+      if (allRecords.length === 0) {
         toast({ title: "提示", description: "无法获取勾选的记录数据", variant: "default" });
         return;
       }
 
-      exportRecordsToExcel(data, '勾选数据');
+      exportRecordsToExcel(allRecords, '勾选数据');
     } catch(e: unknown) {
       const errorMessage = e instanceof Error ? e.message : '导出失败';
       console.error('导出失败:', e);
@@ -269,6 +292,11 @@ export default function BusinessEntry() {
   // 处理表格选中状态变化
   const handleSelectionChange = useCallback((selectedIds: string[]) => {
     setSelectedRecordIds(selectedIds);
+  }, []);
+
+  // 清除所有选择
+  const handleClearSelection = useCallback(() => {
+    setSelectedRecordIds([]);
   }, []);
 
   // 统一的导出Excel函数
@@ -291,6 +319,23 @@ export default function BusinessEntry() {
       '运费金额': r.current_cost || 0,
       '额外费用': r.extra_cost || 0,
       '司机应收': r.payable_cost || 0,
+      '单价': r.unit_price || 0,
+      '有效数量': r.effective_quantity || 0,
+      '计算模式': r.calculation_mode === 'auto' ? '自动计算' : r.calculation_mode === 'manual' ? '手动输入' : '',
+      '开票状态': r.invoice_status === 'Uninvoiced' ? '未开票' : 
+                   r.invoice_status === 'Processing' ? '处理中' : 
+                   r.invoice_status === 'Approved' ? '已审批' : 
+                   r.invoice_status === 'Invoiced' ? '已开票' : '',
+      '付款状态': r.payment_status === 'Unpaid' ? '未付款' : 
+                   r.payment_status === 'Processing' ? '处理中' : 
+                   r.payment_status === 'Approved' ? '已审批' : 
+                   r.payment_status === 'Paid' ? '已付款' : '',
+      '收款状态': r.receipt_status === 'Unreceived' ? '未收款' : 
+                   r.receipt_status === 'Received' ? '已收款' : '',
+      '其他平台': r.other_platform_names && r.other_platform_names.length > 0 
+                   ? r.other_platform_names.join(', ') : '',
+      '外部运单号': r.external_tracking_numbers && r.external_tracking_numbers.length > 0 
+                     ? r.external_tracking_numbers.join(', ') : '',
       '备注': r.remarks || '',
     }));
     
@@ -577,6 +622,21 @@ export default function BusinessEntry() {
       <div className="space-y-6">
       <FilterBar filters={uiFilters} onFiltersChange={setUiFilters} onSearch={handleSearch} onClear={handleClearSearch} loading={loading} projects={projects} />
       {!isSummaryStale && !loading && (<SummaryDisplay totalSummary={totalSummary} activeFilters={activeFilters} />)}
+      
+      {/* ✅ 添加：选择提示条和清除选择按钮 */}
+      {selectedRecordIds.length > 0 && (
+        <div className="flex items-center justify-center gap-4 p-3 text-sm font-medium text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-800 rounded-lg shadow-sm">
+          <span>已选择 <b className="text-blue-600">{selectedRecordIds.length}</b> 条记录</span>
+          <Button 
+            variant="link" 
+            className="p-0 h-auto text-blue-600 hover:text-blue-700 font-semibold" 
+            onClick={handleClearSelection}
+          >
+            清除选择
+          </Button>
+        </div>
+      )}
+      
       {isSummaryStale ? (<StaleDataPrompt />) : (<LogisticsTable records={records} loading={loading} pagination={pagination} setPagination={setPagination} onDelete={handleDelete} onView={setViewingRecord} onEdit={handleOpenEditDialog} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} onPageSizeChange={handlePageSizeChange} onBatchAction={handleBatchAction} isBatchMode={isBatchMode} onToggleBatchMode={toggleBatchMode} activeFilters={activeFilters} onSelectionChange={handleSelectionChange} />)}
       {hasButtonAccess('data.import') && <EnhancedImportDialog isOpen={isImportModalOpen} onClose={closeImportModal} importStep={importStep} importPreview={importPreview} approvedDuplicates={approvedDuplicates} setApprovedDuplicates={setApprovedDuplicates} duplicateActions={duplicateActions} setDuplicateActions={setDuplicateActions} importLogs={importLogs} importLogRef={importLogRef} onExecuteImport={executeFinalImport} />}
       <LogisticsFormDialog
