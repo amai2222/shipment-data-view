@@ -9,7 +9,7 @@ import { LogisticsRecord, PaginationState } from '../types';
 
 interface LogisticsResponse {
   records: LogisticsRecord[];
-  summary: any;
+  summary: TotalSummary;
   totalCount: number;
 }
 
@@ -104,7 +104,7 @@ export function useLogisticsData() {
     setLoading(true);
     try {
       // ✅ 修改：直接传递中国时区日期字符串，后端函数会处理时区转换
-      const { data, error } = await (supabase.rpc as any)('get_logistics_summary_and_records_enhanced_1201', {
+      const { data, error } = await supabase.rpc<LogisticsResponse>('get_logistics_summary_and_records_enhanced_1201', {
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_project_name: filters.projectName || null,
@@ -200,14 +200,27 @@ export function useLogisticsData() {
 
   const handleDelete = useCallback(async (id: string) => {
     try {
+      // ✅ 修复：在删除运单前，先删除关联的 dispatch_orders 记录
+      const { error: dispatchError } = await supabase
+        .from('dispatch_orders')
+        .delete()
+        .eq('logistics_record_id', id);
+      
+      if (dispatchError) {
+        console.warn('删除关联派单记录失败:', dispatchError);
+        // 不阻止删除，继续执行
+      }
+      
+      // 删除运单记录
       const { error } = await supabase.from('logistics_records').delete().eq('id', id);
       if (error) throw error;
       
-      toast({ title: "成功", description: "运单记录已删除" });
+      toast({ title: "成功", description: "运单记录及关联派单已删除" });
       // 重新加载当前页数据
       await loadPaginatedRecords(pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize);
-    } catch (error: any) {
-      toast({ title: "删除失败", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast({ title: "删除失败", description: errorMessage, variant: "destructive" });
     }
   }, [toast, loadPaginatedRecords, pagination.currentPage, activeFilters, sortField, sortDirection, pagination.pageSize]);
 
