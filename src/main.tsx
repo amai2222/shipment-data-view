@@ -18,6 +18,7 @@ window.addEventListener('error', (event) => {
     'moz-extension://',
     'safari-extension://',
     'ERR_ADDRESS_INVALID', // Cloudflare Insights加载失败（非关键）
+    'net::ERR_ADDRESS_INVALID',
     'cloudflareinsights',
     'beacon.min.js',
     'static.cloudflareinsights.com',
@@ -33,6 +34,7 @@ window.addEventListener('error', (event) => {
     'fleet manager projects',
     'internal driver vehicle change',
     'supabase.co/rest/v1/',
+    'user_profiles', // 修复后的表名错误（已修复，但保留过滤避免历史错误）
     '400 (Bad Request)',
     '404 (Not Found)'
   ];
@@ -69,6 +71,7 @@ window.addEventListener('unhandledrejection', (event) => {
     'moz-extension://',
     'safari-extension://',
     'ERR_ADDRESS_INVALID',
+    'net::ERR_ADDRESS_INVALID',
     'cloudflareinsights',
     'beacon.min.js',
     'static.cloudflareinsights.com',
@@ -84,6 +87,7 @@ window.addEventListener('unhandledrejection', (event) => {
     'fleet manager projects',
     'internal driver vehicle change',
     'supabase.co/rest/v1/',
+    'user_profiles', // 修复后的表名错误（已修复，但保留过滤避免历史错误）
     '400 (Bad Request)',
     '404 (Not Found)'
   ];

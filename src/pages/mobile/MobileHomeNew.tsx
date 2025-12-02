@@ -178,24 +178,44 @@ const quickActions = [
   }
 ];
 
+interface UserProfile {
+  full_name?: string;
+  email?: string;
+  [key: string]: unknown;
+}
+
+interface UserWithProfile {
+  id: string;
+  email?: string;
+  profile: UserProfile | null;
+}
+
 export default function MobileHomeNew() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserWithProfile | null>(null);
 
   // 获取当前用户信息
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
+        // ✅ 修复：使用正确的表名 'profiles' 而不是 'user_profiles'
+        const { data: profile, error } = await supabase
+          .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
-        setUser({ ...user, profile });
+          .maybeSingle();
+        
+        // ✅ 静默处理错误，避免控制台噪音
+        if (error && error.code !== 'PGRST116') {
+          // PGRST116 是 RLS 策略错误，可以忽略
+          console.warn('获取用户 profile 失败:', error.message);
+        }
+        
+        setUser({ ...user, profile: profile || null });
       }
     };
     getCurrentUser();
@@ -466,7 +486,9 @@ export default function MobileHomeNew() {
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12 border-2 border-white/20">
                     <AvatarFallback className="bg-white/20 text-white font-semibold">
-                      {user?.profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                      {typeof user?.profile?.full_name === 'string' 
+                        ? user.profile.full_name.charAt(0) 
+                        : (user?.email?.charAt(0) || 'U')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
