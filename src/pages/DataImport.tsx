@@ -1,7 +1,7 @@
 // 文件路径: src/pages/DataImportWithDuplicateCheck.tsx
 
 // 1. 导入所有需要的工具和组件
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { Project } from "@/types";
 import { formatChinaDate, parseExcelDateToChina } from '../utils/dateUtils';
 import { EnhancedImportDialog } from '@/pages/BusinessEntry/components/EnhancedImportDialog';
+import { ImportPreviewResult, LogisticsRecord } from '@/pages/BusinessEntry/types';
 
 // 使用统一的日期解析函数（已处理时区问题）
 const parseExcelDate = parseExcelDateToChina;
@@ -25,12 +26,12 @@ export default function DataImportWithDuplicateCheck() {
   const [isImporting, setIsImporting] = useState(false);
   
   // 重复检测相关状态
-  const [importStep, setImportStep] = useState<'upload' | 'preview' | 'confirmation' | 'processing'>('upload');
-  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importStep, setImportStep] = useState<'idle' | 'preprocessing' | 'preview' | 'confirmation' | 'processing'>('idle');
+  const [importPreview, setImportPreview] = useState<ImportPreviewResult | null>(null);
   const [approvedDuplicates, setApprovedDuplicates] = useState<Set<number>>(new Set());
   const [duplicateActions, setDuplicateActions] = useState<Map<number, {action: 'create' | 'update'}>>(new Map());
   const [importLogs, setImportLogs] = useState<string[]>([]);
-  const [importLogRef, setImportLogRef] = useState<HTMLDivElement | null>(null);
+  const importLogRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // 4. 数据加载逻辑 (useCallback & useEffect)
@@ -102,22 +103,34 @@ export default function DataImportWithDuplicateCheck() {
   };
 
   // 获取导入预览（包含重复检测）
-  const getImportPreview = async (validRows: any[]) => {
+  const getImportPreview = async (validRows: Record<string, unknown>[]) => {
     setImportStep('preview');
     try {
        const recordsToPreview = validRows.map(rowData => {
+         // 辅助函数：安全获取字符串值
+         const getString = (key: string, ...altKeys: string[]): string => {
+           const keys = [key, ...altKeys];
+           for (const k of keys) {
+             const value = rowData[k];
+             if (value !== undefined && value !== null) {
+               return String(value);
+             }
+           }
+           return '';
+         };
+
          // 使用模糊匹配，兼容各种字段名
          const parsedLoadingWeight = parseFloat(
-           rowData['装货数量'] || rowData['装货数量*'] || rowData['装货重量'] || rowData['装载量']
+           getString('装货数量', '装货数量*', '装货重量', '装载量')
          );
          const parsedUnloadingWeight = parseFloat(
-           rowData['卸货数量'] || rowData['卸货数量(可选)'] || rowData['卸货重量'] || rowData['卸货重量(可选)']
+           getString('卸货数量', '卸货数量(可选)', '卸货重量', '卸货重量(可选)')
          );
         const parsedCurrentCost = parseFloat(
-          rowData['运费金额'] || rowData['运费金额(可选)'] || rowData['运费'] || rowData['当前费用']
+          getString('运费金额', '运费金额(可选)', '运费', '当前费用')
         );
         const parsedExtraCost = parseFloat(
-          rowData['额外费用'] || rowData['额外费用(可选)'] || rowData['额外'] || rowData['附加费']
+          getString('额外费用', '额外费用(可选)', '额外', '附加费')
         );
 
         // 处理其他平台名称和外部运单号
@@ -157,23 +170,36 @@ export default function DataImportWithDuplicateCheck() {
           }
         }
 
+        // 辅助函数：安全获取并trim字符串
+        const getTrimmedString = (key: string, ...altKeys: string[]): string | null => {
+          const keys = [key, ...altKeys];
+          for (const k of keys) {
+            const value = rowData[k];
+            if (value !== undefined && value !== null) {
+              const str = String(value).trim();
+              return str || null;
+            }
+          }
+          return null;
+        };
+
         return {
-          project_name: rowData['项目名称']?.trim(),
-          chain_name: rowData['合作链路']?.trim() || null,
-          driver_name: rowData['司机姓名']?.trim(),
-          license_plate: rowData['车牌号']?.toString().trim() || null,
-          driver_phone: rowData['司机电话']?.toString().trim() || null,
-          loading_location: rowData['装货地点']?.trim(),
-          unloading_location: rowData['卸货地点']?.trim(),
-          loading_date: rowData.loading_date_parsed,
-          unloading_date: rowData.unloading_date_parsed,
+          project_name: getTrimmedString('项目名称') || '',
+          chain_name: getTrimmedString('合作链路'),
+          driver_name: getTrimmedString('司机姓名') || '',
+          license_plate: getTrimmedString('车牌号'),
+          driver_phone: getTrimmedString('司机电话'),
+          loading_location: getTrimmedString('装货地点') || '',
+          unloading_location: getTrimmedString('卸货地点') || '',
+          loading_date: (rowData.loading_date_parsed as string) || '',
+          unloading_date: (rowData.unloading_date_parsed as string) || null,
           loading_weight: !isNaN(parsedLoadingWeight) ? parsedLoadingWeight.toString() : null,
           unloading_weight: !isNaN(parsedUnloadingWeight) ? parsedUnloadingWeight.toString() : null,
           current_cost: !isNaN(parsedCurrentCost) ? parsedCurrentCost.toString() : '0',
           extra_cost: !isNaN(parsedExtraCost) ? parsedExtraCost.toString() : '0',
-          transport_type: (rowData['运输类型'] || rowData['运输类型(可选)'] || rowData['类型'])?.trim() || '实际运输',
-          cargo_type: (rowData['货物类型'] || rowData['货类'] || rowData['货物'])?.trim() || null,
-          remarks: (rowData['备注'] || rowData['备注(可选)'] || rowData['说明'] || rowData['注释'])?.toString().trim() || null,
+          transport_type: getTrimmedString('运输类型', '运输类型(可选)', '类型') || '实际运输',
+          cargo_type: getTrimmedString('货物类型', '货类', '货物'),
+          remarks: getTrimmedString('备注', '备注(可选)', '说明', '注释'),
           external_tracking_numbers: externalTrackingNumbers,
           other_platform_names: otherPlatformNames
         };
@@ -193,9 +219,10 @@ export default function DataImportWithDuplicateCheck() {
       
       setApprovedDuplicates(new Set());
       setImportStep('confirmation');
-    } catch (error: any) {
-      toast({ title: "预览失败", description: error.message, variant: "destructive" });
-      setImportStep('upload');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '预览失败';
+      toast({ title: "预览失败", description: errorMessage, variant: "destructive" });
+      setImportStep('idle');
     }
   };
 
@@ -224,12 +251,22 @@ export default function DataImportWithDuplicateCheck() {
             console.log('Excel解析的原始数据:', jsonData.slice(0, 3)); // 只显示前3行用于调试
 
             // 处理日期和验证数据（验证8个必填字段）
-            const validRows = jsonData.filter((rowData: any, index: number) => {
-                const projectName = rowData['项目名称']?.trim();
-                const driverName = rowData['司机姓名']?.trim();
-                const licensePlate = rowData['车牌号']?.trim();
-                const loadingLocation = rowData['装货地点']?.trim();
-                const unloadingLocation = rowData['卸货地点']?.trim();
+            const validRows = jsonData.filter((rowData: Record<string, unknown>, index: number) => {
+                // 辅助函数：安全获取并trim字符串
+                const getTrimmedString = (key: string): string | null => {
+                  const value = rowData[key];
+                  if (value !== undefined && value !== null) {
+                    const str = String(value).trim();
+                    return str || null;
+                  }
+                  return null;
+                };
+
+                const projectName = getTrimmedString('项目名称');
+                const driverName = getTrimmedString('司机姓名');
+                const licensePlate = getTrimmedString('车牌号');
+                const loadingLocation = getTrimmedString('装货地点');
+                const unloadingLocation = getTrimmedString('卸货地点');
                 const loadingDateRaw = rowData['装货日期'];
                 const loadingWeight = rowData['装货数量'];
 
@@ -283,11 +320,12 @@ export default function DataImportWithDuplicateCheck() {
             }
 
             // 获取导入预览
-            await getImportPreview(validRows);
+            await getImportPreview(validRows as Record<string, unknown>[]);
 
-        } catch (error: any) {
-            console.error("文件处理错误:", error);
-            toast({ title: "错误", description: `文件处理失败: ${error.message}`, variant: "destructive" });
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : '文件处理错误';
+            console.error("文件处理错误:", errorMessage);
+            toast({ title: "错误", description: `文件处理失败: ${errorMessage}`, variant: "destructive" });
         } finally {
             setIsImporting(false);
             event.target.value = '';
@@ -307,11 +345,11 @@ export default function DataImportWithDuplicateCheck() {
       `[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ${message}`
     ]);
     
-    const finalRecordsToImport = [
-      ...importPreview.new_records.map((item: any) => item.record),
+    const finalRecordsToImport: LogisticsRecord[] = [
+      ...importPreview.new_records.map((item) => item.record),
       ...importPreview.duplicate_records
-        .filter((_: any, index: number) => approvedDuplicates.has(index))
-        .map((item: any) => item.record)
+        .filter((_, index: number) => approvedDuplicates.has(index))
+        .map((item) => item.record)
     ];
 
     if (finalRecordsToImport.length === 0) {
@@ -348,16 +386,17 @@ export default function DataImportWithDuplicateCheck() {
       }
 
       setImportStep('confirmation');
-    } catch (error: any) {
-      addLog(`导入失败: ${error.message}`);
-      toast({ title: "导入失败", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '导入失败';
+      addLog(`导入失败: ${errorMessage}`);
+      toast({ title: "导入失败", description: errorMessage, variant: "destructive" });
       setImportStep('confirmation');
     }
   };
 
   // 关闭导入对话框
   const closeImportModal = () => {
-    setImportStep('upload');
+    setImportStep('idle');
     setImportPreview(null);
     setApprovedDuplicates(new Set());
     setDuplicateActions(new Map());
@@ -484,7 +523,7 @@ export default function DataImportWithDuplicateCheck() {
 
       {/* 导入对话框 */}
       <EnhancedImportDialog
-        isOpen={importStep !== 'upload'}
+        isOpen={importStep !== 'idle'}
         onClose={closeImportModal}
         importStep={importStep}
         importPreview={importPreview}

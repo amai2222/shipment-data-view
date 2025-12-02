@@ -8,41 +8,27 @@ import { Combobox } from "@/components/ui/combobox";
 import { SupabaseStorage, supabase } from "@/utils/supabase";
 import { Project, Driver, Location, PartnerChain } from "@/types";
 
+type LogisticsFormData = {
+  projectId: string;
+  chainId: string;
+  loadingTime: string;
+  loadingLocation: string;
+  unloadingLocation: string;
+  driverId: string;
+  loadingWeight: string;
+  unloadingDate: string;
+  unloadingWeight: string;
+  transportType: "实际运输" | "退货";
+  cargoType: string;
+  currentFee: string;
+  extraFee: string;
+  driverReceivable: string;
+  remarks: string;
+};
+
 interface LogisticsFormProps {
-  formData: {
-    projectId: string;
-    chainId: string;
-    loadingTime: string;
-    loadingLocation: string;
-    unloadingLocation: string;
-    driverId: string;
-    loadingWeight: string;
-    unloadingDate: string;
-    unloadingWeight: string;
-    transportType: "实际运输" | "退货";
-    cargoType: string;
-    currentFee: string;
-    extraFee: string;
-    driverReceivable: string;
-    remarks: string;
-  };
-  setFormData: React.Dispatch<React.SetStateAction<{
-    projectId: string;
-    chainId: string;
-    loadingTime: string;
-    loadingLocation: string;
-    unloadingLocation: string;
-    driverId: string;
-    loadingWeight: string;
-    unloadingDate: string;
-    unloadingWeight: string;
-    transportType: "实际运输" | "退货";
-    cargoType: string;
-    currentFee: string;
-    extraFee: string;
-    driverReceivable: string;
-    remarks: string;
-  }>>;
+  formData: LogisticsFormData;
+  setFormData: React.Dispatch<React.SetStateAction<LogisticsFormData>>;
   projects: Project[];
   onSubmit: (e: React.FormEvent) => void;
   submitLabel?: string;
@@ -91,7 +77,6 @@ export function LogisticsForm({
         id: chain.id,
         projectId: chain.project_id,
         chainName: chain.chain_name,
-        description: chain.description,
         isDefault: chain.is_default,
         createdAt: chain.created_at,
       })));
@@ -105,7 +90,7 @@ export function LogisticsForm({
   useEffect(() => {
     if (formData.projectId) {
       loadPartnerChains(formData.projectId);
-      setFormData((prev: any) => ({ ...prev, chainId: "" })); // 重置链路选择
+      setFormData((prev) => ({ ...prev, chainId: "" })); // 重置链路选择
       
       // 过滤司机：优先显示该项目的司机，然后显示没有项目关联的司机
       const projectDrivers = drivers.filter(d => d.projectIds?.includes(formData.projectId));
@@ -121,17 +106,17 @@ export function LogisticsForm({
       setFilteredDrivers(drivers);
       setFilteredLocations(locations);
     }
-  }, [formData.projectId, drivers, locations]);
+  }, [formData.projectId, drivers, locations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 当项目和链路都选择后，自动选择默认链路
   useEffect(() => {
     if (formData.projectId && partnerChains.length > 0 && !formData.chainId) {
       const defaultChain = partnerChains.find(chain => chain.isDefault);
       if (defaultChain) {
-        setFormData((prev: any) => ({ ...prev, chainId: defaultChain.id }));
+        setFormData((prev) => ({ ...prev, chainId: defaultChain.id }));
       }
     }
-  }, [formData.projectId, partnerChains, formData.chainId]);
+  }, [formData.projectId, partnerChains, formData.chainId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDriverChange = async (value: string) => {
     // 如果是新司机（不在现有列表中），创建新司机
@@ -148,7 +133,7 @@ export function LogisticsForm({
             projectIds: formData.projectId ? [formData.projectId] : []
           });
           setDrivers(prev => [...prev, newDriver]);
-          setFormData((prev: any) => ({ ...prev, driverId: newDriver.id }));
+          setFormData((prev) => ({ ...prev, driverId: newDriver.id }));
         } catch (error) {
           console.error('Error creating driver:', error);
         }
@@ -157,7 +142,7 @@ export function LogisticsForm({
       // 现有司机
       const driver = filteredDrivers.find(d => `${d.name} (${d.licensePlate})` === value);
       if (driver) {
-        setFormData((prev: any) => ({ ...prev, driverId: driver.id }));
+        setFormData((prev) => ({ ...prev, driverId: driver.id }));
       }
     }
   };
@@ -171,12 +156,12 @@ export function LogisticsForm({
           projectIds: formData.projectId ? [formData.projectId] : []
         });
         setLocations(prev => [...prev, newLocation]);
-        setFormData((prev: any) => ({ ...prev, [field]: value }));
+        setFormData((prev) => ({ ...prev, [field]: value }));
       } catch (error) {
         console.error('Error creating location:', error);
       }
     } else {
-      setFormData((prev: any) => ({ ...prev, [field]: value }));
+      setFormData((prev) => ({ ...prev, [field]: value }));
     }
   };
 
@@ -185,7 +170,7 @@ export function LogisticsForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="project">项目 *</Label>
-          <Select value={formData.projectId} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, projectId: value }))}>
+          <Select value={formData.projectId} onValueChange={(value) => setFormData((prev) => ({ ...prev, projectId: value }))}>
             <SelectTrigger>
               <SelectValue placeholder="选择项目" />
             </SelectTrigger>
@@ -201,7 +186,7 @@ export function LogisticsForm({
 
         <div>
           <Label htmlFor="chain">合作链路 *</Label>
-          <Select value={formData.chainId} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, chainId: value }))}>
+          <Select value={formData.chainId} onValueChange={(value) => setFormData((prev) => ({ ...prev, chainId: value }))}>
             <SelectTrigger>
               <SelectValue placeholder="选择合作链路" />
             </SelectTrigger>
@@ -222,7 +207,7 @@ export function LogisticsForm({
             id="loadingTime"
             type="datetime-local"
             value={formData.loadingTime}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, loadingTime: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, loadingTime: e.target.value }))}
             required
           />
         </div>
@@ -277,7 +262,7 @@ export function LogisticsForm({
             type="number"
             step="0.1"
             value={formData.loadingWeight}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, loadingWeight: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, loadingWeight: e.target.value }))}
             required
           />
         </div>
@@ -288,7 +273,7 @@ export function LogisticsForm({
             id="unloadingDate"
             type="date"
             value={formData.unloadingDate}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, unloadingDate: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, unloadingDate: e.target.value }))}
           />
         </div>
 
@@ -299,13 +284,13 @@ export function LogisticsForm({
             type="number"
             step="0.1"
             value={formData.unloadingWeight}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, unloadingWeight: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, unloadingWeight: e.target.value }))}
           />
         </div>
 
         <div>
           <Label htmlFor="transportType">运输类型</Label>
-          <Select value={formData.transportType} onValueChange={(value: "实际运输" | "退货") => setFormData((prev: any) => ({ ...prev, transportType: value }))}>
+          <Select value={formData.transportType} onValueChange={(value: "实际运输" | "退货") => setFormData((prev) => ({ ...prev, transportType: value }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -318,7 +303,7 @@ export function LogisticsForm({
 
         <div>
           <Label htmlFor="cargoType">货物类型</Label>
-          <Select value={formData.cargoType} onValueChange={(value: string) => setFormData((prev: any) => ({ ...prev, cargoType: value }))}>
+          <Select value={formData.cargoType} onValueChange={(value: string) => setFormData((prev) => ({ ...prev, cargoType: value }))}>
             <SelectTrigger>
               <SelectValue placeholder="选择货物类型" />
             </SelectTrigger>
@@ -343,7 +328,7 @@ export function LogisticsForm({
             type="number"
             step="0.01"
             value={formData.currentFee}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, currentFee: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, currentFee: e.target.value }))}
           />
         </div>
 
@@ -354,7 +339,7 @@ export function LogisticsForm({
             type="number"
             step="0.01"
             value={formData.extraFee}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, extraFee: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, extraFee: e.target.value }))}
           />
         </div>
 
@@ -365,7 +350,7 @@ export function LogisticsForm({
             type="number"
             step="0.01"
             value={formData.driverReceivable}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, driverReceivable: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, driverReceivable: e.target.value }))}
           />
         </div>
       </div>
@@ -375,7 +360,7 @@ export function LogisticsForm({
         <Textarea
           id="remarks"
           value={formData.remarks}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, remarks: e.target.value }))}
+          onChange={(e) => setFormData((prev) => ({ ...prev, remarks: e.target.value }))}
           placeholder="添加备注信息..."
         />
       </div>

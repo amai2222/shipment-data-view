@@ -31,6 +31,7 @@ interface PartnerWithProjects extends Partner {
     level: number;
     taxRate: number;
   }[];
+  balance?: number; // 余额（仅对货主类型显示）
 }
 
 // 删除确认组件
@@ -112,9 +113,44 @@ export default function Partners() {
     }
   }, []);
 
+  // 定义数据库返回的原始数据类型
+  interface PartnerRawData {
+    id: string;
+    name: string;
+    tax_rate: number;
+    partner_type: string | null;
+    created_at: string;
+    full_name?: string;
+    partner_bank_details?: {
+      full_name?: string;
+      tax_number?: string;
+      company_address?: string;
+      bank_account?: string;
+      bank_name?: string;
+      branch_name?: string;
+    } | Array<{
+      full_name?: string;
+      tax_number?: string;
+      company_address?: string;
+      bank_account?: string;
+      bank_name?: string;
+      branch_name?: string;
+    }>;
+    project_partners?: Array<{
+      level: number;
+      tax_rate?: number;
+      projects: {
+        id: string;
+        name: string;
+        auto_code?: string;
+      };
+    }>;
+  }
+
   const fetchPartners = useCallback(async () => {
     try {
-      let data: any, error: any;
+      let data: PartnerRawData[] | null;
+      let error: Error | null;
       if (canViewSensitive) {
         ({ data, error } = await supabase
           .from('partners')
@@ -159,9 +195,9 @@ export default function Partners() {
           taxNumber: bankDetails?.tax_number || '',
           companyAddress: bankDetails?.company_address || '',
           taxRate: Number(item.tax_rate),
-          partnerType: item.partner_type || '货主',
+          partnerType: (item.partner_type as '货主' | '合作商' | '资方' | '本公司') || '货主',
           createdAt: item.created_at,
-        projects: (item.project_partners || []).map((pp: any) => ({
+        projects: (item.project_partners || []).map((pp) => ({
           projectId: pp.projects.id,
           projectName: pp.projects.name,
           projectCode: pp.projects.auto_code,
@@ -268,9 +304,11 @@ export default function Partners() {
       fetchPartners(); // 重新加载数据
       // 使项目管理页面的合作方缓存失效，确保新合作方立即显示
       queryClient.invalidateQueries({ queryKey: ['partners-list'] });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '保存合作方失败';
       console.error('保存合作方失败:', error);
-      if (error.code === '23505') {
+      // 检查是否是 PostgreSQL 唯一约束错误
+      if (error instanceof Error && 'code' in error && error.code === '23505') {
         toast.error('合作方名称已存在');
       } else {
         toast.error('保存合作方失败');
@@ -350,11 +388,31 @@ export default function Partners() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        const importData = jsonData.map((row: any) => ({
-          name: row['合作方名称'] || row['name'] || '',
-          tax_rate: parseFloat((row['默认税点'] || row['税点'] || row['taxRate'] || '0').toString().replace('%', '')) / 100,
-          user_id: supabase.auth.getUser() ? supabase.auth.getUser().then(u => u.data.user.id) : null // 导入时也尝试添加user_id
-        }));
+        // 定义 Excel 导入行的类型
+        interface ExcelImportRow {
+          [key: string]: string | number | undefined;
+        }
+        const importData = jsonData.map((row: ExcelImportRow) => {
+          // 安全获取字符串值
+          const getName = (): string => {
+            const value = row['合作方名称'] ?? row['name'];
+            return value ? String(value) : '';
+          };
+          
+          // 安全获取税点值
+          const getTaxRate = (): number => {
+            const value = row['默认税点'] ?? row['税点'] ?? row['taxRate'] ?? '0';
+            const strValue = String(value).replace('%', '');
+            return parseFloat(strValue) / 100;
+          };
+
+          return {
+            name: getName(),
+            tax_rate: getTaxRate(),
+            user_id: null as string | null // 导入时暂不设置 user_id
+          };
+        });
+        
         const validData = importData.filter(item => item.name && item.tax_rate >= 0 && item.tax_rate < 1);
         if (validData.length === 0) { toast.error('没有有效的数据可导入'); return; }
         const existingNames = partners.map(p => p.name);

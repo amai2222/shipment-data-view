@@ -146,7 +146,7 @@ export function UserMenu() {
           <DropdownMenuItem 
             onSelect={(e) => {
               e.preventDefault();
-              handleSignOut(e);
+              handleSignOut(e as unknown as React.MouseEvent);
             }}
             className="py-3 cursor-pointer hover:bg-destructive/10 text-destructive hover:text-destructive transition-all duration-200"
           >

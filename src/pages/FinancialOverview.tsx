@@ -238,7 +238,7 @@ export default function FinancialOverview() {
     [key: string]: string | number;
   }
 
-  const aggregatePieData = (data: PieDataItem[], nameKey: string, dataKey: string): PieDataItem[] => { 
+  const aggregatePieData = useCallback((data: PieDataItem[], nameKey: string, dataKey: string): PieDataItem[] => { 
     const total = data.reduce((sum, item) => sum + (Number(item[dataKey]) || 0), 0); 
     if (total === 0) return []; 
     const mainItems = data.filter(item => (Number(item[dataKey]) || 0) / total >= PIE_CHART_AGGREGATION_THRESHOLD); 
@@ -248,9 +248,15 @@ export default function FinancialOverview() {
       return [...mainItems, { [nameKey]: '其它', [dataKey]: otherSum }]; 
     } 
     return data; 
-  };
-  const financialStatusData = useMemo(() => stats ? aggregatePieData([ { name: '待开票', value: stats.pendingInvoice }, { name: '待付款', value: stats.pendingPayment }, { name: '已支付', value: Math.max(0, stats.totalReceivables - stats.pendingInvoice - stats.pendingPayment) } ].filter(item => item.value > 0), 'name', 'value') : [], [stats]);
-  const aggregatedProjectData = useMemo(() => aggregatePieData(projectContribution, 'project_name', 'total_receivables'), [projectContribution]);
+  }, []);
+  const financialStatusData = useMemo(() => stats ? aggregatePieData([ { name: '待开票', value: stats.pendingInvoice }, { name: '待付款', value: stats.pendingPayment }, { name: '已支付', value: Math.max(0, stats.totalReceivables - stats.pendingInvoice - stats.pendingPayment) } ].filter(item => item.value > 0), 'name', 'value') : [], [stats, aggregatePieData]);
+  const aggregatedProjectData = useMemo(() => {
+    const pieData: PieDataItem[] = projectContribution.map(item => ({
+      name: item.project_name,
+      value: item.total_receivables
+    }));
+    return aggregatePieData(pieData, 'name', 'value');
+  }, [projectContribution, aggregatePieData]);
 
   // --- 渲染 ---
   if (loading && !stats) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><span className="ml-4 text-lg text-muted-foreground">正在加载财务数据...</span></div>; }

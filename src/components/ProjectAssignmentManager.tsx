@@ -21,7 +21,7 @@ import {
   Settings,
   Shield
 } from 'lucide-react';
-import { ProjectAssignmentService, UserProjectAssignment, ProjectAssignmentStats, PROJECT_ROLE_PERMISSIONS } from '@/services/ProjectAssignmentService';
+import { ProjectAssignmentService, UserProjectAssignment, ProjectAssignmentStats, PROJECT_ROLE_PERMISSIONS, ProjectData } from '@/services/ProjectAssignmentService';
 import { DynamicRoleService } from '@/services/DynamicRoleService';
 import { ROLES } from '@/config/permissions';
 
@@ -44,7 +44,7 @@ export function ProjectAssignmentManager({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // ✅ 使用严格类型定义
-  const [projects, setProjects] = useState<ProjectAssignmentService.ProjectData[]>([]);
+  const [projects, setProjects] = useState<ProjectData[]>([]);
   const [assignments, setAssignments] = useState<UserProjectAssignment[]>([]);
   const [stats, setStats] = useState<ProjectAssignmentStats>({
     totalProjects: 0,
@@ -64,11 +64,7 @@ export function ProjectAssignmentManager({
   const [bulkRole, setBulkRole] = useState<string>(DynamicRoleService.getDefaultProjectRole());
 
   // 加载数据
-  useEffect(() => {
-    loadData();
-  }, [userId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [projectsData, assignmentsData, statsData] = await Promise.all([
@@ -80,8 +76,9 @@ export function ProjectAssignmentManager({
       setProjects(projectsData);
       setAssignments(assignmentsData);
       setStats(statsData);
-    } catch (error) {
-      console.error('加载项目分配数据失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载项目分配数据失败';
+      console.error('加载项目分配数据失败:', errorMessage);
       toast({
         title: '加载失败',
         description: '无法加载项目分配数据',
@@ -90,7 +87,11 @@ export function ProjectAssignmentManager({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // 过滤和排序项目
   const filteredProjects = useMemo(() => {
@@ -366,7 +367,7 @@ export function ProjectAssignmentManager({
               </div>
             </div>
             <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'inactive')}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="状态" />
                 </SelectTrigger>
@@ -412,7 +413,7 @@ export function ProjectAssignmentManager({
                     <div className="space-y-4">
                       <div>
                         <Label>项目角色</Label>
-                        <Select value={bulkRole} onValueChange={(value: any) => setBulkRole(value)}>
+                        <Select value={bulkRole} onValueChange={(value: string) => setBulkRole(value)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -517,7 +518,7 @@ export function ProjectAssignmentManager({
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                             <span>开始: {new Date(project.start_date).toLocaleDateString()}</span>
                             <span>结束: {new Date(project.end_date).toLocaleDateString()}</span>
-                            {project.auto_code && <span>编码: {project.auto_code}</span>}
+                            {(project as Record<string, unknown>).auto_code && <span>编码: {(project as Record<string, unknown>).auto_code as string}</span>}
                           </div>
                         </div>
                       </div>

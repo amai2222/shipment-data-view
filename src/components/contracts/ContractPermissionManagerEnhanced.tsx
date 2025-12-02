@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,8 @@ export function ContractPermissionManager({
     name: string;
     contract_number?: string;
     status?: string;
+    counterparty_company?: string;
+    category?: string;
   }
   
   interface UserData {
@@ -105,6 +107,7 @@ export function ContractPermissionManager({
   interface RoleData {
     id: string;
     name: string;
+    role?: string;
     permissions?: string[];
   }
   
@@ -149,12 +152,7 @@ export function ContractPermissionManager({
     }
   });
 
-  // 加载数据
-  useEffect(() => {
-    loadAllData();
-  }, [contractId]);
-
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     if (loading) return; // 防止重复加载
     
     try {
@@ -178,7 +176,8 @@ export function ContractPermissionManager({
       setLoading(false);
       setIsInitialized(true);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contractId]);
 
   const loadPermissions = async () => {
     try {
@@ -204,9 +203,22 @@ export function ContractPermissionManager({
         throw error;
       }
 
-      const safeData = (data || []).map(item => {
-        const profileData = item.profiles as any;
-        const granterData = item.granter as any;
+      interface PermissionItem {
+        user_id: string;
+        contracts?: { contract_number?: string; counterparty_company?: string; our_company?: string; category?: string };
+        profiles?: { full_name?: string; email?: string };
+        granter?: { full_name?: string };
+        permission_type?: string;
+        is_active?: boolean;
+        expires_at?: string | null;
+        description?: string;
+        created_at: string;
+        granted_by?: string;
+      }
+
+      const safeData = (data || []).map((item: PermissionItem) => {
+        const profileData = item.profiles;
+        const granterData = item.granter;
         return {
           ...item,
           contract_number: item.contracts?.contract_number || '未知合同',
@@ -215,16 +227,16 @@ export function ContractPermissionManager({
           category: item.contracts?.category || '未分类',
           user_name: (profileData && profileData.full_name) || `用户 ${item.user_id}`,
           user_email: (profileData && profileData.email) || '',
-          granter_name: (granterData && granterData.full_name) || `授权者 ${(item as any).granted_by || ''}`,
+          granter_name: (granterData && granterData.full_name) || `授权者 ${item.granted_by || ''}`,
           permission_type: item.permission_type || 'view',
           is_active: item.is_active !== false,
-          expires_at: (item as any).expires_at || null,
-          description: (item as any).description || '',
+          expires_at: item.expires_at || null,
+          description: item.description || '',
           granted_at: item.created_at
         };
       });
 
-      setPermissions(safeData as any);
+      setPermissions(safeData);
     } catch (error) {
       console.error('加载权限失败:', error);
       setPermissions([]);
@@ -263,11 +275,11 @@ export function ContractPermissionManager({
         owner_name: item.owner?.full_name || `所有者 ${item.owner_id}`,
         owner_email: item.owner?.email || '',
         permissions: item.permissions || [],
-        is_active: (item as any).is_active !== false,
+        is_active: (item.is_active !== false),
         granted_at: item.created_at || new Date().toISOString()
       }));
 
-      setOwnerPermissions(safeData as any);
+      setOwnerPermissions(safeData);
     } catch (error) {
       console.error('加载所有者权限失败:', error);
       setOwnerPermissions([]);
@@ -297,7 +309,7 @@ export function ContractPermissionManager({
         is_active: item.is_active !== false
       }));
 
-      setCategoryTemplates(safeData as any);
+      setCategoryTemplates(safeData);
     } catch (error) {
       console.error('加载分类模板失败:', error);
       setCategoryTemplates([]);
@@ -348,6 +360,7 @@ export function ContractPermissionManager({
       ownerCount: safeOwnerPermissions.length
     };
     return stats;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permissions, ownerPermissions]);
 
   // 筛选权限
@@ -425,11 +438,12 @@ export function ContractPermissionManager({
       resetForm();
       await loadPermissions();
       onPermissionUpdate?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "创建权限失败";
       console.error('创建权限失败:', error);
       toast({
         title: "创建失败",
-        description: error.message || "创建权限失败",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -441,7 +455,7 @@ export function ContractPermissionManager({
       const { error } = await supabase
         .from('contract_category_permission_templates')
         .update({
-          permissions: (template as any).permissions || template.default_permissions || [],
+          permissions: template.default_permissions || [],
           updated_at: new Date().toISOString()
         })
         .eq('id', template.id);
@@ -454,11 +468,12 @@ export function ContractPermissionManager({
       });
 
       await loadCategoryTemplates();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '更新分类权限模板失败';
       console.error('更新分类模板失败:', error);
       toast({
         title: "更新失败",
-        description: "更新分类权限模板失败",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -745,7 +760,7 @@ export function ContractPermissionManager({
                                 checked={formData.permission_type === type.value}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
-                                    setFormData(prev => ({ ...prev, permission_type: type.value as any }));
+                                    setFormData(prev => ({ ...prev, permission_type: type.value as ContractPermission['permission_type'] }));
                                   }
                                 }}
                               />
@@ -1089,9 +1104,9 @@ export function ContractPermissionManager({
                               return (
                                 <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
                                   <div className="flex items-center gap-3">
-                                    <Badge variant="outline">{(template as any).role || template.category}</Badge>
+                                    <Badge variant="outline">{template.category}</Badge>
                            <div className="flex gap-1">
-                             {((template as any).permissions || (template as any).default_permissions || []).map((permission: string) => {
+                             {(template.default_permissions || []).map((permission: string) => {
                                         const typeInfo = getPermissionTypeInfo(permission);
                                         return (
                                           <Badge key={permission} className={typeInfo.color}>

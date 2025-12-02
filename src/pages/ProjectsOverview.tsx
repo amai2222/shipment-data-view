@@ -155,7 +155,7 @@ export default function ProjectsOverview() {
         console.log('项目看板查询参数:', params);
       }
       
-      const { data, error } = await supabase.rpc('get_all_projects_overview_data' as any, params);
+      const { data, error } = await supabase.rpc('get_all_projects_overview_data', params);
       
       // 调试日志
       if (import.meta.env.DEV) {
@@ -181,10 +181,10 @@ export default function ProjectsOverview() {
       return data as unknown as OverviewDashboardData;
     },
     staleTime: 2 * 60 * 1000, // 2分钟缓存
-    cacheTime: 10 * 60 * 1000, // 10分钟保留
+    gcTime: 10 * 60 * 1000, // 10分钟保留（原 cacheTime 已废弃）
     refetchOnWindowFocus: false,
     retry: 1,
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('查询错误:', error);
       toast({ 
         title: "加载失败", 

@@ -50,6 +50,13 @@ interface Contract {
   is_confidential?: boolean;
   last_accessed_at?: string;
   access_count?: number;
+  contract_tag_relations?: Array<{
+    contract_tags: {
+      id: string;
+      name: string;
+      color: string;
+    };
+  }>;
 }
 
 interface ContractFormData {
@@ -108,7 +115,7 @@ export default function ContractManagement() {
   const [currentFileUrl, setCurrentFileUrl] = useState('');
   const [currentFileName, setCurrentFileName] = useState('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'contracts' | 'workflow' | 'reports' | 'numbering' | 'tags' | 'permissions' | 'files' | 'reminders' | 'audit' | 'advanced-permissions'>('dashboard');
-  const [advancedFilters, setAdvancedFilters] = useState<any>(null);
+  const [advancedFilters, setAdvancedFilters] = useState<ContractFilters | null>(null);
   const [formData, setFormData] = useState<ContractFormData>({
     category: '业务合同',
     start_date: '',
@@ -139,9 +146,10 @@ export default function ContractManagement() {
 
   useEffect(() => {
     loadContracts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilters]);
 
-  const loadContracts = async (customFilters?: any) => {
+  const loadContracts = async (customFilters?: ContractFilters) => {
     try {
       setLoading(true);
       const filters = customFilters || activeFilters;
@@ -484,7 +492,7 @@ export default function ContractManagement() {
     }
   };
 
-  const handleAdvancedSearch = (filters: any) => {
+  const handleAdvancedSearch = (filters: ContractFilters) => {
     setAdvancedFilters(filters);
     loadContracts(filters);
   };
@@ -960,7 +968,7 @@ export default function ContractManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {contract.contract_tag_relations?.map((relation: any) => (
+                        {contract.contract_tag_relations?.map((relation) => (
                           <Badge
                             key={relation.contract_tags.id}
                             variant="outline"

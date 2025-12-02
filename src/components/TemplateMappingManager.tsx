@@ -175,8 +175,9 @@ export default function TemplateMappingManager() {
       });
       
       setDatabaseColumns(columnsMap);
-    } catch (error: any) {
-      console.error('加载数据库列信息失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载数据库列信息失败';
+      console.error('加载数据库列信息失败:', errorMessage);
       // 不显示错误提示，避免影响用户体验
     }
   };
@@ -205,8 +206,9 @@ export default function TemplateMappingManager() {
           updated_at: t.updated_at || new Date().toISOString()
         };
       }));
-    } catch (error: any) {
-      console.error('加载模板失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载模板失败';
+      console.error('加载模板失败:', errorMessage);
       toast({ title: "错误", description: "加载模板列表失败", variant: "destructive" });
     }
   };
@@ -239,11 +241,12 @@ export default function TemplateMappingManager() {
           value_mappings: valueMappings
         };
       }));
-    } catch (error: any) {
-      console.error('加载字段映射失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载字段映射失败';
+      console.error('加载字段映射失败:', errorMessage);
       toast({ 
         title: "错误", 
-        description: `加载字段映射失败: ${error.message || '未知错误'}`,
+        description: `加载字段映射失败: ${errorMessage}`,
         variant: "destructive" 
       });
     }
@@ -266,8 +269,9 @@ export default function TemplateMappingManager() {
         fixed_value: m.excel_value || '',
         description: ''
       })));
-    } catch (error: any) {
-      console.error('加载固定映射失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载固定映射失败';
+      console.error('加载固定映射失败:', errorMessage);
       toast({ title: "错误", description: "加载固定映射失败", variant: "destructive" });
     }
   };
@@ -316,8 +320,9 @@ export default function TemplateMappingManager() {
       setIsDialogOpen(false);
       resetForms();
       loadTemplates();
-    } catch (error: any) {
-      console.error('保存模板失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '保存模板失败';
+      console.error('保存模板失败:', errorMessage);
       toast({ title: "错误", description: "保存模板失败", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -365,8 +370,9 @@ export default function TemplateMappingManager() {
       resetFieldForm();
       setValueMappingRows([{ key: '', value: '' }]);
       loadFieldMappings(selectedTemplate.id);
-    } catch (error: any) {
-      console.error('保存字段映射失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '保存字段映射失败';
+      console.error('保存字段映射失败:', errorMessage);
       toast({ title: "错误", description: "保存字段映射失败", variant: "destructive" });
     }
   };
@@ -396,8 +402,9 @@ export default function TemplateMappingManager() {
       setEditingFixed(null);
       resetFixedForm();
       loadFixedMappings(selectedTemplate.id);
-    } catch (error: any) {
-      console.error('保存固定映射失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '保存固定映射失败';
+      console.error('保存固定映射失败:', errorMessage);
       toast({ title: "错误", description: "保存固定映射失败", variant: "destructive" });
     }
   };
@@ -416,8 +423,9 @@ export default function TemplateMappingManager() {
       if (selectedTemplate) {
         loadFieldMappings(selectedTemplate.id);
       }
-    } catch (error: any) {
-      console.error('删除字段映射失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '删除字段映射失败';
+      console.error('删除字段映射失败:', errorMessage);
       toast({ title: "错误", description: "删除字段映射失败", variant: "destructive" });
     }
   };
@@ -436,8 +444,9 @@ export default function TemplateMappingManager() {
       if (selectedTemplate) {
         loadFixedMappings(selectedTemplate.id);
       }
-    } catch (error: any) {
-      console.error('删除固定映射失败:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '删除固定映射失败';
+      console.error('删除固定映射失败:', errorMessage);
       toast({ title: "错误", description: "删除固定映射失败", variant: "destructive" });
     }
   };
@@ -554,6 +563,7 @@ export default function TemplateMappingManager() {
   useEffect(() => {
     loadDatabaseColumns();
     loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -872,6 +882,7 @@ export default function TemplateMappingManager() {
                   // 检查选择的字段是否为必填字段，如果是则自动开启必填开关
                   const selectedField = SYSTEM_FIELDS.find(f => f.key === value);
                   setFieldForm(prev => ({ 
+                    ...prev,
                     database_field: value,
                     is_required: selectedField?.required || prev.is_required
                   }));

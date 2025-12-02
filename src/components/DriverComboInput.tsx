@@ -95,23 +95,30 @@ export function DriverComboInput({
 
       // 如果提供了项目ID，自动将新司机关联到项目
       if (data && projectId) {
-        const driverData = data as any;
+        const driverData = data as Driver;
         const { data: { user } } = await supabase.auth.getUser();
         
         // 关联司机到项目
-        const { error: linkError } = await supabase
-          .from('driver_projects')
-          .insert({
-            driver_id: driverData.id,
-            project_id: projectId,
-            user_id: user?.id
-          })
-          .select()
-          .single();
-        
-        // 如果关联已存在，忽略错误
-        if (linkError && !linkError.message.includes('duplicate') && !linkError.message.includes('unique')) {
-          console.warn('关联司机关联到项目失败:', linkError);
+        if (user?.id) {
+          try {
+            const { error: linkError } = await supabase
+              .from('driver_projects')
+              .insert({
+                driver_id: driverData.id,
+                project_id: projectId,
+                user_id: user.id
+              } as never)
+              .select()
+              .single();
+            
+            // 如果关联已存在，忽略错误
+            if (linkError && !linkError.message.includes('duplicate') && !linkError.message.includes('unique')) {
+              console.warn('关联司机关联到项目失败:', linkError);
+            }
+          } catch (linkErr: unknown) {
+            // 忽略关联错误，不影响司机创建
+            console.warn('关联司机关联到项目失败:', linkErr);
+          }
         }
       }
 
@@ -127,7 +134,7 @@ export function DriverComboInput({
 
       // 自动选择新添加的司机
       if (data) {
-        const driverData = data as any;
+        const driverData = data as Driver;
         onChange(driverData.id, {
           name: driverData.name,
           license_plate: driverData.license_plate || "",
@@ -139,10 +146,11 @@ export function DriverComboInput({
       setShowAddDialog(false);
       setNewDriverData({ name: "", license_plate: "", phone: "" });
       setOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '添加司机失败';
       toast({
         title: "添加失败",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }

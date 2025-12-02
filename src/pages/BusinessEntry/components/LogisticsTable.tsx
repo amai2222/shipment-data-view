@@ -574,9 +574,20 @@ export const LogisticsTable = ({ records, loading, deletingIds = new Set(), pagi
       </div>
       {/* ✅ 使用公共分页组件 */}
       <PageSummaryPagination
-        pagination={pagination}
+        pagination={{
+          currentPage: pagination.currentPage,
+          totalPages: pagination.totalPages,
+          pageSize: pagination.pageSize,
+          totalCount: pagination.totalCount
+        }}
         onPaginationChange={(newPagination) => {
-          setPagination(newPagination);
+          setPagination({
+            ...pagination,
+            currentPage: newPagination.currentPage,
+            pageSize: newPagination.pageSize,
+            totalPages: newPagination.totalPages,
+            totalCount: newPagination.totalCount
+          });
           if (newPagination.pageSize !== pagination.pageSize && onPageSizeChange) {
             onPageSizeChange(newPagination.pageSize);
           } else if (newPagination.currentPage !== pagination.currentPage) {

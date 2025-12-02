@@ -40,6 +40,31 @@ export default function WaybillMaintenance() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'standard' | 'template' | 'mapping' | 'selective' | 'delete'>('standard');
 
+  // 加载指定项目的运单数量（延迟加载，不阻塞页面打开）
+  const loadWaybillCount = useCallback(async () => {
+    if (!selectedProject) {
+      setWaybillCount(0);
+      return;
+    }
+
+    // ✅ 不阻塞UI，使用estimated模式
+    try {
+      const { count, error } = await supabase
+        .from('logistics_records')
+        .select('id', { count: 'estimated', head: true })  // ✅ 改为estimated，更快
+        .eq('project_name', selectedProject);
+
+      if (error) throw error;
+      setWaybillCount(count || 0);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载运单数量失败';
+      console.error('加载运单数量失败:', errorMessage);
+      setWaybillCount(0);  // 失败不提示
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedProject]);
+
   // Excel导入相关状态
   const {
     isImporting, 
@@ -59,6 +84,31 @@ export default function WaybillMaintenance() {
     loadWaybillCount(); 
   });
 
+  // 加载项目列表
+  const loadProjects = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, start_date, end_date, project_status')
+        .order('name');
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载项目失败';
+      console.error('加载项目失败:', errorMessage);
+      toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  useEffect(() => {
+    loadWaybillCount();
+  }, [loadWaybillCount]);
+
   // 检查权限
   if (!isAdmin && !isOperator) {
     return (
@@ -73,46 +123,6 @@ export default function WaybillMaintenance() {
       </div>
     );
   }
-
-  // 加载项目列表
-  const loadProjects = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, start_date, end_date, project_status')
-        .order('name');
-
-      if (error) throw error;
-      setProjects(data || []);
-    } catch (error: any) {
-      console.error('加载项目失败:', error);
-      toast({ title: "错误", description: "加载项目列表失败", variant: "destructive" });
-    }
-  }, [toast]);
-
-  // 加载指定项目的运单数量（延迟加载，不阻塞页面打开）
-  const loadWaybillCount = useCallback(async () => {
-    if (!selectedProject) {
-      setWaybillCount(0);
-      return;
-    }
-
-    // ✅ 不阻塞UI，使用estimated模式
-    try {
-      const { count, error } = await supabase
-        .from('logistics_records')
-        .select('id', { count: 'estimated', head: true })  // ✅ 改为estimated，更快
-        .eq('project_name', selectedProject);
-
-      if (error) throw error;
-      setWaybillCount(count || 0);
-    } catch (error: any) {
-      console.error('加载运单数量失败:', error);
-      setWaybillCount(0);  // 失败不提示
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedProject, toast]);
 
   // 按项目删除运单
   const handleDeleteByProject = async () => {
@@ -149,11 +159,12 @@ export default function WaybillMaintenance() {
 
       // 重新加载运单数量
       await loadWaybillCount();
-    } catch (error: any) {
-      console.error('删除运单失败:', error);
+    } catch (error: unknown) {
+      const deleteErrorMessage = error instanceof Error ? error.message : '删除运单失败';
+      console.error('删除运单失败:', deleteErrorMessage);
       toast({ 
         title: "删除失败", 
-        description: error.message || "删除运单记录时发生错误", 
+        description: deleteErrorMessage || "删除运单记录时发生错误", 
         variant: "destructive" 
       });
     } finally {
@@ -177,14 +188,6 @@ export default function WaybillMaintenance() {
     XLSX.writeFile(wb, "运单导入模板.xlsx");
   };
 
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
-
-  useEffect(() => {
-    loadWaybillCount();
-  }, [loadWaybillCount]);
-
   return (
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader
@@ -207,7 +210,7 @@ export default function WaybillMaintenance() {
             </Alert>
 
             {/* 标签页 */}
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'standard' | 'template' | 'mapping' | 'selective' | 'delete')}>
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="standard">标准导入</TabsTrigger>
                 <TabsTrigger value="template">模板导入</TabsTrigger>
@@ -235,7 +238,7 @@ export default function WaybillMaintenance() {
                         <div className="flex items-center gap-2">
                           <span>{project.name}</span>
                           <Badge variant="outline" className="text-xs">
-                            {project.project_status || '进行中'}
+                            {project.projectStatus || '进行中'}
                           </Badge>
                         </div>
                       </SelectItem>
