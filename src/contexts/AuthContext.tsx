@@ -136,9 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setLoading(false);
                     return;
                   }
-                  // 如果没有缓存，延迟重试一次
+                  // 如果没有缓存，延迟重试（最多重试3次）
                   console.log('⚠️ 无缓存 profile，1秒后重试获取');
-                  setTimeout(async () => {
+                  let retryCount = 0;
+                  const maxRetries = 3;
+                  
+                  const retryFetchProfile = async (): Promise<void> => {
                     try {
                       const { data: retryData, error: retryError } = await supabase
                         .from('profiles')
@@ -147,7 +150,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         .maybeSingle();
                       
                       if (retryError) {
-                        console.error('重试获取用户配置文件仍然失败:', retryError);
+                        const retryErrorMessage = retryError.message || '';
+                        const retryErrorString = JSON.stringify(retryError);
+                        const isRetryStatusZeroError = retryErrorMessage.includes('status provided (0)') || 
+                                                       retryErrorMessage.includes('RangeError') ||
+                                                       retryErrorString.includes('status provided (0)') ||
+                                                       retryErrorString.includes('RangeError');
+                        
+                        if (isRetryStatusZeroError && retryCount < maxRetries) {
+                          retryCount++;
+                          console.log(`⚠️ 重试 ${retryCount}/${maxRetries} 仍然遇到状态码 0 错误，${(retryCount * 1000)}ms 后再次重试`);
+                          setTimeout(retryFetchProfile, retryCount * 1000);
+                          return;
+                        }
+                        
+                        // 如果重试次数已用完或不是状态码 0 错误，输出错误但不阻止登录
+                        if (!isRetryStatusZeroError) {
+                          console.error('重试获取用户配置文件仍然失败:', retryError);
+                        } else {
+                          console.warn('⚠️ 重试多次后仍然遇到状态码 0 错误，尝试使用 session 中的用户信息');
+                        }
+                        
+                        // 即使失败，也尝试使用 session 中的基本信息创建一个最小化的 profile
+                        if (currentUser) {
+                          const minimalProfile: UserProfile = {
+                            id: currentUser.id,
+                            email: currentUser.email || '',
+                            username: currentUser.email?.split('@')[0] || '',
+                            full_name: currentUser.user_metadata?.full_name || '',
+                            role: (currentUser.user_metadata?.role as UserRole) || 'operator',
+                            is_active: true
+                          };
+                          setProfile(minimalProfile);
+                          profileCache = minimalProfile;
+                          console.log('✅ 使用 session 中的基本信息创建最小化 profile');
+                        }
                         setLoading(false);
                         return;
                       }
@@ -184,15 +221,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                           (currentUser as ExtendedUser).partnerId = partnerId;
                           setUser(currentUser as ExtendedUser);
                         }
+                        console.log('✅ 重试成功，已获取用户配置文件');
                         setLoading(false);
                       } else {
                         setLoading(false);
                       }
                     } catch (retryErr) {
+                      const retryErrMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+                      const retryErrString = JSON.stringify(retryErr || {});
+                      const isRetryErrStatusZero = retryErrMessage.includes('status provided (0)') || 
+                                                   retryErrMessage.includes('RangeError') ||
+                                                   retryErrString.includes('status provided (0)') ||
+                                                   retryErrString.includes('RangeError');
+                      
+                      if (isRetryErrStatusZero && retryCount < maxRetries) {
+                        retryCount++;
+                        console.log(`⚠️ 重试 ${retryCount}/${maxRetries} 时发生状态码 0 异常，${(retryCount * 1000)}ms 后再次重试`);
+                        setTimeout(retryFetchProfile, retryCount * 1000);
+                        return;
+                      }
+                      
                       console.error('重试获取用户配置文件时发生异常:', retryErr);
                       setLoading(false);
                     }
-                  }, 1000);
+                  };
+                  
+                  setTimeout(retryFetchProfile, 1000);
                   return;
                 }
                 
