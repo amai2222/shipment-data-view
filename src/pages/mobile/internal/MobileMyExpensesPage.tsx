@@ -116,6 +116,10 @@ export default function MobileMyExpensesPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   
+  // 冲销专用图片上传状态
+  const [writeoffFiles, setWriteoffFiles] = useState<File[]>([]);
+  const [uploadingWriteoff, setUploadingWriteoff] = useState(false);
+  
   // TDZ 修复：延迟初始化
   const isMountedRef = useRef(false);
   const hasInitialized = useRef(false);
@@ -135,6 +139,27 @@ export default function MobileMyExpensesPage() {
     if (selectedFiles.length === 0) return [];
     
     const uploadPromises = selectedFiles.map(async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const { data, error } = await supabase.functions.invoke('upload-to-qiniu', {
+        body: formData
+      });
+      
+      if (error) throw error;
+      if (!data || !data.url) throw new Error('上传失败：未返回URL');
+      
+      return data.url;
+    });
+    
+    return Promise.all(uploadPromises);
+  };
+
+  // 上传冲销凭证到七牛云
+  const uploadWriteoffFilesToQiniu = async (): Promise<string[]> => {
+    if (writeoffFiles.length === 0) return [];
+    
+    const uploadPromises = writeoffFiles.map(async (file) => {
       const formData = new FormData();
       formData.append('file', file);
       
@@ -386,6 +411,7 @@ export default function MobileMyExpensesPage() {
   const handleOpenWriteoff = (app: ExpenseApplication) => {
     setSelectedWriteoffApp(app);
     setActualAmount(app.actual_amount?.toString() || '');
+    setWriteoffFiles([]); // 清空已选图片
     setShowWriteoffDialog(true);
   };
 
@@ -405,6 +431,15 @@ export default function MobileMyExpensesPage() {
 
     setSubmitting(true);
     try {
+      // 先上传凭证照片（如果有）
+      let voucherUrls: string[] = [];
+      if (writeoffFiles.length > 0) {
+        setUploadingWriteoff(true);
+        voucherUrls = await uploadWriteoffFilesToQiniu();
+        setUploadingWriteoff(false);
+      }
+
+      // 提交冲销
       const { data, error } = await supabase.rpc('writeoff_expense_application', {
         p_application_id: selectedWriteoffApp.id,
         p_actual_amount: actual
@@ -421,6 +456,24 @@ export default function MobileMyExpensesPage() {
         return;
       }
 
+      // 如果有上传凭证，追加到费用申请的凭证照片
+      if (voucherUrls.length > 0) {
+        const { error: photoError } = await supabase.rpc('add_expense_application_photos', {
+          p_application_id: selectedWriteoffApp.id,
+          p_additional_photos: voucherUrls
+        });
+
+        if (photoError) {
+          console.error('添加凭证照片失败:', photoError);
+          // 不阻止冲销成功，只记录错误
+          toast({
+            title: '提示',
+            description: '冲销成功，但凭证照片上传失败，请稍后补充上传',
+            variant: 'default'
+          });
+        }
+      }
+
       toast({
         title: '冲销成功',
         description: `结余：¥${data.balance.toFixed(2)} ${data.balance >= 0 ? '(结余)' : '(待补报销)'}`
@@ -429,6 +482,7 @@ export default function MobileMyExpensesPage() {
       setShowWriteoffDialog(false);
       setSelectedWriteoffApp(null);
       setActualAmount('');
+      setWriteoffFiles([]); // 清空已选图片
       loadWriteoffApplications();
       loadApplications();
     } catch (error: unknown) {
@@ -499,6 +553,57 @@ export default function MobileMyExpensesPage() {
 
   const removeSelectedFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 冲销专用文件选择处理
+  const handleWriteoffFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      toast({
+        title: "提示",
+        description: "只能上传图片文件",
+        variant: "destructive",
+      });
+    }
+
+    if (imageFiles.length > 0) {
+      setWriteoffFiles(prev => [...prev, ...imageFiles]);
+    }
+    
+    event.target.value = '';
+  };
+
+  const handleWriteoffCameraCapture = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const cameraInput = document.getElementById('writeoff-camera-file-input') as HTMLInputElement;
+    if (cameraInput) {
+      cameraInput.value = '';
+      cameraInput.click();
+    }
+  };
+
+  const handleWriteoffCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      setWriteoffFiles(prev => [...prev, ...imageFiles]);
+      toast({
+        title: "拍照成功",
+        description: `已添加 ${imageFiles.length} 张照片，可继续拍照`,
+        duration: 2000,
+      });
+    }
+    
+    event.target.value = '';
+  };
+
+  const removeWriteoffFile = (index: number) => {
+    setWriteoffFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -1076,6 +1181,90 @@ export default function MobileMyExpensesPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* 凭证照片上传 */}
+                  <div className="grid gap-2">
+                    <Label>凭证照片（可选）</Label>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-24 flex flex-col gap-2"
+                        onClick={handleWriteoffCameraCapture}
+                        disabled={uploadingWriteoff || submitting}
+                      >
+                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                          <Camera className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <span className="text-sm">拍照</span>
+                        <span className="text-xs text-muted-foreground">可连续拍摄多张</span>
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-24 flex flex-col gap-2"
+                        onClick={() => document.getElementById('writeoff-photo-file-input')?.click()}
+                        disabled={uploadingWriteoff || submitting}
+                      >
+                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                          <ImagePlus className="h-6 w-6 text-green-600" />
+                        </div>
+                        <span className="text-sm">相册</span>
+                      </Button>
+                    </div>
+                    
+                    <input
+                      id="writeoff-photo-file-input"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleWriteoffFileSelect}
+                    />
+                    
+                    <input
+                      id="writeoff-camera-file-input"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      multiple
+                      className="hidden"
+                      onChange={handleWriteoffCameraFileSelect}
+                    />
+                    
+                    {writeoffFiles.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {writeoffFiles.map((file, index) => (
+                          <div key={index} className="relative aspect-square">
+                            <img 
+                              src={URL.createObjectURL(file)} 
+                              alt={`凭证${index + 1}`} 
+                              className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                            />
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="destructive"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
+                              onClick={() => removeWriteoffFile(index)}
+                              disabled={submitting}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {uploadingWriteoff && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        正在上传照片到云端...
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <DialogFooter>
@@ -1084,6 +1273,7 @@ export default function MobileMyExpensesPage() {
                     onClick={() => {
                       setShowWriteoffDialog(false);
                       setActualAmount('');
+                      setWriteoffFiles([]); // 清空已选图片
                     }}
                     disabled={submitting}
                   >

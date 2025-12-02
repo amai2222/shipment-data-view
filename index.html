@@ -138,6 +138,8 @@
               if (errorTarget.onerror) {
                 errorTarget.onerror = null;
               }
+              // 阻止默认的错误处理
+              event.stopImmediatePropagation();
               return false;
             }
           }
@@ -150,6 +152,58 @@
             return false;
           }
         }, true); // 使用捕获阶段，更早拦截
+        
+        // 额外拦截：在资源加载前就阻止 Cloudflare Insights 脚本加载
+        const originalCreateElement = document.createElement.bind(document);
+        document.createElement = function(tagName, options) {
+          const element = originalCreateElement(tagName, options);
+          if (tagName.toLowerCase() === 'script') {
+            const originalSetAttribute = element.setAttribute.bind(element);
+            element.setAttribute = function(name, value) {
+              if (name === 'src' && typeof value === 'string' && shouldIgnoreError('', value)) {
+                // 阻止 Cloudflare Insights 脚本加载
+                // 设置一个空的 onerror 处理器，防止错误冒泡
+                element.onerror = function() { return false; };
+                // 阻止脚本执行
+                element.src = '';
+                return;
+              }
+              return originalSetAttribute(name, value);
+            };
+            
+            // 拦截 src 属性的直接赋值
+            let _src = '';
+            Object.defineProperty(element, 'src', {
+              get: function() { return _src; },
+              set: function(value) {
+                if (shouldIgnoreError('', value)) {
+                  _src = '';
+                  element.onerror = function() { return false; };
+                  return;
+                }
+                _src = value;
+                originalSetAttribute.call(element, 'src', value);
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+          return element;
+        };
+        
+        // 拦截所有网络请求错误（包括动态加载的脚本）
+        const originalAppendChild = Node.prototype.appendChild;
+        Node.prototype.appendChild = function(child) {
+          if (child && child.tagName === 'SCRIPT' && child.src) {
+            if (shouldIgnoreError('', child.src)) {
+              // 阻止 Cloudflare Insights 脚本添加到 DOM
+              child.onerror = function() { return false; };
+              // 返回一个虚拟节点，避免错误
+              return child;
+            }
+          }
+          return originalAppendChild.call(this, child);
+        };
         
         // 额外拦截：监听资源加载错误（更早阶段）
         document.addEventListener('error', function(event) {
@@ -207,18 +261,28 @@
           
           // 如果是应该忽略的URL，静默处理
           if (shouldIgnoreError('', url)) {
-            return originalFetch.apply(this, args).catch(error => {
-              // 完全静默忽略错误，不抛出，不记录
-              // 返回一个已拒绝但被忽略的Promise
+            // 直接返回一个已解决的Promise，不发起实际请求
+            return Promise.resolve(new Response(null, { 
+              status: 0, 
+              statusText: 'Ignored',
+              ok: false 
+            }));
+          }
+          
+          return originalFetch.apply(this, args).catch(error => {
+            // 即使请求失败，也检查是否应该忽略
+            const errorUrl = args[0]?.toString() || '';
+            if (shouldIgnoreError('', errorUrl)) {
+              // 静默忽略错误
               return Promise.resolve(new Response(null, { 
                 status: 0, 
                 statusText: 'Ignored',
                 ok: false 
               }));
-            });
-          }
-          
-          return originalFetch.apply(this, args);
+            }
+            // 其他错误正常抛出
+            throw error;
+          });
         };
         
         // XMLHttpRequest 拦截已在上面完成，这里不再重复

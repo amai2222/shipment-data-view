@@ -25,6 +25,15 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,7 +63,10 @@ import {
   Calculator,
   Package,
   Weight,
-  BarChart3
+  BarChart3,
+  Settings,
+  Lock,
+  LogOut
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -112,7 +124,7 @@ interface Waybill {
 export default function MobileMyExpenses() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { profile } = useAuth();
+  const { profile, user, signOut } = useAuth();
   
   const [loading, setLoading] = useState(false);
   interface Vehicle {
@@ -852,23 +864,91 @@ export default function MobileMyExpenses() {
         {/* 顶部状态栏 - 优化设计，参考货拉拉/滴滴货运 */}
         <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 -mx-4 -mt-4 px-4 pt-6 pb-5 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="w-14 h-14 rounded-full bg-white/25 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-lg">
-                <User className="h-7 w-7 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-xl mb-1">
-                  {profile?.full_name || '司机'}
-                  {primaryLicensePlate && (
-                    <span className="ml-2 text-sm font-normal opacity-90">({primaryLicensePlate})</span>
-                  )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
+                  <Avatar className="h-14 w-14 border-2 border-white/30 shadow-lg">
+                    <AvatarImage src={profile?.avatar_url} />
+                    <AvatarFallback className="bg-white/25 text-white text-lg font-bold">
+                      {profile?.full_name ? profile.full_name.substring(0, 2) : '司机'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xl mb-1">
+                      {profile?.full_name || '司机'}
+                      {primaryLicensePlate && (
+                        <span className="ml-2 text-sm font-normal opacity-90">({primaryLicensePlate})</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-blue-100 flex items-center gap-2">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
+                    </div>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 rounded-xl shadow-lg border-0 bg-white">
+                <DropdownMenuLabel className="px-4 py-3 border-b">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={profile?.avatar_url} />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm font-semibold">
+                        {profile?.full_name ? profile.full_name.substring(0, 2) : '司机'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {profile?.full_name || profile?.username || '司机'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {profile?.email || user?.email || ''}
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <div className="py-1">
+                  <DropdownMenuItem 
+                    onClick={() => navigate('/m/internal/driver-settings')}
+                    className="px-4 py-3 cursor-pointer focus:bg-accent/50"
+                  >
+                    <Settings className="mr-3 h-5 w-5 text-muted-foreground" />
+                    <span className="text-base">设置</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => navigate('/m/internal/driver-security')}
+                    className="px-4 py-3 cursor-pointer focus:bg-accent/50"
+                  >
+                    <Lock className="mr-3 h-5 w-5 text-muted-foreground" />
+                    <span className="text-base">修改密码</span>
+                  </DropdownMenuItem>
                 </div>
-                <div className="text-xs text-blue-100 flex items-center gap-2">
-                  <Calendar className="h-3 w-3" />
-                  {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
+                <DropdownMenuSeparator className="my-1" />
+                <div className="py-1">
+                  <DropdownMenuItem 
+                    onClick={async () => {
+                      try {
+                        await signOut();
+                        toast({
+                          title: '已退出登录',
+                          description: '感谢使用'
+                        });
+                      } catch (error) {
+                        console.error('退出登录失败:', error);
+                        toast({
+                          title: '退出失败',
+                          description: '请重试',
+                          variant: 'destructive'
+                        });
+                      }
+                    }}
+                    className="px-4 py-3 cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50/50"
+                  >
+                    <LogOut className="mr-3 h-5 w-5" />
+                    <span className="text-base font-medium">退出登录</span>
+                  </DropdownMenuItem>
                 </div>
-              </div>
-            </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="sm"
