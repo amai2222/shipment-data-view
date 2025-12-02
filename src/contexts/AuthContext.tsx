@@ -111,22 +111,140 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           setTimeout(async () => {
             try {
+              // ✅ 添加详细日志，帮助诊断问题
+              console.log('🔍 开始获取用户 profile:', {
+                userId: currentUser.id,
+                email: currentUser.email,
+                event: event
+              });
+              
               const { data: profileData, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', currentUser.id)
                 .maybeSingle();
+              
+              // ✅ 添加详细日志
+              console.log('🔍 Profile 查询结果:', {
+                hasData: !!profileData,
+                hasError: !!error,
+                errorCode: error?.code,
+                errorMessage: error?.message,
+                errorDetails: error?.details,
+                errorHint: error?.hint
+              });
 
               if (error) {
-                console.error('获取用户配置文件失败:', error);
+                console.error('❌ 获取用户配置文件失败:', {
+                  code: error.code,
+                  message: error.message,
+                  details: error.details,
+                  hint: error.hint,
+                  userId: currentUser.id,
+                  userEmail: currentUser.email
+                });
+                
                 // ✅ 如果是401错误或JWT错误，可能是token过期，等待自动刷新
                 if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
                   console.log('⚠️ Token可能已过期，等待Supabase自动刷新...');
-                  // 不立即清除状态，等待Supabase的autoRefreshToken机制自动刷新
-                  return; // ✅ 不设置 profile 为 null
+                  setLoading(false);
+                  return;
                 }
-                // ✅ 其他错误也不清空 profile，保持当前状态
-                console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
+                
+                // ✅ 如果是权限错误（PGRST116），可能是 RLS 策略问题
+                if (error.code === 'PGRST116' || error.message?.includes('permission') || error.message?.includes('policy')) {
+                  console.error('❌ RLS 策略错误：用户可能没有权限查询自己的 profile');
+                  console.error('建议检查：1. profiles 表的 RLS 策略 2. 用户是否存在于 profiles 表');
+                  
+                  // 尝试使用 session 中的基本信息
+                  if (currentUser) {
+                    console.warn('⚠️ 使用 session 中的基本信息创建最小化 profile');
+                    const minimalProfile: UserProfile = {
+                      id: currentUser.id,
+                      email: currentUser.email || '',
+                      username: currentUser.email?.split('@')[0] || currentUser.id,
+                      full_name: currentUser.user_metadata?.full_name || '',
+                      role: (currentUser.user_metadata?.role as UserRole) || 'operator',
+                      is_active: true
+                    };
+                    setProfile(minimalProfile);
+                    profileCache = minimalProfile;
+                    setLoading(false);
+                    return;
+                  }
+                }
+                
+                // ✅ 其他错误：延迟重试一次
+                console.warn('⚠️ 获取用户配置文件失败，1秒后重试...');
+                setTimeout(async () => {
+                  try {
+                    const { data: retryData, error: retryError } = await supabase
+                      .from('profiles')
+                      .select('*')
+                      .eq('id', currentUser.id)
+                      .maybeSingle();
+                    
+                    if (retryError) {
+                      console.error('❌ 重试获取 profile 仍然失败:', retryError);
+                      // 使用 session 中的基本信息
+                      if (currentUser) {
+                        const minimalProfile: UserProfile = {
+                          id: currentUser.id,
+                          email: currentUser.email || '',
+                          username: currentUser.email?.split('@')[0] || currentUser.id,
+                          full_name: currentUser.user_metadata?.full_name || '',
+                          role: (currentUser.user_metadata?.role as UserRole) || 'operator',
+                          is_active: true
+                        };
+                        setProfile(minimalProfile);
+                        profileCache = minimalProfile;
+                      }
+                      setLoading(false);
+                      return;
+                    }
+                    
+                    if (retryData) {
+                      console.log('✅ 重试成功，已获取 profile');
+                      const anyProfile = retryData as Record<string, unknown>;
+                      let partnerId: string | undefined;
+                      if (anyProfile.role === 'partner') {
+                        try {
+                          const { data: partnerData } = await supabase
+                            .from('partners')
+                            .select('id')
+                            .eq('partner_type', '货主')
+                            .limit(1)
+                            .single();
+                          partnerId = partnerData?.id;
+                        } catch (e) {
+                          console.warn('查询货主ID失败:', e);
+                        }
+                      }
+                      
+                      const userProfile: UserProfile = {
+                        id: String(anyProfile.id || ''),
+                        email: String(anyProfile.email || ''),
+                        username: String(anyProfile.username || anyProfile.email || ''),
+                        full_name: String(anyProfile.full_name || ''),
+                        role: (anyProfile.role as UserRole) ?? 'operator',
+                        is_active: Boolean(anyProfile.is_active ?? true),
+                        partnerId
+                      };
+                      setProfile(userProfile);
+                      profileCache = userProfile;
+                      if (currentUser && partnerId) {
+                        (currentUser as ExtendedUser).partnerId = partnerId;
+                        setUser(currentUser as ExtendedUser);
+                      }
+                      setLoading(false);
+                    } else {
+                      setLoading(false);
+                    }
+                  } catch (retryErr) {
+                    console.error('❌ 重试时发生异常:', retryErr);
+                    setLoading(false);
+                  }
+                }, 1000);
                 return;
               } else if (profileData) {
                 const anyProfile = profileData as Record<string, unknown>;
