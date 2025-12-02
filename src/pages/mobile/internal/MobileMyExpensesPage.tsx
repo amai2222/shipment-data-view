@@ -164,7 +164,14 @@ export default function MobileMyExpensesPage() {
         return;
       }
 
-      const driverId = driverInfo[0].driver_id;
+      // 优先使用 id，如果没有则使用 driver_id（兼容性处理）
+      const driverId = driverInfo[0].id || driverInfo[0].driver_id;
+      
+      if (!driverId) {
+        console.error('无法获取司机ID，数据:', driverInfo[0]);
+        setApplications([]);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('internal_driver_expense_applications')
@@ -195,14 +202,27 @@ export default function MobileMyExpensesPage() {
     try {
       const { data: driverInfo, error: driverError } = await supabase.rpc('get_my_driver_info');
       
-      if (driverError) throw driverError;
+      if (driverError) {
+        console.error('获取司机信息失败:', driverError);
+        throw driverError;
+      }
       
       if (!driverInfo || driverInfo.length === 0) {
+        console.warn('未找到司机信息');
         setWriteoffApplications([]);
         return;
       }
 
-      const driverId = driverInfo[0].driver_id;
+      // 优先使用 id，如果没有则使用 driver_id（兼容性处理）
+      const driverId = driverInfo[0].id || driverInfo[0].driver_id;
+      
+      if (!driverId) {
+        console.error('无法获取司机ID，数据:', driverInfo[0]);
+        setWriteoffApplications([]);
+        return;
+      }
+
+      console.log('🔍 查询已审核通过的费用申请，司机ID:', driverId);
 
       const { data, error } = await supabase
         .from('internal_driver_expense_applications')
@@ -211,7 +231,21 @@ export default function MobileMyExpensesPage() {
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('查询费用申请失败:', error);
+        throw error;
+      }
+      
+      console.log('✅ 查询到已审核通过的费用申请:', data?.length || 0, '条');
+      if (data && data.length > 0) {
+        console.log('📋 申请列表:', data.map(app => ({
+          id: app.id,
+          application_number: app.application_number,
+          amount: app.amount,
+          status: app.status,
+          actual_amount: app.actual_amount
+        })));
+      }
       
       setWriteoffApplications(data || []);
     } catch (error: unknown) {
@@ -240,6 +274,7 @@ export default function MobileMyExpensesPage() {
     // 延迟初始化，避免 TDZ 错误
     const timer = setTimeout(() => {
       hasInitialized.current = true;
+      console.log('🚀 开始加载费用申请数据...');
       loadApplications();
       loadWriteoffApplications();
     }, 0);
@@ -248,6 +283,14 @@ export default function MobileMyExpensesPage() {
       clearTimeout(timer);
     };
   }, [loadApplications, loadWriteoffApplications]);
+
+  // 当切换到冲销标签页时，重新加载数据
+  useEffect(() => {
+    if (activeTab === 'writeoff' && hasInitialized.current) {
+      console.log('🔄 切换到冲销标签页，重新加载数据...');
+      loadWriteoffApplications();
+    }
+  }, [activeTab, loadWriteoffApplications]);
 
   // 实时订阅
   interface RealtimePayload {
