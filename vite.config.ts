@@ -25,8 +25,19 @@ export default defineConfig(({ mode }) => ({
       '@supabase/supabase-js',
       '@tanstack/react-query',
       'recharts',
+      // ✅ 包含 @radix-ui 组件，确保正确预构建和初始化顺序
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-toast',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-switch',
     ],
     exclude: ['xlsx'],
+    // ✅ 强制重新构建，确保所有依赖正确初始化
+    force: true,
   },
   
   resolve: {
@@ -71,41 +82,25 @@ export default defineConfig(({ mode }) => ({
           return 'assets/[name]-[hash:8].[ext]';
         },
         
-         // ✅ 修改 2: 更安全的拆包策略
-         // 关键原则：所有依赖 React 的库必须能访问到 React 实例
-         manualChunks: (id) => {
-           if (id.includes('node_modules')) {
-             
-             // 1. 明确不依赖 React 的库，单独打包
-             if (id.includes('xlsx')) return 'xlsx-vendor';
-             if (id.includes('@supabase/supabase-js')) return 'supabase-vendor';
-             if (id.includes('date-fns')) return 'date-fns-vendor';
-             if (id.includes('zod')) return 'zod-vendor';
-             
-             // 2. 核心 React 依赖和所有依赖 React 的库打包在一起
-             // 这样可以确保它们都使用同一个 React 实例
-             if (
-               id.includes('react') || 
-               id.includes('react-dom') || 
-               id.includes('react-router') ||
-               id.includes('scheduler') ||
-               id.includes('prop-types') ||
-               id.includes('@radix-ui') ||  // Radix UI 依赖 React
-               id.includes('@tanstack/react-query') ||  // React Query 依赖 React
-               id.includes('recharts') ||  // Recharts 依赖 React
-               id.includes('lucide-react') ||  // Lucide React 依赖 React
-               id.includes('class-variance-authority') ||  // CVA 可能依赖 React
-               id.includes('clsx') ||
-               id.includes('tailwind-merge')
-             ) {
-               return 'react-vendor';
-             }
-             
-             // 3. 其他不确定的库也打包到 react-vendor，确保安全
-             // 这样可以避免 createContext、forwardRef 等错误
-             return 'react-vendor';
-           }
-         },
+        // ✅ 修改 2: 最安全的拆包策略 - 避免初始化顺序问题
+        // 关键原则：所有依赖 React 的库必须能访问到 React 实例
+        // 使用更保守的策略，将大部分库打包在一起，避免 TDZ (Temporal Dead Zone) 错误
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) {
+            return; // 非 node_modules 的代码不处理
+          }
+          
+          // 1. 明确不依赖 React 的库，单独打包（这些库不会导致 React 相关错误）
+          if (id.includes('xlsx')) return 'xlsx-vendor';
+          if (id.includes('@supabase/supabase-js')) return 'supabase-vendor';
+          if (id.includes('date-fns')) return 'date-fns-vendor';
+          if (id.includes('zod')) return 'zod-vendor';
+          
+          // 2. 所有其他库（包括 React、@radix-ui、recharts、@tanstack/react-query 等）都打包到 react-vendor
+          // 这样可以确保它们都使用同一个 React 实例，避免 createContext、forwardRef、useLayoutEffect 等错误
+          // 同时避免模块初始化顺序问题（TDZ 错误）
+          return 'react-vendor';
+        },
       },
     },
     chunkSizeWarningLimit: 1000,

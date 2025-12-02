@@ -74,8 +74,12 @@ interface Waybill {
 }
 
 export default function MobileQuickEntry() {
+  // ✅ 延迟初始化，确保所有依赖都已加载
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // ✅ 使用 ref 确保组件已完全挂载
+  const isMountedRef = useRef(false);
   
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -785,14 +789,26 @@ export default function MobileQuickEntry() {
   const hasInitialized = useRef(false);
   
   useEffect(() => {
+    // ✅ 标记组件已挂载
+    isMountedRef.current = true;
+    
     // 防止重复初始化
     if (hasInitialized.current) return;
     hasInitialized.current = true;
     
-    // 初始化加载
-    loadMyInfo();
-    loadRecentWaybills();
+    // ✅ 延迟初始化，确保所有模块都已正确加载
+    // 使用 setTimeout 确保在下一个事件循环中执行，避免模块初始化顺序问题
+    const initTimer = setTimeout(() => {
+      if (isMountedRef.current) {
+        loadMyInfo();
+        loadRecentWaybills();
+      }
+    }, 0);
     
+    return () => {
+      clearTimeout(initTimer);
+      isMountedRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
