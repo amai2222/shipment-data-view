@@ -118,6 +118,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .maybeSingle();
 
               if (error) {
+                const errorMessage = error.message || '';
+                const errorString = JSON.stringify(error);
+                
+                // ✅ 检测状态码 0 错误（网络请求被取消或失败）
+                const isStatusZeroError = errorMessage.includes('status provided (0)') || 
+                                         errorMessage.includes('RangeError') ||
+                                         errorString.includes('status provided (0)') ||
+                                         errorString.includes('RangeError');
+                
+                if (isStatusZeroError) {
+                  console.log('⚠️ 网络请求被取消或失败（状态码 0），忽略此错误');
+                  // 如果有缓存的 profile，使用缓存
+                  if (profileCache && profileCache.id === currentUser.id) {
+                    console.log('✅ 使用缓存的 profile');
+                    setProfile(profileCache);
+                    setLoading(false);
+                    return;
+                  }
+                  // 否则保持当前状态，不清空 profile
+                  setLoading(false);
+                  return;
+                }
+                
                 console.error('获取用户配置文件失败:', error);
                 // ✅ 如果是401错误或JWT错误，可能是token过期，等待自动刷新
                 if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
@@ -127,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
                 // ✅ 其他错误也不清空 profile，保持当前状态
                 console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
+                setLoading(false);
                 return;
               } else if (profileData) {
                 const anyProfile = profileData as Record<string, unknown>;
@@ -179,9 +203,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.warn('⚠️ 未找到用户配置文件，保持当前状态');
               }
             } catch (catchError) {
+              const errorMessage = catchError instanceof Error ? catchError.message : String(catchError);
+              const errorString = JSON.stringify(catchError || {});
+              
+              // ✅ 检测状态码 0 错误（网络请求被取消或失败）
+              const isStatusZeroError = errorMessage.includes('status provided (0)') || 
+                                       errorMessage.includes('RangeError') ||
+                                       errorString.includes('status provided (0)') ||
+                                       errorString.includes('RangeError');
+              
+              if (isStatusZeroError) {
+                console.log('⚠️ 处理用户配置文件时发生状态码 0 错误，忽略');
+                // 如果有缓存的 profile，使用缓存
+                if (profileCache && profileCache.id === currentUser.id) {
+                  console.log('✅ 使用缓存的 profile');
+                  setProfile(profileCache);
+                  setLoading(false);
+                  return;
+                }
+                // 否则保持当前状态
+                setLoading(false);
+                return;
+              }
+              
               console.error('处理用户配置文件时发生意外错误:', catchError);
               // ✅ 不清空 profile，避免因临时网络问题导致登出
               console.warn('⚠️ 获取用户信息异常，但保持当前登录状态');
+              setLoading(false);
             } finally {
               setLoading(false);
             }
