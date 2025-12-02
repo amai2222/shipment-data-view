@@ -73,12 +73,14 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason?.message || event.reason?.toString() || '';
+  const reasonString = JSON.stringify(event.reason || {});
   
   // 忽略浏览器扩展导致的Promise拒绝
   const ignoredRejections = [
     'A listener indicated an asynchronous response',
     'asynchronous response by returning true',
     'message channel closed',
+    'message channel closed before a response was received',
     'chrome-extension://',
     'moz-extension://',
     'safari-extension://',
@@ -99,8 +101,9 @@ window.addEventListener('unhandledrejection', (event) => {
     'fleet manager projects',
     'internal driver vehicle change',
     'supabase.co/rest/v1/',
-    '400 (Bad Request)',
-    '404 (Not Found)',
+    // 注意：400 和 404 错误不应该被忽略，它们需要被正确处理
+    // '400 (Bad Request)', // 移除此项，让 400 错误正常显示
+    // '404 (Not Found)', // 移除此项，让 404 错误正常显示
     // 页面路由相关的错误（可能是浏览器扩展导致的）
     'my-vehicles',
     'driver-dashboard',
@@ -114,7 +117,7 @@ window.addEventListener('unhandledrejection', (event) => {
   ];
   
   const shouldIgnore = ignoredRejections.some(pattern => 
-    reason.includes(pattern)
+    reason.includes(pattern) || reasonString.includes(pattern)
   );
   
   if (shouldIgnore) {
@@ -123,7 +126,7 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
   
-  // 其他错误正常处理
+  // 其他错误正常处理（包括 400 错误，它们需要被显示）
   console.error('Unhandled promise rejection:', event.reason);
 });
 

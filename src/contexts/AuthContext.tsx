@@ -318,15 +318,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!usernameOrEmail.includes('@')) {
         const { data, error } = await supabase.functions.invoke('username-login', {
-          body: { username: usernameOrEmail, password }
+          body: { username: usernameOrEmail.trim(), password }
         });
-        if (error || !data?.access_token || !data?.refresh_token) {
-          loginError = '用户名或密码错误';
+        
+        if (error) {
+          console.error('username-login 函数调用失败:', error);
+          console.error('错误详情:', {
+            message: error.message,
+            context: error.context,
+            status: error.status
+          });
+          
+          // 尝试解析错误响应
+          let errorMessage = '用户名或密码错误';
+          if (error.context?.body) {
+            try {
+              const errorBody = typeof error.context.body === 'string' 
+                ? JSON.parse(error.context.body) 
+                : error.context.body;
+              if (errorBody?.error) {
+                errorMessage = errorBody.error === 'Invalid credentials' 
+                  ? '用户名或密码错误' 
+                  : errorBody.error;
+              }
+            } catch (e) {
+              console.error('解析错误响应失败:', e);
+            }
+          }
+          
+          // 如果是 400 错误，可能是参数问题
+          if (error.status === 400) {
+            if (error.message?.includes('Missing username or password')) {
+              errorMessage = '请输入用户名和密码';
+            } else if (error.message?.includes('Invalid credentials')) {
+              errorMessage = '用户名或密码错误';
+            } else {
+              errorMessage = '登录请求格式错误，请重试';
+            }
+          }
+          
+          loginError = errorMessage;
+        } else if (!data?.access_token || !data?.refresh_token) {
+          console.error('username-login 返回数据不完整:', data);
+          loginError = '登录失败，请重试';
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { access_token, refresh_token } = data as { access_token: string; refresh_token: string };
           const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
           if (setErr) {
+            console.error('设置 session 失败:', setErr);
             loginError = '登录失败，请重试';
           }
         }
