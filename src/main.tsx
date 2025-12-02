@@ -36,13 +36,16 @@ window.addEventListener('error', (event) => {
     'fleet manager projects',
     'internal driver vehicle change',
     'supabase.co/rest/v1/',
-    '400 (Bad Request)',
-    '404 (Not Found)',
+    // ⚠️ 重要：不要屏蔽 400 和 404 错误，它们对登录流程很重要
+    // '400 (Bad Request)', // 已移除 - 登录错误需要显示
+    // '404 (Not Found)', // 已移除 - 资源缺失需要显示
     // 页面路由相关的错误（可能是浏览器扩展导致的）
     'my-vehicles',
     'driver-dashboard',
     'quick-entry',
     // RangeError: 状态码 0 错误（网络请求被取消或失败，非关键）
+    // ⚠️ 注意：只在非登录相关的情况下忽略这些错误
+    // 如果错误来源是登录相关的，不应该忽略
     'RangeError',
     'Failed to construct \'Response\'',
     'status provided (0)',
@@ -50,15 +53,33 @@ window.addEventListener('error', (event) => {
     'outside the range [200, 599]'
   ];
   
+  // ⚠️ 特殊处理：如果是登录相关的错误，不要忽略
+  const errorSource = event.filename || '';
+  const isLoginRelated = errorSource.includes('Auth') || 
+                         errorSource.includes('auth') ||
+                         errorMessage.includes('username-login') ||
+                         errorMessage.includes('signIn') ||
+                         errorMessage.includes('登录');
+  
   // 检查是否是应该忽略的错误
   const shouldIgnore = ignoredErrors.some(pattern => 
     errorMessage.includes(pattern) || errorSource.includes(pattern)
   );
   
-  if (shouldIgnore) {
+  // ⚠️ 重要：登录相关的错误永远不要忽略
+  if (shouldIgnore && !isLoginRelated) {
     // 静默忽略，不输出到控制台
     event.preventDefault();
     return;
+  }
+  
+  // 如果是登录相关的错误，即使匹配了忽略列表，也要显示
+  if (isLoginRelated) {
+    console.error('⚠️ 登录相关错误（强制显示）:', {
+      message: errorMessage,
+      source: errorSource,
+      error: event.error
+    });
   }
   
   // 特殊处理 toLocaleString 错误

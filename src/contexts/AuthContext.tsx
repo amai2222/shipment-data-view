@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                                          errorString.includes('RangeError');
                 
                 if (isStatusZeroError) {
-                  console.log('⚠️ 网络请求被取消或失败（状态码 0），忽略此错误');
+                  console.log('⚠️ 网络请求被取消或失败（状态码 0），尝试重试');
                   // 如果有缓存的 profile，使用缓存
                   if (profileCache && profileCache.id === currentUser.id) {
                     console.log('✅ 使用缓存的 profile');
@@ -136,8 +136,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setLoading(false);
                     return;
                   }
-                  // 否则保持当前状态，不清空 profile
-                  setLoading(false);
+                  // 如果没有缓存，延迟重试一次
+                  console.log('⚠️ 无缓存 profile，1秒后重试获取');
+                  setTimeout(async () => {
+                    try {
+                      const { data: retryData, error: retryError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', currentUser.id)
+                        .maybeSingle();
+                      
+                      if (retryError) {
+                        console.error('重试获取用户配置文件仍然失败:', retryError);
+                        setLoading(false);
+                        return;
+                      }
+                      
+                      if (retryData) {
+                        const anyProfile = retryData as Record<string, unknown>;
+                        let partnerId: string | undefined;
+                        if (anyProfile.role === 'partner') {
+                          try {
+                            const { data: partnerData } = await supabase
+                              .from('partners')
+                              .select('id')
+                              .eq('partner_type', '货主')
+                              .limit(1)
+                              .single();
+                            partnerId = partnerData?.id;
+                          } catch (e) {
+                            console.warn('查询货主ID失败:', e);
+                          }
+                        }
+                        
+                        const userProfile: UserProfile = {
+                          id: String(anyProfile.id || ''),
+                          email: String(anyProfile.email || ''),
+                          username: String(anyProfile.username || anyProfile.email || ''),
+                          full_name: String(anyProfile.full_name || ''),
+                          role: (anyProfile.role as UserRole) ?? 'operator',
+                          is_active: Boolean(anyProfile.is_active ?? true),
+                          partnerId
+                        };
+                        setProfile(userProfile);
+                        profileCache = userProfile;
+                        if (currentUser && partnerId) {
+                          (currentUser as ExtendedUser).partnerId = partnerId;
+                          setUser(currentUser as ExtendedUser);
+                        }
+                        setLoading(false);
+                      } else {
+                        setLoading(false);
+                      }
+                    } catch (retryErr) {
+                      console.error('重试获取用户配置文件时发生异常:', retryErr);
+                      setLoading(false);
+                    }
+                  }, 1000);
                   return;
                 }
                 
