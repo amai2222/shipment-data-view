@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import {
   FileText,
   DollarSign,
@@ -166,7 +166,7 @@ export default function MobileExpenseWriteoff() {
   };
 
   return (
-    <MobileLayout title="费用冲销" showBack={true}>
+    <DriverMobileLayout title="费用冲销">
       <div className="space-y-3 pb-20">
         {/* 说明卡片 */}
         <Card>
@@ -409,7 +409,7 @@ export default function MobileExpenseWriteoff() {
           </DialogContent>
         </Dialog>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 
