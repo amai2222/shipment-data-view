@@ -25,10 +25,19 @@ export default defineConfig(({ mode }) => ({
       '@supabase/supabase-js',
       '@tanstack/react-query',
       'recharts', // ✅ 明确包含 recharts，确保正确预构建
+      // ✅ 包含 @radix-ui 组件，确保正确初始化
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-toast',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-switch',
     ],
     // 排除大型库，让它们按需加载
     exclude: ['xlsx'],
-    // ✅ 强制重新构建依赖，确保 recharts 正确初始化
+    // ✅ 强制重新构建依赖，确保所有库正确初始化
     force: true,
   },
   resolve: {
@@ -46,7 +55,11 @@ export default defineConfig(({ mode }) => ({
       '@radix-ui/react-tooltip',
       '@radix-ui/react-dialog',
       '@radix-ui/react-select',
-      '@radix-ui/react-tabs'
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-toast',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-switch',
     ],
   },
   build: {
