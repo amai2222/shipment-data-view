@@ -258,7 +258,7 @@ export function formatChinaDateForExport(
         return `${year}/${month}/${day}`;
       } else {
         // 其他格式，使用date-fns格式化（但需要确保时区正确）
-        return format(chinaDate, formatStr, { locale: zhCN });
+      return format(chinaDate, formatStr, { locale: zhCN });
       }
     }
   } catch (error) {

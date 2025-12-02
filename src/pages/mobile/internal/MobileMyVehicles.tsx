@@ -102,7 +102,7 @@ export default function MobileMyVehicles() {
   };
 
   // 加载换车申请记录
-  const loadChangeApplications = async () => {
+  const loadChangeApplications = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_my_vehicle_change_applications');
       
