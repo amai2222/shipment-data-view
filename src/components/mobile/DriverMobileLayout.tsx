@@ -58,7 +58,7 @@ const driverNavItems = [
     label: '我的行程'
   },
   {
-    href: '/m/internal/my-vehicles',
+    href: '/m/internal/my-expenses',
     icon: Receipt,
     label: '我的费用'
   },

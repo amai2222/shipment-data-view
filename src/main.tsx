@@ -13,11 +13,14 @@ window.addEventListener('error', (event) => {
   
   // 忽略浏览器扩展导致的错误
   const ignoredErrors = [
-    'A listener indicated an asynchronous response by returning true, but the message channel closed',
+    'A listener indicated an asynchronous response',
+    'asynchronous response by returning true',
+    'message channel closed',
     'chrome-extension://',
     'moz-extension://',
     'safari-extension://',
     'ERR_ADDRESS_INVALID', // Cloudflare Insights加载失败（非关键）
+    'net::ERR_ADDRESS_INVALID',
     'cloudflareinsights',
     'beacon.min.js',
     'static.cloudflareinsights.com',
@@ -34,7 +37,11 @@ window.addEventListener('error', (event) => {
     'internal driver vehicle change',
     'supabase.co/rest/v1/',
     '400 (Bad Request)',
-    '404 (Not Found)'
+    '404 (Not Found)',
+    // 页面路由相关的错误（可能是浏览器扩展导致的）
+    'my-vehicles',
+    'driver-dashboard',
+    'quick-entry'
   ];
   
   // 检查是否是应该忽略的错误
@@ -64,11 +71,13 @@ window.addEventListener('unhandledrejection', (event) => {
   // 忽略浏览器扩展导致的Promise拒绝
   const ignoredRejections = [
     'A listener indicated an asynchronous response',
+    'asynchronous response by returning true',
     'message channel closed',
     'chrome-extension://',
     'moz-extension://',
     'safari-extension://',
     'ERR_ADDRESS_INVALID',
+    'net::ERR_ADDRESS_INVALID',
     'cloudflareinsights',
     'beacon.min.js',
     'static.cloudflareinsights.com',
@@ -85,7 +94,11 @@ window.addEventListener('unhandledrejection', (event) => {
     'internal driver vehicle change',
     'supabase.co/rest/v1/',
     '400 (Bad Request)',
-    '404 (Not Found)'
+    '404 (Not Found)',
+    // 页面路由相关的错误（可能是浏览器扩展导致的）
+    'my-vehicles',
+    'driver-dashboard',
+    'quick-entry'
   ];
   
   const shouldIgnore = ignoredRejections.some(pattern => 

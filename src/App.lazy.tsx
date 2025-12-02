@@ -167,6 +167,7 @@ export const MobilePermissionManagement = conditionalLazy(() => import('./pages/
 
 // 内部司机端
 export const MobileMyExpenses = conditionalLazy(() => import('./pages/mobile/internal/MobileMyExpenses'));
+export const MobileMyExpensesPage = conditionalLazy(() => import('./pages/mobile/internal/MobileMyExpensesPage'));
 export const MobileDriverSalary = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverSalary'));
 export const MobileMyVehicles = conditionalLazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
 export const MobileSalaryRecords = conditionalLazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));

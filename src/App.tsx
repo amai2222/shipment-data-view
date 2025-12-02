@@ -91,6 +91,7 @@ import {
   MobilePermissionManagement,
   // 内部车辆管理 - 移动端
   MobileMyExpenses,
+  MobileMyExpensesPage,
   MobileDriverSalary,
   MobileMyVehicles,
   MobileSalaryRecords,
@@ -842,8 +843,14 @@ const App = () => (
             } />
 
             <Route path="/m/internal/my-vehicles" element={
+              <ProtectedRoute requiredPermission="internal.my_vehicles">
+                <MobileMyVehicles />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/my-expenses" element={
               <ProtectedRoute requiredPermission="internal.my_expenses">
-                <MobileMyExpenses />
+                <MobileMyExpensesPage />
               </ProtectedRoute>
             } />
 

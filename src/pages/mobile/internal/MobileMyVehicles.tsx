@@ -216,7 +216,15 @@ export default function MobileMyVehicles() {
   return (
     <DriverMobileLayout title="我的车辆">
       <div className="space-y-4 pb-20">
-        {/* 车辆卡片已隐藏 - 只显示申请记录和功能按钮 */}
+        {/* 申请换车按钮 */}
+        <Button 
+          onClick={() => setShowChangeDialog(true)}
+          className="w-full"
+          size="lg"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          申请换车
+        </Button>
 
         {/* 换车申请记录 */}
         <Card>
