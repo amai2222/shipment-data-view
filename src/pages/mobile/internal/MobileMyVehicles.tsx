@@ -1,6 +1,6 @@
 // 移动端 - 我的车辆和换车申请
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import {
   Truck,
   ArrowRight,
@@ -76,15 +76,8 @@ export default function MobileMyVehicles() {
   const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(undefined);
   const [changeReason, setChangeReason] = useState('');
 
-  useEffect(() => {
-    loadMyVehicles();
-    loadChangeApplications();
-    loadAvailableVehicles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // 加载我的车辆
-  const loadMyVehicles = async () => {
+  const loadMyVehicles = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_my_vehicles');
@@ -118,10 +111,10 @@ export default function MobileMyVehicles() {
     } catch (error) {
       console.error('加载申请记录失败:', error);
     }
-  };
+  }, []);
 
   // 加载可换的车辆列表
-  const loadAvailableVehicles = async () => {
+  const loadAvailableVehicles = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('internal_vehicles')
@@ -134,7 +127,13 @@ export default function MobileMyVehicles() {
     } catch (error) {
       console.error('加载车辆列表失败:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadMyVehicles();
+    loadChangeApplications();
+    loadAvailableVehicles();
+  }, [loadMyVehicles, loadChangeApplications, loadAvailableVehicles]);
 
   // 提交换车申请
   const handleSubmitChange = async () => {
@@ -215,7 +214,7 @@ export default function MobileMyVehicles() {
   const backupVehicles = myVehicles.filter(v => !v.is_primary);
 
   return (
-    <MobileLayout>
+    <DriverMobileLayout title="我的车辆">
       <div className="space-y-4 pb-20">
         {/* 车辆卡片已隐藏 - 只显示申请记录和功能按钮 */}
 
@@ -343,7 +342,7 @@ export default function MobileMyVehicles() {
           </DialogContent>
         </Dialog>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 

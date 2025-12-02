@@ -389,11 +389,10 @@ export default function PaymentAudit() {
     }
   }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
-  // ✅ 优化：避免 availableProjects 变化时重复加载，直接调用函数而不使用 fetchPaymentRequests 依赖
+  // ✅ 优化：避免 availableProjects 变化时重复加载
   useEffect(() => { 
     fetchPaymentRequests(); 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId]);
+  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId, fetchPaymentRequests]);
 
   // 移除自动搜索，改为手动搜索
   // useEffect(() => {

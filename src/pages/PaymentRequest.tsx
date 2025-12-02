@@ -2123,13 +2123,13 @@ export default function PaymentRequest() {
       {/* ===== 对话框区域 ===== */}
       {/* 对话框1: 运单详情对话框 */}
       {/* ✅ 使用公共运单详情组件 */}
-      {viewingRecord && (
+          {viewingRecord && (
         <WaybillDetailDialog 
           isOpen={!!viewingRecord} 
           onClose={() => setViewingRecord(null)} 
           record={viewingRecord as unknown as import('@/types').LogisticsRecord} 
         />
-      )}
+          )}
 
       {/* 对话框2: 付款申请预览对话框 */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>

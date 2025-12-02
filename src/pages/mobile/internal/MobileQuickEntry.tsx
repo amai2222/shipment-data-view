@@ -1,6 +1,6 @@
 // 移动端 - 司机快速录入运单
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import {
   Truck,
   MapPin,
@@ -47,12 +47,18 @@ import { format } from 'date-fns';
 import { limitAmountInput } from '@/utils/formatters';
 import { formatChinaDateString } from '@/utils/dateUtils';
 
+interface Location {
+  id: string;
+  name: string;
+  address?: string;
+}
+
 interface ProjectRoute {
   project_id: string;
   project_name: string;
   is_primary_route: boolean;
-  common_loading_locations: any[];
-  common_unloading_locations: any[];
+  common_loading_locations: Location[];
+  common_unloading_locations: Location[];
 }
 
 interface Waybill {
@@ -92,14 +98,32 @@ export default function MobileQuickEntry() {
   });
   
   // 司机信息（自动填充）
-  const [driverInfo, setDriverInfo] = useState<any>(null);
-  const [myVehicle, setMyVehicle] = useState<any>(null);
+  interface DriverInfo {
+    driver_id: string;
+    driver_name: string;
+    name?: string;
+    driver_phone: string;
+    license_plate: string;
+    vehicle_type: string;
+    fleet_manager_id: string;
+    id?: string;
+  }
+
+  interface VehicleInfo {
+    vehicle_id: string;
+    license_plate: string;
+    vehicle_type: string;
+    is_primary: boolean;
+  }
+
+  const [driverInfo, setDriverInfo] = useState<DriverInfo | null>(null);
+  const [myVehicle, setMyVehicle] = useState<VehicleInfo | null>(null);
   const [fleetManagerId, setFleetManagerId] = useState<string | null>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
   
   // 地点管理
-  const [projectLoadingLocations, setProjectLoadingLocations] = useState<any[]>([]);
-  const [projectUnloadingLocations, setProjectUnloadingLocations] = useState<any[]>([]);
+  const [projectLoadingLocations, setProjectLoadingLocations] = useState<Location[]>([]);
+  const [projectUnloadingLocations, setProjectUnloadingLocations] = useState<Location[]>([]);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [addLocationName, setAddLocationName] = useState('');
   const [addLocationType, setAddLocationType] = useState<'loading' | 'unloading'>('loading');
@@ -110,12 +134,44 @@ export default function MobileQuickEntry() {
   const [newRouteUnloadingLocation, setNewRouteUnloadingLocation] = useState('');
 
   // 常用运单
-  const [favoriteRoutes, setFavoriteRoutes] = useState<any[]>([]);
+  interface FavoriteRoute {
+    id: string;
+    project_id: string;
+    project_name: string;
+    chain_id: string;
+    chain_name: string;
+    loading_location_id: string;
+    loading_location: string;
+    unloading_location_id: string;
+    unloading_location: string;
+    route_name?: string;
+    use_count?: number;
+    last_used_at?: string;
+  }
+
+  interface FavoriteProject {
+    project_id: string;
+    project_name: string;
+    id?: string;
+    name?: string;
+    projects?: {
+      project_status: string;
+    };
+  }
+
+  interface FavoriteChain {
+    chain_id: string;
+    chain_name: string;
+    id?: string;
+    is_default: boolean;
+  }
+
+  const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
   const [selectedRouteId, setSelectedRouteId] = useState<string>(''); // 当前选中的线路ID
   const [favoriteProjectId, setFavoriteProjectId] = useState<string>(''); // 常用运单选择的项目ID
   const [favoriteChainId, setFavoriteChainId] = useState<string>(''); // 常用运单选择的合作链路ID
-  const [favoriteProjects, setFavoriteProjects] = useState<any[]>([]); // 车队长的分配项目列表
-  const [favoriteChains, setFavoriteChains] = useState<any[]>([]); // 项目的合作链路列表
+  const [favoriteProjects, setFavoriteProjects] = useState<FavoriteProject[]>([]); // 车队长的分配项目列表
+  const [favoriteChains, setFavoriteChains] = useState<FavoriteChain[]>([]); // 项目的合作链路列表
   const [routeInputs, setRouteInputs] = useState<Record<string, { 
     loading_weight: string; 
     unloading_weight: string;
@@ -130,70 +186,23 @@ export default function MobileQuickEntry() {
   const [confirmDialogTitle, setConfirmDialogTitle] = useState('');
   const [confirmDialogDescription, setConfirmDialogDescription] = useState('');
 
-  useEffect(() => {
-    loadMyInfo();
-    loadRecentWaybills();
+  // 加载最近运单
+  const loadRecentWaybills = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_my_waybills', {
+        p_days: 7,
+        p_limit: 5
+      });
+      
+      if (error) throw error;
+      setRecentWaybills(data || []);
+    } catch (error) {
+      console.error('加载运单失败:', error);
+    }
   }, []);
 
-  // 当获取到车队长ID和司机ID后，加载项目列表
-  useEffect(() => {
-    if (fleetManagerId && driverId) {
-      loadFavoriteProjects();
-    }
-  }, [fleetManagerId, driverId]);
-
-  // 当选择项目后，加载该项目的合作链路
-  useEffect(() => {
-    if (favoriteProjectId) {
-      loadFavoriteChains(favoriteProjectId);
-    } else {
-      setFavoriteChains([]);
-      setFavoriteChainId('');
-    }
-  }, [favoriteProjectId]);
-
-  // 当获取到车队长ID后，加载项目（如果还没有加载）
-  useEffect(() => {
-    if (fleetManagerId && myRoutes.length === 0) {
-      loadMyRoutes(fleetManagerId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fleetManagerId]);
-
-  // 当选择项目后，加载常用线路（过滤出该项目的线路）- 用于"新增运单"标签页
-  useEffect(() => {
-    if (formData.project_id && fleetManagerId && driverId) {
-      loadFavoriteRoutes(formData.project_id);
-    }
-  }, [formData.project_id, fleetManagerId, driverId]);
-
-  // 当在"常用运单"标签页选择项目后，加载常用线路
-  // 或者在组件加载时（fleetManagerId 和 driverId 就绪后）加载所有常用线路
-  useEffect(() => {
-    if (fleetManagerId && driverId) {
-      // 如果选择了项目，只加载该项目的线路；否则加载所有分配给该司机的线路
-      loadFavoriteRoutes(favoriteProjectId || undefined);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [favoriteProjectId, fleetManagerId, driverId]);
-
-  // 当选择线路时，自动填充装货地和卸货地
-  useEffect(() => {
-    if (formData.route_id && favoriteRoutes.length > 0) {
-      const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
-      if (selectedRoute) {
-        setFormData(prev => ({
-          ...prev,
-          loading_location_id: selectedRoute.loading_location_id,
-          unloading_location_id: selectedRoute.unloading_location_id,
-          project_id: selectedRoute.project_id || prev.project_id  // 如果线路有项目ID，也更新项目
-        }));
-      }
-    }
-  }, [formData.route_id, favoriteRoutes]);
-
   // 加载司机信息
-  const loadMyInfo = async () => {
+  const loadMyInfo = useCallback(async () => {
     try {
       // 获取司机档案
       const { data: driverData } = await supabase.rpc('get_my_driver_info');
@@ -227,16 +236,17 @@ export default function MobileQuickEntry() {
       // 获取主车
       const { data: vehicleData } = await supabase.rpc('get_my_vehicles');
       if (vehicleData && vehicleData.length > 0) {
-        const primary = vehicleData.find((v: any) => v.is_primary);
-        setMyVehicle(primary || vehicleData[0]);
+        const vehicles = vehicleData as VehicleInfo[];
+        const primary = vehicles.find((v) => v.is_primary);
+        setMyVehicle(primary || vehicles[0]);
       }
     } catch (error) {
       console.error('加载信息失败:', error);
     }
-  };
+  }, [loadMyRoutes]);
 
   // 加载我的项目线路（只加载所属车队长的项目）
-  const loadMyRoutes = async (managerId?: string | null) => {
+  const loadMyRoutes = useCallback(async (managerId?: string | null) => {
     setLoading(true);
     try {
       const currentFleetManagerId = managerId || fleetManagerId;
@@ -269,11 +279,19 @@ export default function MobileQuickEntry() {
       if (projectsError) throw projectsError;
 
       // 转换为项目线路格式
-      const routes: ProjectRoute[] = (projectsData || [])
-        .filter((item: any) => item.projects && item.projects.project_status === '进行中')
-        .map((item: any) => ({
+      interface ProjectData {
+        project_id: string;
+        projects: {
+          id: string;
+          name: string;
+          project_status: string;
+        } | null;
+      }
+      const routes: ProjectRoute[] = ((projectsData || []) as ProjectData[])
+        .filter((item) => item.projects && item.projects.project_status === '进行中')
+        .map((item) => ({
           project_id: item.project_id,
-          project_name: item.projects.name,
+          project_name: item.projects!.name,
           is_primary_route: false, // 可以根据需要设置主线路
           common_loading_locations: [],
           common_unloading_locations: []
@@ -295,22 +313,7 @@ export default function MobileQuickEntry() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // 加载最近运单
-  const loadRecentWaybills = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_my_waybills', {
-        p_days: 7,
-        p_limit: 5
-      });
-      
-      if (error) throw error;
-      setRecentWaybills(data || []);
-    } catch (error) {
-      console.error('加载运单失败:', error);
-    }
-  };
+  }, [fleetManagerId, toast]);
 
   // 加载项目的地点列表（只加载车队长常用线路中的地点）
   const loadProjectLocations = async (projectId: string) => {
@@ -331,7 +334,7 @@ export default function MobileQuickEntry() {
 
       // 收集所有使用的地点ID
       const locationIds = new Set<string>();
-      (favoriteRoutes || []).forEach((route: any) => {
+      (favoriteRoutes || []).forEach((route) => {
         if (route.loading_location_id) locationIds.add(route.loading_location_id);
         if (route.unloading_location_id) locationIds.add(route.unloading_location_id);
       });
@@ -351,7 +354,10 @@ export default function MobileQuickEntry() {
 
       if (locationProjectsError) throw locationProjectsError;
 
-      const projectLocationIds = new Set((locationProjects || []).map((lp: any) => lp.location_id));
+      interface LocationProject {
+        location_id: string;
+      }
+      const projectLocationIds = new Set<string>(((locationProjects || []) as LocationProject[]).map((lp) => lp.location_id));
       const filteredLocationIds = Array.from(locationIds).filter(id => projectLocationIds.has(id));
 
       if (filteredLocationIds.length === 0) {
@@ -369,30 +375,27 @@ export default function MobileQuickEntry() {
       if (locationsError) throw locationsError;
 
       // 4. 根据常用线路中的使用情况分类装货地和卸货地
+      interface FavoriteRouteLocation {
+        loading_location_id: string | null;
+        unloading_location_id: string | null;
+      }
       const loadingLocationIds = new Set(
-        (favoriteRoutes || [])
-          .map((r: any) => r.loading_location_id)
-          .filter(Boolean)
+        ((favoriteRoutes || []) as FavoriteRouteLocation[])
+          .map((r) => r.loading_location_id)
+          .filter((id): id is string => Boolean(id))
       );
       const unloadingLocationIds = new Set(
-        (favoriteRoutes || [])
-          .map((r: any) => r.unloading_location_id)
-          .filter(Boolean)
+        ((favoriteRoutes || []) as FavoriteRouteLocation[])
+          .map((r) => r.unloading_location_id)
+          .filter((id): id is string => Boolean(id))
       );
 
-      const loadingLocs = (locations || [])
-        .filter((loc: any) => loadingLocationIds.has(loc.id))
-        .map((loc: any) => ({
-          location_id: loc.id,
-          location_name: loc.name
-        }));
+      const locationsData = (locations || []) as Location[];
+      const loadingLocs: Location[] = locationsData
+        .filter((loc) => loadingLocationIds.has(loc.id));
 
-      const unloadingLocs = (locations || [])
-        .filter((loc: any) => unloadingLocationIds.has(loc.id))
-        .map((loc: any) => ({
-          location_id: loc.id,
-          location_name: loc.name
-        }));
+      const unloadingLocs: Location[] = locationsData
+        .filter((loc) => unloadingLocationIds.has(loc.id));
 
       setProjectLoadingLocations(loadingLocs);
       setProjectUnloadingLocations(unloadingLocs);
@@ -554,7 +557,7 @@ export default function MobileQuickEntry() {
   };
 
   // 加载常用线路（只加载分配给当前司机的线路，可选按项目过滤）
-  const loadFavoriteRoutes = async (projectId?: string) => {
+  const loadFavoriteRoutes = useCallback(async (projectId?: string) => {
     try {
       if (!fleetManagerId || !driverId) {
         console.log('⚠️ 没有车队长ID或司机ID，无法加载常用线路', { fleetManagerId, driverId });
@@ -655,7 +658,7 @@ export default function MobileQuickEntry() {
         if (!selectedRouteId && data.length > 0) {
           const mostRecentRoute = data[0]; // 已经是按使用次数和最后使用时间排序的
           setSelectedRouteId(mostRecentRoute.id);
-          console.log('✅ 默认选择最近使用的线路:', mostRecentRoute.route_name);
+          console.log('✅ 默认选择最近使用的线路:', mostRecentRoute.route_name || mostRecentRoute.loading_location + ' → ' + mostRecentRoute.unloading_location);
         }
       } else {
         console.log('⚠️ 没有找到常用线路，可能原因：');
@@ -666,20 +669,21 @@ export default function MobileQuickEntry() {
         console.log('  5. 检查线路的 fleet_manager_id 是否匹配');
       }
 
-      setFavoriteRoutes(data || []);
-    } catch (error: any) {
+      setFavoriteRoutes((data || []) as FavoriteRoute[]);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '无法加载常用线路，请检查控制台';
       console.error('❌ 加载常用线路失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载常用线路，请检查控制台',
+        description: errorMessage,
         variant: 'destructive'
       });
       setFavoriteRoutes([]);
     }
-  };
+  }, [fleetManagerId, driverId, toast, selectedRouteId]);
 
   // 加载车队长的分配项目（用于常用运单）
-  const loadFavoriteProjects = async () => {
+  const loadFavoriteProjects = useCallback(async () => {
     try {
       if (!fleetManagerId) {
         setFavoriteProjects([]);
@@ -701,11 +705,21 @@ export default function MobileQuickEntry() {
       if (error) throw error;
 
       // 只显示进行中的项目
-      const projects = (data || [])
-        .filter((item: any) => item.projects && item.projects.project_status === '进行中')
-        .map((item: any) => ({
+      interface ProjectData {
+        project_id: string;
+        projects: {
+          id: string;
+          name: string;
+          project_status: string;
+        } | null;
+      }
+      const projects = ((data || []) as ProjectData[])
+        .filter((item) => item.projects && item.projects.project_status === '进行中')
+        .map((item) => ({
+          project_id: item.project_id,
+          project_name: item.projects!.name,
           id: item.project_id,
-          name: item.projects.name
+          name: item.projects!.name
         }));
 
       setFavoriteProjects(projects);
@@ -714,19 +728,19 @@ export default function MobileQuickEntry() {
       if (projects.length > 0 && !favoriteProjectId) {
         setFavoriteProjectId(projects[0].id);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ 加载项目列表失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载项目列表',
+        description: error instanceof Error ? error.message : '无法加载项目列表',
         variant: 'destructive'
       });
       setFavoriteProjects([]);
     }
-  };
+  }, [fleetManagerId, favoriteProjectId, toast]);
 
   // 加载项目的合作链路
-  const loadFavoriteChains = async (projectId: string) => {
+  const loadFavoriteChains = useCallback(async (projectId: string) => {
     try {
       if (!projectId) {
         setFavoriteChains([]);
@@ -746,25 +760,87 @@ export default function MobileQuickEntry() {
       setFavoriteChains(data || []);
 
       // 默认选择默认链路，如果没有则选择第一个
-      const defaultChain = (data || []).find((c: any) => c.is_default);
+      const chains = (data || []) as FavoriteChain[];
+      const defaultChain = chains.find((c) => c.is_default);
       if (defaultChain) {
-        setFavoriteChainId(defaultChain.id);
-      } else if (data && data.length > 0) {
-        setFavoriteChainId(data[0].id);
+        setFavoriteChainId(defaultChain.chain_id);
+      } else if (chains.length > 0) {
+        setFavoriteChainId(chains[0].chain_id);
       } else {
         setFavoriteChainId('');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ 加载合作链路失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载合作链路',
+        description: error instanceof Error ? error.message : '无法加载合作链路',
         variant: 'destructive'
       });
       setFavoriteChains([]);
       setFavoriteChainId('');
     }
-  };
+  }, [toast]);
+
+  // 添加所有 useEffect hooks
+  useEffect(() => {
+    loadMyInfo();
+    loadRecentWaybills();
+  }, [loadMyInfo, loadRecentWaybills]);
+
+  // 当获取到车队长ID和司机ID后，加载项目列表
+  useEffect(() => {
+    if (fleetManagerId && driverId) {
+      loadFavoriteProjects();
+    }
+  }, [fleetManagerId, driverId, loadFavoriteProjects]);
+
+  // 当选择项目后，加载该项目的合作链路
+  useEffect(() => {
+    if (favoriteProjectId) {
+      loadFavoriteChains(favoriteProjectId);
+    } else {
+      setFavoriteChains([]);
+      setFavoriteChainId('');
+    }
+  }, [favoriteProjectId, loadFavoriteChains]);
+
+  // 当获取到车队长ID后，加载项目（如果还没有加载）
+  useEffect(() => {
+    if (fleetManagerId && myRoutes.length === 0) {
+      loadMyRoutes(fleetManagerId);
+    }
+  }, [fleetManagerId, myRoutes.length, loadMyRoutes]);
+
+  // 当选择项目后，加载常用线路（过滤出该项目的线路）- 用于"新增运单"标签页
+  useEffect(() => {
+    if (formData.project_id && fleetManagerId && driverId) {
+      loadFavoriteRoutes(formData.project_id);
+    }
+  }, [formData.project_id, fleetManagerId, driverId, loadFavoriteRoutes]);
+
+  // 当在"常用运单"标签页选择项目后，加载常用线路
+  // 或者在组件加载时（fleetManagerId 和 driverId 就绪后）加载所有常用线路
+  useEffect(() => {
+    if (fleetManagerId && driverId) {
+      // 如果选择了项目，只加载该项目的线路；否则加载所有分配给该司机的线路
+      loadFavoriteRoutes(favoriteProjectId || undefined);
+    }
+  }, [favoriteProjectId, fleetManagerId, driverId, loadFavoriteRoutes]);
+
+  // 当选择线路时，自动填充装货地和卸货地
+  useEffect(() => {
+    if (formData.route_id && favoriteRoutes.length > 0) {
+      const selectedRoute = favoriteRoutes.find(r => r.id === formData.route_id);
+      if (selectedRoute) {
+        setFormData(prev => ({
+          ...prev,
+          loading_location_id: selectedRoute.loading_location_id,
+          unloading_location_id: selectedRoute.unloading_location_id,
+          project_id: selectedRoute.project_id || prev.project_id  // 如果线路有项目ID，也更新项目
+        }));
+      }
+    }
+  }, [formData.route_id, favoriteRoutes]);
 
   // 显示确认对话框并执行操作
   const handleConfirmAction = (action: () => void, title: string, description: string) => {
@@ -812,7 +888,7 @@ export default function MobileQuickEntry() {
     handleConfirmAction(
       () => executeSubmitFavoriteRoute(routeId),
       '确认记录运单',
-      `确定要记录运单吗？\n线路：${route.route_name}\n装货数量：${inputs.loading_weight}`
+      `确定要记录运单吗？\n线路：${route.route_name || (route.loading_location + ' → ' + route.unloading_location)}\n装货数量：${inputs.loading_weight}`
     );
   };
 
@@ -836,7 +912,7 @@ export default function MobileQuickEntry() {
     // 调试日志
     console.log('🔍 提交常用运单 - 调试信息:', {
       routeId,
-      routeName: route.route_name,
+      routeName: route.route_name || (route.loading_location + ' → ' + route.unloading_location),
       inputs,
       routeInputs: routeInputs,
       loading_weight: inputs.loading_weight,
@@ -1024,7 +1100,7 @@ export default function MobileQuickEntry() {
     }
     
     // 从选中的线路获取装货地和卸货地
-    const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+    const selectedRoute = favoriteRoutes.find((r) => r.id === formData.route_id);
     if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
       toast({
         title: '信息不完整',
@@ -1037,7 +1113,7 @@ export default function MobileQuickEntry() {
     handleConfirmAction(
       () => executeSubmit(),
       '确认提交运单',
-      `确定要提交运单吗？\n线路：${selectedRoute.route_name}\n装货数量：${formData.loading_weight}`
+      `确定要提交运单吗？\n线路：${selectedRoute.route_name || (selectedRoute.loading_location + ' → ' + selectedRoute.unloading_location)}\n装货数量：${formData.loading_weight}`
     );
   };
 
@@ -1067,7 +1143,7 @@ export default function MobileQuickEntry() {
       }
 
       // 从选中的线路获取装货地和卸货地（在executeSubmit中重新查找，因为selectedRoute是handleSubmit的局部变量）
-      const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+      const selectedRoute = favoriteRoutes.find((r) => r.id === formData.route_id);
       if (!selectedRoute || !selectedRoute.loading_location_id || !selectedRoute.unloading_location_id) {
         toast({
           title: '信息不完整',
@@ -1150,7 +1226,7 @@ export default function MobileQuickEntry() {
   const selectedRoute = myRoutes.find(r => r.project_id === formData.project_id);
 
   return (
-    <MobileLayout>
+    <DriverMobileLayout title="快速录单">
       <div className="space-y-4 pb-20">
         {/* 司机和车辆信息卡片 */}
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
@@ -1160,7 +1236,7 @@ export default function MobileQuickEntry() {
                 <User className="h-4 w-4 text-blue-600" />
                 <div>
                   <div className="text-xs text-blue-600">司机</div>
-                  <div className="font-medium">{driverInfo?.name || '加载中...'}</div>
+                  <div className="font-medium">{driverInfo?.driver_name || driverInfo?.name || '加载中...'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1232,8 +1308,8 @@ export default function MobileQuickEntry() {
                             </div>
                           ) : (
                             favoriteProjects.map(project => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
+                              <SelectItem key={project.project_id} value={project.project_id}>
+                                {project.project_name}
                               </SelectItem>
                             ))
                           )}
@@ -1262,7 +1338,7 @@ export default function MobileQuickEntry() {
                               </div>
                             ) : (
                               favoriteChains.map(chain => (
-                                <SelectItem key={chain.id} value={chain.id}>
+                                <SelectItem key={chain.chain_id} value={chain.chain_id}>
                                   {chain.chain_name}{chain.is_default ? ' (默认)' : ''}
                                 </SelectItem>
                               ))
@@ -1307,7 +1383,7 @@ export default function MobileQuickEntry() {
                         <SelectContent position="popper" className="z-50">
                           {favoriteRoutes.map(route => (
                             <SelectItem key={route.id} value={route.id}>
-                              {route.route_name}
+                              {route.route_name || (route.loading_location + ' → ' + route.unloading_location)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1336,7 +1412,7 @@ export default function MobileQuickEntry() {
                             <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
                               <div className="flex items-center gap-2 mb-2">
                                 <Route className="h-4 w-4 text-blue-600" />
-                                <span className="font-semibold text-blue-900 text-sm">{route.route_name}</span>
+                                <span className="font-semibold text-blue-900 text-sm">{route.route_name || (route.loading_location + ' → ' + route.unloading_location)}</span>
                               </div>
                               <div className="text-xs text-blue-700 space-y-1">
                                 <div className="flex items-center gap-1.5">
@@ -1572,16 +1648,16 @@ export default function MobileQuickEntry() {
                         <SelectValue placeholder="选择常用线路" />
                       </SelectTrigger>
                       <SelectContent position="popper" className="z-50">
-                        {favoriteRoutes.filter((r: any) => r.project_id === formData.project_id).length === 0 ? (
+                        {favoriteRoutes.filter((r) => r.project_id === formData.project_id).length === 0 ? (
                           <div className="px-2 py-6 text-center text-sm text-muted-foreground">
                             暂无线路，请点击"添加线路"
                           </div>
                         ) : (
                           favoriteRoutes
-                            .filter((r: any) => r.project_id === formData.project_id)
-                            .map((route: any) => (
+                            .filter((r) => r.project_id === formData.project_id)
+                            .map((route) => (
                               <SelectItem key={route.id} value={route.id}>
-                                {route.route_name}
+                                {route.route_name || (route.loading_location + ' → ' + route.unloading_location)}
                               </SelectItem>
                             ))
                         )}
@@ -1590,14 +1666,14 @@ export default function MobileQuickEntry() {
                     
                     {/* 显示选中的线路信息 */}
                     {formData.route_id && (() => {
-                      const selectedRoute = favoriteRoutes.find((r: any) => r.id === formData.route_id);
+                      const selectedRoute = favoriteRoutes.find((r) => r.id === formData.route_id);
                       if (selectedRoute) {
                         return (
                           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-sm">
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Route className="h-4 w-4 text-blue-600" />
-                                <span className="font-semibold text-blue-900 text-sm">{selectedRoute.route_name}</span>
+                                <span className="font-semibold text-blue-900 text-sm">{selectedRoute.route_name || (selectedRoute.loading_location + ' → ' + selectedRoute.unloading_location)}</span>
                               </div>
                               <div className="text-xs text-blue-700 space-y-1.5">
                                 <div className="flex items-center gap-1.5">
@@ -1910,7 +1986,7 @@ export default function MobileQuickEntry() {
           </DialogContent>
         </Dialog>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 

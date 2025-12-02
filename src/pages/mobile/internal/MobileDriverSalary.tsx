@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import {
   DollarSign,
   Calendar,
@@ -92,11 +92,11 @@ export default function MobileDriverSalary() {
           status: record.status || 'calculating'
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载失败:', error);
       toast({
         title: '加载失败',
-        description: error.message || '无法加载收入数据',
+        description: error instanceof Error ? error.message : '无法加载收入数据',
         variant: 'destructive'
       });
     } finally {
@@ -106,19 +106,19 @@ export default function MobileDriverSalary() {
 
   if (loading) {
     return (
-      <MobileLayout>
+      <DriverMobileLayout title="我的收入" showHeader={true}>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
             <p className="text-sm text-muted-foreground mt-2">加载中...</p>
           </div>
         </div>
-      </MobileLayout>
+      </DriverMobileLayout>
     );
   }
 
   return (
-    <MobileLayout title="我的收入">
+    <DriverMobileLayout title="我的收入">
       <div className="space-y-4 pb-6">
         {/* 当月收入卡片 */}
         {currentMonthIncome && (
@@ -244,7 +244,7 @@ export default function MobileDriverSalary() {
           </CardContent>
         </Card>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 

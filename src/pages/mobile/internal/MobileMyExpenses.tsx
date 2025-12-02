@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import { useOptimizedRealtimeSubscription } from '@/hooks/useMemoryLeakFix';
 import {
   Plus,
@@ -53,7 +53,8 @@ import {
   MapPin,
   Calculator,
   Package,
-  Weight
+  Weight,
+  BarChart3
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -114,7 +115,13 @@ export default function MobileMyExpenses() {
   const { profile } = useAuth();
   
   const [loading, setLoading] = useState(false);
-  const [myVehicles, setMyVehicles] = useState<any[]>([]);
+  interface Vehicle {
+    vehicle_id: string;
+    license_plate: string;
+    vehicle_type: string;
+    is_primary: boolean;
+  }
+  const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
   const [waybills, setWaybills] = useState<Waybill[]>([]);
   const [loadingWaybills, setLoadingWaybills] = useState(false);
   const [activeTab, setActiveTab] = useState('expenses');
@@ -151,7 +158,7 @@ export default function MobileMyExpenses() {
       const { data, error } = await supabase.rpc('get_my_vehicles');
       if (error) throw error;
       setMyVehicles(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载车辆失败:', error);
       // 不显示错误提示，避免干扰用户体验
     }
@@ -166,7 +173,7 @@ export default function MobileMyExpenses() {
       
       if (error) throw error;
       setPendingDispatchCount(data?.length || 0);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载派单失败:', error);
       // 不显示错误提示，避免干扰用户体验
       setPendingDispatchCount(0);
@@ -181,7 +188,7 @@ export default function MobileMyExpenses() {
       if (data && data.success) {
         setExpenseBalance(data.balance || 0);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载余额失败:', error);
     }
   }, []);
@@ -192,14 +199,15 @@ export default function MobileMyExpenses() {
       const { data, error } = await supabase.rpc('get_my_vehicles');
       if (error) throw error;
       // 查找主车辆（is_primary = true）
-      const primaryVehicle = (data || []).find((v: any) => v.is_primary === true);
+      const vehicles = (data || []) as Vehicle[];
+      const primaryVehicle = vehicles.find((v) => v.is_primary === true);
       if (primaryVehicle) {
         setPrimaryLicensePlate(primaryVehicle.license_plate);
-      } else if (data && data.length > 0) {
+      } else if (vehicles.length > 0) {
         // 如果没有主车辆，使用第一辆车
-        setPrimaryLicensePlate(data[0].license_plate);
+        setPrimaryLicensePlate(vehicles[0].license_plate);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载车牌号失败:', error);
     }
   }, []);
@@ -215,7 +223,7 @@ export default function MobileMyExpenses() {
       
       if (error) throw error;
       setWaybills(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载运单失败:', error);
       toast({
         title: '加载失败',
@@ -265,15 +273,16 @@ export default function MobileMyExpenses() {
       setApplications(data || []);
       setError(null);
       isInitialLoad.current = false;  // ✅ 标记首次加载完成
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '无法加载费用申请记录';
       console.error('加载失败:', error);
-      setError(error.message || '无法加载费用申请记录');
+      setError(errorMessage);
       setApplications([]);
       // 只在首次加载失败时显示错误提示
       if (wasInitialLoad) {
         toast({
           title: '加载失败',
-          description: error.message || '无法加载费用申请记录',
+          description: errorMessage,
           variant: 'destructive'
         });
       }
@@ -307,11 +316,12 @@ export default function MobileMyExpenses() {
           console.warn('部分页面预加载失败，不影响使用');
         });
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '页面初始化失败';
       console.error('页面初始化失败:', error);
-      setError(error.message || '页面初始化失败');
+      setError(errorMessage);
     }
-  }, [loadApplications, loadMyVehicles, loadPendingDispatches]);
+  }, [loadApplications, loadMyVehicles, loadPendingDispatches, loadExpenseBalance, loadPrimaryLicensePlate]);
 
   // ✅ 监听标签切换，防止页面滚动
   useEffect(() => {
@@ -339,7 +349,12 @@ export default function MobileMyExpenses() {
   }, [activeTab]);
 
   // ✅ 添加实时订阅 - 监听费用申请表的变化
-  const handleRealtimeUpdate = useCallback((payload: any) => {
+  interface RealtimePayload {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    new?: ExpenseApplication;
+    old?: ExpenseApplication;
+  }
+  const handleRealtimeUpdate = useCallback((payload: RealtimePayload) => {
     try {
       console.log('📢 费用申请数据变更:', payload);
       
@@ -372,14 +387,24 @@ export default function MobileMyExpenses() {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('处理实时更新失败:', error);
       // 不抛出错误，避免影响其他功能
     }
   }, [toast, loadApplications, loadPendingDispatches]);
 
   // ✅ 订阅派单通知
-  const handleDispatchUpdate = useCallback((payload: any) => {
+  interface DispatchPayload {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    new?: {
+      order_number: string;
+      status: string;
+    };
+    old?: {
+      status: string;
+    };
+  }
+  const handleDispatchUpdate = useCallback((payload: DispatchPayload) => {
     try {
       console.log('📢 派单数据变更:', payload);
       
@@ -399,7 +424,7 @@ export default function MobileMyExpenses() {
         console.log('🔄 派单状态变更，刷新数量');
         loadPendingDispatches();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('处理派单更新失败:', error);
       // 不抛出错误，避免影响其他功能
     }
@@ -472,11 +497,12 @@ export default function MobileMyExpenses() {
       setSelectedFiles([]);  // 清空已选照片
       
       loadApplications();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       console.error('提交失败:', error);
       toast({
         title: '提交失败',
-        description: error.message || '请稍后重试',
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -695,11 +721,12 @@ export default function MobileMyExpenses() {
           receipt_photos: updatedPhotos
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
       console.error('添加图片失败:', error);
       toast({
         title: '添加失败',
-        description: error.message || '请稍后重试',
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -774,7 +801,18 @@ export default function MobileMyExpenses() {
   // ✅ 如果页面初始化失败，显示错误提示
   if (error && applications.length === 0 && !loading) {
     return (
-      <MobileLayout title="工作台" showBack={false}>
+      <DriverMobileLayout 
+        title="工作台" 
+        showHeader={false}
+        showRefresh={true}
+        onRefresh={() => {
+          loadApplications();
+          loadPendingDispatches();
+          loadExpenseBalance();
+          loadPrimaryLicensePlate();
+          toast({ title: '已刷新' });
+        }}
+      >
         <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
           <div className="text-center space-y-4 max-w-md">
             <div className="text-6xl">⚠️</div>
@@ -796,39 +834,48 @@ export default function MobileMyExpenses() {
             </Button>
           </div>
         </div>
-      </MobileLayout>
+      </DriverMobileLayout>
     );
   }
 
   return (
-    <MobileLayout title="工作台" showBack={false}>
-      <div className="space-y-3 pb-20">
-        {/* 顶部状态栏 - 类似货拉拉 */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-500 -mx-4 -mt-4 px-4 py-4 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <User className="h-6 w-6" />
-                  </div>
-                  <div>
-                <div className="font-bold text-lg">
+    <DriverMobileLayout 
+      title="工作台" 
+      showHeader={false}
+      showRefresh={true}
+      onRefresh={() => {
+        loadApplications();
+        loadPendingDispatches();
+        loadExpenseBalance();
+        loadPrimaryLicensePlate();
+        toast({ title: '已刷新' });
+      }}
+    >
+      <div className="space-y-4">
+        {/* 顶部状态栏 - 优化设计，参考货拉拉/滴滴货运 */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 -mx-4 -mt-4 px-4 pt-6 pb-5 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-14 h-14 rounded-full bg-white/25 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-lg">
+                <User className="h-7 w-7 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-xl mb-1">
                   {profile?.full_name || '司机'}
                   {primaryLicensePlate && (
-                    <span className="ml-2 text-sm font-normal">({primaryLicensePlate})</span>
+                    <span className="ml-2 text-sm font-normal opacity-90">({primaryLicensePlate})</span>
                   )}
                 </div>
-                <div className="text-xs text-blue-100">
+                <div className="text-xs text-blue-100 flex items-center gap-2">
+                  <Calendar className="h-3 w-3" />
                   {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
-                  <span className="ml-2">
-                    余额: ¥{expenseBalance.toFixed(2)}
-                  </span>
-                  </div>
                 </div>
-                </div>
+              </div>
+            </div>
             <Button
               variant="ghost"
               size="sm"
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 rounded-full h-9 w-9 p-0"
               onClick={() => {
                 loadApplications();
                 loadPendingDispatches();
@@ -837,179 +884,214 @@ export default function MobileMyExpenses() {
                 toast({ title: '已刷新' });
               }}
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
+          </div>
+          
+          {/* 余额卡片 */}
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-blue-100 mb-1">费用余额</div>
+                <div className="text-2xl font-bold">¥{expenseBalance.toFixed(2)}</div>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-white" />
               </div>
             </div>
+          </div>
+        </div>
 
-        {/* 🔔 待接单派单提示（最重要 - 类似滴滴的接单提示） */}
+        {/* 🔔 待接单派单提示 - 优化设计 */}
         {pendingDispatchCount > 0 && (
           <Card 
-            className="border-2 border-orange-400 shadow-xl cursor-pointer hover:shadow-2xl transition-all animate-pulse"
+            className="border-0 shadow-2xl cursor-pointer transition-all active:scale-[0.98] overflow-hidden"
             onClick={() => navigate('/m/internal/my-dispatches')}
           >
             <CardContent className="p-0">
-              <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white p-5">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-white/30 flex items-center justify-center backdrop-blur-sm">
-                    <Bell className="h-9 w-9 text-white animate-bounce" />
+              <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white p-5 relative overflow-hidden">
+                {/* 背景装饰 */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+                
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-lg animate-pulse">
+                    <Bell className="h-8 w-8 text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="text-2xl font-bold mb-1">有新派单！</div>
-                    <div className="text-base opacity-95">{pendingDispatchCount} 个派单等待接单</div>
+                    <div className="text-base opacity-95 flex items-center gap-2">
+                      <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm font-semibold">
+                        {pendingDispatchCount} 个
+                      </span>
+                      <span>派单等待接单</span>
+                    </div>
                   </div>
-                  <ArrowRight className="h-8 w-8" />
+                  <ArrowRight className="h-7 w-7 animate-bounce-x" />
                 </div>
               </div>
-              <div className="bg-orange-50 px-5 py-3 text-center">
-                <span className="text-orange-900 font-medium text-sm">👆 点击立即查看详情</span>
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 px-5 py-3 text-center border-t border-orange-200">
+                <span className="text-orange-700 font-semibold text-sm flex items-center justify-center gap-1">
+                  <span>👆</span>
+                  <span>点击立即查看详情</span>
+                </span>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* 我的任务卡片 */}
-        <Card className="shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Truck className="h-5 w-5 text-blue-600" />
+        {/* 我的任务卡片 - 优化设计 */}
+        <Card className="shadow-lg border-0 overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardTitle className="text-base font-bold flex items-center gap-2 text-gray-800">
+              <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                <Truck className="h-5 w-5 text-white" />
+              </div>
               我的任务
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-4 divide-x">
+            <div className="grid grid-cols-4 divide-x divide-gray-100">
               <div 
-                className="p-4 text-center cursor-pointer hover:bg-blue-50 transition-colors"
+                className="p-4 text-center cursor-pointer active:bg-blue-50 transition-all active:scale-95"
                 onClick={() => navigate('/m/internal/my-dispatches')}
               >
-                <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 flex items-center justify-center mb-2">
-                  <FileText className="h-6 w-6 text-blue-600" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-3 shadow-md">
+                  <FileText className="h-7 w-7 text-white" />
                 </div>
-                <div className="font-bold text-base mb-1">派单接单</div>
-                <div className="text-xs text-muted-foreground">查看和接受派单</div>
+                <div className="font-bold text-sm mb-1 text-gray-800">派单接单</div>
+                <div className="text-xs text-gray-500">查看和接受派单</div>
               </div>
           
               <div 
-                className="p-4 text-center cursor-pointer hover:bg-green-50 transition-colors"
+                className="p-4 text-center cursor-pointer active:bg-green-50 transition-all active:scale-95"
                 onClick={() => navigate('/m/internal/quick-entry')}
               >
-                <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-2">
-                  <Plus className="h-6 w-6 text-green-600" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mb-3 shadow-md">
+                  <Plus className="h-7 w-7 text-white" />
                 </div>
-                <div className="font-bold text-base mb-1">手动录单</div>
-                <div className="text-xs text-muted-foreground">自主录入运单</div>
+                <div className="font-bold text-sm mb-1 text-gray-800">手动录单</div>
+                <div className="text-xs text-gray-500">自主录入运单</div>
               </div>
 
               <div 
-                className="p-4 text-center cursor-pointer hover:bg-orange-50 transition-colors"
+                className="p-4 text-center cursor-pointer active:bg-orange-50 transition-all active:scale-95"
                 onClick={() => setShowNewDialog(true)}
               >
-                <div className="w-12 h-12 mx-auto rounded-full bg-orange-100 flex items-center justify-center mb-2">
-                  <FileText className="h-6 w-6 text-orange-600" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-3 shadow-md">
+                  <FileText className="h-7 w-7 text-white" />
                 </div>
-                <div className="font-bold text-base mb-1">费用申请</div>
-                <div className="text-xs text-muted-foreground">提交费用申请</div>
+                <div className="font-bold text-sm mb-1 text-gray-800">费用申请</div>
+                <div className="text-xs text-gray-500">提交费用申请</div>
               </div>
 
               <div 
-                className="p-4 text-center cursor-pointer hover:bg-orange-50 transition-colors"
+                className="p-4 text-center cursor-pointer active:bg-purple-50 transition-all active:scale-95"
                 onClick={() => navigate('/m/internal/expense-writeoff')}
               >
-                <div className="w-12 h-12 mx-auto rounded-full bg-orange-100 flex items-center justify-center mb-2">
-                  <Calculator className="h-6 w-6 text-orange-600" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-3 shadow-md">
+                  <Calculator className="h-7 w-7 text-white" />
                 </div>
-                <div className="font-bold text-base mb-1">费用冲销</div>
-                <div className="text-xs text-muted-foreground">费用冲销管理</div>
+                <div className="font-bold text-sm mb-1 text-gray-800">费用冲销</div>
+                <div className="text-xs text-gray-500">费用冲销管理</div>
               </div>
             </div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
           
-        {/* 我的服务 - 类似支付宝的宫格布局 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">我的服务</CardTitle>
+        {/* 我的服务 - 优化设计 */}
+        <Card className="shadow-lg border-0">
+          <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50 to-purple-50">
+            <CardTitle className="text-base font-bold text-gray-800">我的服务</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-3">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-4 gap-4">
               {/* 我的行程 */}
               <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
                 onClick={() => navigate('/m/internal/my-waybills')}
               >
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <MapPin className="h-6 w-6 text-indigo-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
+                  <MapPin className="h-7 w-7 text-white" />
                 </div>
-                <span className="text-xs text-center">我的行程</span>
+                <span className="text-xs text-center font-medium text-gray-700">我的行程</span>
               </div>
 
               {/* 我的车辆 */}
               <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
                 onClick={() => navigate('/m/internal/my-vehicles')}
               >
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Truck className="h-6 w-6 text-blue-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                  <Truck className="h-7 w-7 text-white" />
                 </div>
-                <span className="text-xs text-center">我的车辆</span>
+                <span className="text-xs text-center font-medium text-gray-700">我的车辆</span>
               </div>
               
               {/* 收支明细 */}
               <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
                 onClick={() => navigate('/m/internal/salary-records')}
               >
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-purple-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md">
+                  <Calendar className="h-7 w-7 text-white" />
                 </div>
-                <span className="text-xs text-center">收支明细</span>
+                <span className="text-xs text-center font-medium text-gray-700">收支明细</span>
               </div>
           
               {/* 我的收入 */}
               <div 
-                className="flex flex-col items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
                 onClick={() => navigate('/m/internal/driver-salary')}
               >
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-green-600" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+                  <DollarSign className="h-7 w-7 text-white" />
                 </div>
-                <span className="text-xs text-center">我的收入</span>
+                <span className="text-xs text-center font-medium text-gray-700">我的收入</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 本月数据统计 - 简洁版 */}
-        <Card>
+        {/* 本月数据统计 - 优化设计 */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">本月数据</CardTitle>
+            <CardTitle className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <BarChart3 className="h-5 w-5 text-white" />
+              </div>
+              本月数据
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground mb-1">待审核</div>
-                <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center p-3 rounded-xl bg-yellow-50 border border-yellow-100">
+                <div className="text-xs text-yellow-700 mb-2 font-medium">待审核</div>
+                <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
+                <div className="text-xs text-yellow-600 mt-1">项</div>
               </div>
-              <div className="text-center border-x">
-                <div className="text-sm text-muted-foreground mb-1">已通过</div>
-                <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+              <div className="text-center p-3 rounded-xl bg-green-50 border border-green-100">
+                <div className="text-xs text-green-700 mb-2 font-medium">已通过</div>
+                <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
+                <div className="text-xs text-green-600 mt-1">项</div>
               </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground mb-1">费用合计</div>
-                <div className="text-xl font-bold text-blue-600">¥{stats.thisMonth.toFixed(0)}</div>
+              <div className="text-center p-3 rounded-xl bg-blue-50 border border-blue-100">
+                <div className="text-xs text-blue-700 mb-2 font-medium">费用合计</div>
+                <div className="text-2xl font-bold text-blue-600">¥{stats.thisMonth.toFixed(0)}</div>
+                <div className="text-xs text-blue-600 mt-1">元</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 申请记录和运单记录 - 标签页 */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                <FileText className="h-4 w-4 text-indigo-600" />
+        {/* 申请记录和运单记录 - 标签页 - 优化设计 */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-b pb-3">
+            <CardTitle className="text-base font-bold flex items-center gap-2 text-gray-800">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md">
+                <FileText className="h-5 w-5 text-white" />
               </div>
-              <span className="font-semibold text-gray-800">我的记录</span>
+              <span>我的记录</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -1596,7 +1678,7 @@ export default function MobileMyExpenses() {
           </DialogContent>
         </Dialog>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 

@@ -22,8 +22,8 @@ export function MobileBottomNav({ items, className }: MobileBottomNavProps) {
     <nav 
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
-        'bg-background/95 backdrop-blur-sm',
-        'border-t border-border',
+        'bg-white/98 backdrop-blur-md',
+        'border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]',
         'safe-area-inset-bottom',
         className
       )}
@@ -31,49 +31,52 @@ export function MobileBottomNav({ items, className }: MobileBottomNavProps) {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)'
       }}
     >
-      <div className="flex items-center justify-around h-16 max-w-screen-xl mx-auto">
+      <div className="flex items-center justify-around h-20 max-w-screen-xl mx-auto px-2">
         {items.map((item) => (
           <NavLink
             key={item.href}
             to={item.href}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center justify-center flex-1 h-full relative',
-                'transition-colors duration-200',
+                'flex flex-col items-center justify-center flex-1 h-full relative py-2',
+                'transition-all duration-200',
                 'active:scale-95',
                 item.disabled && 'opacity-50 pointer-events-none',
                 isActive
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-blue-600'
+                  : 'text-gray-500'
               )
             }
           >
             {({ isActive }) => (
               <>
-                <div className="relative">
+                <div className={cn(
+                  'relative p-2 rounded-xl transition-all duration-200',
+                  isActive && 'bg-blue-50'
+                )}>
                   <item.icon className={cn(
-                    'h-6 w-6 transition-transform',
-                    isActive && 'scale-110'
+                    'h-6 w-6 transition-all duration-200',
+                    isActive ? 'text-blue-600 scale-110' : 'text-gray-500'
                   )} />
                   {item.badge && item.badge > 0 && (
                     <Badge 
                       variant="destructive" 
-                      className="absolute -top-2 -right-2 h-5 min-w-[20px] px-1 text-xs flex items-center justify-center"
+                      className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center rounded-full shadow-md"
                     >
                       {item.badge > 99 ? '99+' : item.badge}
                     </Badge>
                   )}
                 </div>
                 <span className={cn(
-                  'text-xs mt-1 transition-all',
-                  isActive && 'font-medium'
+                  'text-xs mt-0.5 transition-all font-medium',
+                  isActive ? 'text-blue-600 font-semibold' : 'text-gray-500'
                 )}>
                   {item.label}
                 </span>
                 
-                {/* 活跃指示器 */}
+                {/* 活跃指示器 - 优化设计 */}
                 {isActive && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-primary rounded-full" />
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-10 h-1 bg-blue-600 rounded-full" />
                 )}
               </>
             )}

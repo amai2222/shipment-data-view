@@ -22,6 +22,20 @@ import {
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
+interface WaybillItem {
+  id: string;
+  auto_number: string;
+  project_name?: string;
+  loading_location: string;
+  unloading_location: string;
+  loading_date: string;
+  payment_status?: string;
+  invoice_status?: string;
+  receipt_status?: string;
+  current_cost?: number;
+  payable_cost?: number;
+}
+
 export default function MobileShipperWaybills() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -96,7 +110,7 @@ export default function MobileShipperWaybills() {
     enabled: !!user?.partnerId
   });
 
-  const waybills = data?.records || [];
+  const waybills = (data?.records || []) as WaybillItem[];
   const totalCount = data?.total_count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -134,7 +148,7 @@ export default function MobileShipperWaybills() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {waybills.map((waybill: any) => (
+            {waybills.map((waybill) => (
               <Card
                 key={waybill.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"

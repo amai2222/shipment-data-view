@@ -28,6 +28,14 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
+interface InvoiceRecord {
+  id: string;
+  request_number: string;
+  total_amount: number;
+  total_received_amount?: number;
+  received_amount?: number;
+}
+
 export default function MobileShipperSubmitReceipt() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -59,9 +67,12 @@ export default function MobileShipperSubmitReceipt() {
       );
 
       if (error) throw error;
-      const result = data as any;
+      interface InvoiceResult {
+        records?: InvoiceRecord[];
+      }
+      const result = data as InvoiceResult;
       const invoices = result.records || [];
-      return invoices[0] || null;
+      return (invoices[0] || null) as InvoiceRecord | null;
     },
     enabled: !!requestNumber && !!user?.partnerId
   });

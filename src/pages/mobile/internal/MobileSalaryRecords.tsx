@@ -1,6 +1,6 @@
 // 移动端 - 收入发放记录（历史查询）
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import {
   Calendar,
   DollarSign,
@@ -46,12 +46,7 @@ export default function MobileSalaryRecords() {
   const [records, setRecords] = useState<SalaryRecord[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
-  useEffect(() => {
-    loadSalaryRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth]);
-
-  const loadSalaryRecords = async () => {
+  const loadSalaryRecords = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_my_salary', {
@@ -70,7 +65,11 @@ export default function MobileSalaryRecords() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth, toast]);
+
+  useEffect(() => {
+    loadSalaryRecords();
+  }, [loadSalaryRecords]);
 
   // 生成最近12个月的选项
   const monthOptions = [];
@@ -87,7 +86,7 @@ export default function MobileSalaryRecords() {
   const avgSalary = records.length > 0 ? totalEarned / records.length : 0;
 
   return (
-    <MobileLayout>
+    <DriverMobileLayout title="收支明细">
       <div className="space-y-4 pb-6">
         {/* 统计卡片 */}
         <div className="grid grid-cols-2 gap-3">
@@ -245,7 +244,7 @@ export default function MobileSalaryRecords() {
           </CardContent>
         </Card>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 

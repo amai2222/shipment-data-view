@@ -133,7 +133,7 @@ export default function MobileShipperDashboard() {
       if (!selectedShipperId && data && data.length > 0) {
         setSelectedShipperId(data[0].id);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('加载货主列表失败:', error);
     }
   }, [isPartnerRole, selectedShipperId]);
@@ -214,11 +214,12 @@ export default function MobileShipperDashboard() {
         console.log('趋势数据加载失败（忽略）:', trendErr);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '加载失败';
       console.error('加载失败:', error);
       toast({
         title: '加载失败',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -346,7 +347,7 @@ export default function MobileShipperDashboard() {
             )}
 
             {/* 时间筛选 */}
-            <Select value={dateRange} onValueChange={(value: any) => setDateRange(value)}>
+            <Select value={dateRange} onValueChange={(value) => setDateRange(value as '7days' | '30days')}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

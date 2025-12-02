@@ -436,7 +436,6 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
       setLocations([]);
       setChains([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editingRecord?.id, loadProjectSpecificData, projects]);
 
   // 当司机数据加载完成后，如果是编辑模式且司机信息为空，自动从司机数据中填充

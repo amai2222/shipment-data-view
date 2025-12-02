@@ -337,11 +337,10 @@ export default function InvoiceAudit() {
     }
   }, [toast, filters, currentPage, pageSize, selectedShipperId, selectedProjectId, availableProjects]);
 
-  // ✅ 优化：避免 availableProjects 变化时重复加载，直接调用函数而不使用 fetchInvoiceRequests 依赖
+  // ✅ 优化：避免 availableProjects 变化时重复加载
   useEffect(() => { 
     fetchInvoiceRequests(); 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId]);
+  }, [filters, currentPage, pageSize, selectedShipperId, selectedProjectId, fetchInvoiceRequests]);
 
   // 获取项目列表和平台选项
   const fetchProjects = useCallback(async () => {

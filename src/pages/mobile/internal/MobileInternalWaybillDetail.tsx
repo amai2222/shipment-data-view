@@ -147,7 +147,10 @@ export default function MobileInternalWaybillDetail() {
             imageUrls = scaleRecord.image_urls;
           } else if (typeof scaleRecord.image_urls === 'object' && scaleRecord.image_urls !== null) {
             // 如果是JSONB对象，尝试提取数组
-            const urls = (scaleRecord.image_urls as any).urls || Object.values(scaleRecord.image_urls);
+            const imageUrlsObj = scaleRecord.image_urls as Record<string, unknown>;
+            const urls = (imageUrlsObj && 'urls' in imageUrlsObj && Array.isArray(imageUrlsObj.urls)) 
+              ? imageUrlsObj.urls 
+              : Object.values(imageUrlsObj);
             imageUrls = Array.isArray(urls) ? urls : [];
           }
           setExistingImageUrls(imageUrls);
@@ -342,11 +345,12 @@ export default function MobileInternalWaybillDetail() {
         title: '保存成功',
         description: '磅单照片已保存'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '请重试';
       console.error('保存磅单失败:', error);
       toast({
         title: '保存失败',
-        description: error.message || '请重试',
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {

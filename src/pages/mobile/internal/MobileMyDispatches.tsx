@@ -19,7 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import { useOptimizedRealtimeSubscription } from '@/hooks/useMemoryLeakFix';
 import {
   Bell,
@@ -73,12 +73,43 @@ export default function MobileMyDispatches() {
   
   const [uploading, setUploading] = useState(false);
 
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_my_dispatch_orders', {
+        p_status: null
+      });
+      
+      if (error) throw error;
+      
+      const orders = (data || []) as DispatchOrder[];
+      setPendingOrders(orders.filter((o) => o.status === 'pending'));
+      setActiveOrders(orders.filter((o) => o.status === 'accepted'));
+      setCompletedOrders(orders.filter((o) => o.status === 'completed'));
+    } catch (error) {
+      console.error('加载派单失败:', error);
+      toast({
+        title: '加载失败',
+        description: '无法加载派单信息',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [loadOrders]);
 
   // ✅ 实时订阅派单变化
-  const handleRealtimeUpdate = useCallback((payload: any) => {
+  interface RealtimePayload {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    new?: DispatchOrder;
+    old?: DispatchOrder;
+  }
+
+  const handleRealtimeUpdate = useCallback((payload: RealtimePayload) => {
     console.log('派单数据变更:', payload);
     
     // 新派单通知
@@ -95,38 +126,13 @@ export default function MobileMyDispatches() {
     if (payload.eventType === 'UPDATE') {
       loadOrders();
     }
-  }, [toast]);
+  }, [toast, loadOrders]);
 
   useOptimizedRealtimeSubscription(
     'dispatch_orders',
     handleRealtimeUpdate,
     true
   );
-
-  const loadOrders = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.rpc('get_my_dispatch_orders', {
-        p_status: null
-      });
-      
-      if (error) throw error;
-      
-      const orders = data || [];
-      setPendingOrders(orders.filter((o: any) => o.status === 'pending'));
-      setActiveOrders(orders.filter((o: any) => o.status === 'accepted'));
-      setCompletedOrders(orders.filter((o: any) => o.status === 'completed'));
-    } catch (error) {
-      console.error('加载派单失败:', error);
-      toast({
-        title: '加载失败',
-        description: '无法加载派单信息',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // 接受派单
   const handleAccept = async (orderId: string) => {
@@ -145,10 +151,11 @@ export default function MobileMyDispatches() {
       
       loadOrders();
       setShowDetailDialog(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '接单失败，请重试';
       toast({
         title: '接单失败',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive'
       });
     }
@@ -172,10 +179,11 @@ export default function MobileMyDispatches() {
       
       loadOrders();
       setShowDetailDialog(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '操作失败，请重试';
       toast({
         title: '操作失败',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive'
       });
     }
@@ -222,10 +230,11 @@ export default function MobileMyDispatches() {
         title: '上传成功',
         description: '磅单照片已上传'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '上传失败，请重试';
       toast({
         title: '上传失败',
-        description: error.message || '请重试',
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -267,10 +276,11 @@ export default function MobileMyDispatches() {
       setShowCompleteDialog(false);
       resetCompleteForm();
       loadOrders();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '完成失败，请重试';
       toast({
         title: '完成失败',
-        description: error.message,
+        description: errorMessage,
         variant: 'destructive'
       });
     } finally {
@@ -357,7 +367,7 @@ export default function MobileMyDispatches() {
   );
 
   return (
-    <MobileLayout title="我的派单">
+    <DriverMobileLayout title="我的派单">
       <div className="space-y-4 pb-20">
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -628,7 +638,7 @@ export default function MobileMyDispatches() {
           </DialogContent>
         </Dialog>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 

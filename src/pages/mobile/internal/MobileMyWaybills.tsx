@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { MobileLayout } from '@/components/mobile/MobileLayout';
+import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
 import {
   MapPin,
   Calendar,
@@ -71,7 +71,7 @@ export default function MobileMyWaybills() {
   const totalTrips = waybills.length;
 
   return (
-    <MobileLayout title="行程记录">
+    <DriverMobileLayout title="我的行程">
       <div className="space-y-4 pb-20">
         {/* 统计卡片 */}
         <div className="grid grid-cols-2 gap-3">
@@ -184,7 +184,7 @@ export default function MobileMyWaybills() {
           )}
         </div>
       </div>
-    </MobileLayout>
+    </DriverMobileLayout>
   );
 }
 
