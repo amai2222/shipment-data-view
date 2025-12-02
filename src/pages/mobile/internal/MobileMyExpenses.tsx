@@ -302,20 +302,17 @@ export default function MobileMyExpenses() {
       loadExpenseBalance();
       loadPrimaryLicensePlate();
       
-      // ✅ 预加载常用页面，避免首次点击时出现"刷新"
+      // ✅ 优化预加载：延迟时间，减少预加载页面数量
+      // 移除 MobileQuickEntry 的预加载，避免引起 recharts 初始化错误
       setTimeout(() => {
         Promise.all([
           import('./MobileMyDispatches').catch(() => null),
           import('./MobileMyWaybills').catch(() => null),
-          import('./MobileDriverSalary').catch(() => null),
-          import('./MobileSalaryRecords').catch(() => null),
-          import('./MobileQuickEntry').catch(() => null),
-          import('./MobileMyVehicles').catch(() => null)
+          import('./MobileDriverSalary').catch(() => null)
         ]).catch(() => {
           // 预加载失败不影响主功能
-          console.warn('部分页面预加载失败，不影响使用');
         });
-      }, 1000);
+      }, 3000); // 延迟到3秒，避免影响初始加载
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '页面初始化失败';
       console.error('页面初始化失败:', error);

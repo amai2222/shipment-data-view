@@ -85,13 +85,11 @@ export default function MobileFleetDashboard() {
     loadStats();
     loadDriverBalances();
     
-    // ✅ 预加载常用页面，避免首次点击时出现"刷新"
+    // ✅ 优化预加载：延迟时间，减少预加载数量
     setTimeout(() => {
       import('./MobileDispatchOrder');       // 派单管理（优先）
       import('./MobileExpenseReview');       // 费用审核
-      import('./MobileVehicleManagement');   // 车辆管理
-      import('./MobileDriverRouteConfig');   // 司机线路
-    }, 1000); // 页面加载1秒后开始预加载
+    }, 3000); // 延迟到3秒，避免影响初始加载
   }, []);
 
   const loadStats = async () => {

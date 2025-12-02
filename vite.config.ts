@@ -14,6 +14,20 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
+  
+  // ✅ 优化依赖预构建，加快首次加载速度
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      '@tanstack/react-query',
+    ],
+    // 排除大型库，让它们按需加载（但 recharts 会被打包到 react-vendor）
+    exclude: ['xlsx'],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -63,27 +77,29 @@ export default defineConfig(({ mode }) => ({
           return 'assets/[name]-[hash:8].[ext]';
         },
         // 手动代码分割：将大型库单独打包
-        manualChunks: {
-          'xlsx-vendor': ['xlsx'],
-          'recharts-vendor': ['recharts'],
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'tanstack-vendor': ['@tanstack/react-query'],
-          'supabase-vendor': ['@supabase/supabase-js'],
-          'ui-vendor': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-toast',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-switch'
-          ],
+        // ✅ 关键修复：将 recharts 打包到 react-vendor，避免初始化顺序错误
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) {
+            return; // 非 node_modules 的代码不处理
+          }
+          
+          // ✅ 明确不依赖 React 的库，单独打包
+          if (id.includes('xlsx')) return 'xlsx-vendor';
+          if (id.includes('@supabase/supabase-js')) return 'supabase-vendor';
+          if (id.includes('date-fns')) return 'date-fns-vendor';
+          if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority')) {
+            return 'utils-vendor';
+          }
+          if (id.includes('zod')) return 'zod-vendor';
+          
+          // ✅ 所有其他库（包括 React、@radix-ui、recharts、@tanstack/react-query 等）都打包到 react-vendor
+          // 这样可以确保它们都使用同一个 React 实例，避免 forwardRef、useLayoutEffect 和 recharts 初始化错误
+          return 'react-vendor';
         },
       },
     },
     // 提高 chunk 大小警告阈值
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000, // 提高到 2MB，因为 react-vendor 会比较大
     // 确保源映射正确（生产环境关闭以减小体积）
     sourcemap: false,
     // 优化构建性能
@@ -91,5 +107,9 @@ export default defineConfig(({ mode }) => ({
     // ✅ 改为 esnext 以支持现代浏览器（Chrome 80+, Edge, iOS 14+）
     // 可以生成更小、更快的代码（使用原生 ES Modules）
     target: 'esnext',
+    // ✅ 优化 CSS 代码分割
+    cssCodeSplit: true,
+    // ✅ 减少 chunk 数量，加快初始加载
+    reportCompressedSize: false, // 禁用压缩大小报告，加快构建速度
   },
 }));

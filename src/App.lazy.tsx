@@ -10,7 +10,7 @@
 import { lazy, ComponentType, LazyExoticComponent, ComponentPropsWithoutRef, createElement } from 'react';
 
 // 🔧 懒加载配置开关
-const USE_LAZY_IN_DEV = false; // ⚠️ 开发环境是否使用懒加载（设为false可快速查看错误）
+const USE_LAZY_IN_DEV = true; // ✅ 开发环境也使用懒加载，提升加载速度
 
 // 条件懒加载函数类型定义
 type ConditionalLazy = <T extends ComponentType<Record<string, unknown>>>(
