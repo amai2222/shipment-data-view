@@ -119,19 +119,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (error) {
                 const errorMessage = error.message || '';
+                const errorDetails = error.details || '';
                 const errorString = JSON.stringify(error);
                 
-                // ✅ 只在明确是网络请求被取消的情况下忽略（状态码 0 且包含特定关键词）
-                // 注意：不能过于宽泛，否则会隐藏真正的错误
-                const isCancelledRequest = (errorMessage.includes('status provided (0)') || 
-                                          errorString.includes('status provided (0)')) && 
-                                         (errorMessage.includes('aborted') || 
-                                          errorMessage.includes('cancelled') ||
-                                          errorMessage.includes('Failed to fetch'));
+                // ✅ 检测状态码 0 错误（RangeError: status provided (0)）
+                // 这种错误通常是网络请求被取消、CORS问题或请求超时，不是真正的错误
+                const isStatusZeroError = 
+                  errorMessage.includes('status provided (0)') ||
+                  errorMessage.includes('status 0') ||
+                  errorMessage.includes('RangeError') ||
+                  errorDetails.includes('status provided (0)') ||
+                  errorDetails.includes('status 0') ||
+                  errorString.includes('status provided (0)') ||
+                  errorString.includes('RangeError: Failed to construct \'Response\'');
+                
+                if (isStatusZeroError) {
+                  // 状态码 0 错误通常是网络问题或请求被取消，静默忽略
+                  // 不记录为错误，避免控制台噪音
+                  setLoading(false); // 确保加载状态被清除
+                  return;
+                }
+                
+                // ✅ 检测网络请求被取消的情况
+                const isCancelledRequest = 
+                  errorMessage.includes('aborted') || 
+                  errorMessage.includes('cancelled') ||
+                  errorMessage.includes('Failed to fetch');
                 
                 if (isCancelledRequest) {
                   // 网络请求被明确取消，静默忽略
-                  console.log('⚠️ 网络请求被取消，忽略此错误');
                   setLoading(false); // 确保加载状态被清除
                   return;
                 }
