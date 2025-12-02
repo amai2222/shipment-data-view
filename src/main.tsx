@@ -54,7 +54,6 @@ window.addEventListener('error', (event) => {
   ];
   
   // ⚠️ 特殊处理：如果是登录相关的错误，不要忽略
-  const errorSource = event.filename || '';
   const isLoginRelated = errorSource.includes('Auth') || 
                          errorSource.includes('auth') ||
                          errorMessage.includes('username-login') ||
