@@ -205,51 +205,7 @@ export default function MobileQuickEntry() {
     }
   }, []);
 
-  // 加载司机信息
-  const loadMyInfo = useCallback(async () => {
-    try {
-      // 获取司机档案
-      const { data: driverData } = await supabase.rpc('get_my_driver_info');
-      if (driverData && driverData.length > 0) {
-        const driver = driverData[0];
-        setDriverInfo(driver);
-        
-        // 获取司机ID（优先使用id，如果没有则使用driver_id）
-        const currentDriverId = driver.id || driver.driver_id;
-        if (currentDriverId) {
-          console.log('✅ 获取到司机ID:', currentDriverId);
-          setDriverId(currentDriverId);
-        } else {
-          console.error('❌ 无法获取司机ID，数据:', driver);
-        }
-        
-        // 获取车队长的ID
-        const managerId = driver.fleet_manager_id;
-        if (managerId) {
-          console.log('✅ 获取到车队长ID:', managerId);
-          setFleetManagerId(managerId);
-          // 立即加载项目
-          loadMyRoutes(managerId);
-        } else {
-          console.warn('⚠️ 司机未分配车队长，数据:', driver);
-        }
-      } else {
-        console.error('❌ 未获取到司机数据');
-      }
-      
-      // 获取主车
-      const { data: vehicleData } = await supabase.rpc('get_my_vehicles');
-      if (vehicleData && vehicleData.length > 0) {
-        const vehicles = vehicleData as VehicleInfo[];
-        const primary = vehicles.find((v) => v.is_primary);
-        setMyVehicle(primary || vehicles[0]);
-      }
-    } catch (error) {
-      console.error('加载信息失败:', error);
-    }
-  }, [loadMyRoutes]);
-
-  // 加载我的项目线路（只加载所属车队长的项目）
+  // 加载我的项目线路（先声明，避免循环依赖）
   const loadMyRoutes = useCallback(async (managerId?: string | null) => {
     setLoading(true);
     try {
@@ -318,6 +274,50 @@ export default function MobileQuickEntry() {
       setLoading(false);
     }
   }, [fleetManagerId, toast]);
+
+  // 加载司机信息
+  const loadMyInfo = useCallback(async () => {
+    try {
+      // 获取司机档案
+      const { data: driverData } = await supabase.rpc('get_my_driver_info');
+      if (driverData && driverData.length > 0) {
+        const driver = driverData[0];
+        setDriverInfo(driver);
+        
+        // 获取司机ID（优先使用id，如果没有则使用driver_id）
+        const currentDriverId = driver.id || driver.driver_id;
+        if (currentDriverId) {
+          console.log('✅ 获取到司机ID:', currentDriverId);
+          setDriverId(currentDriverId);
+        } else {
+          console.error('❌ 无法获取司机ID，数据:', driver);
+        }
+        
+        // 获取车队长的ID
+        const managerId = driver.fleet_manager_id;
+        if (managerId) {
+          console.log('✅ 获取到车队长ID:', managerId);
+          setFleetManagerId(managerId);
+          // 立即加载项目
+          loadMyRoutes(managerId);
+        } else {
+          console.warn('⚠️ 司机未分配车队长，数据:', driver);
+        }
+      } else {
+        console.error('❌ 未获取到司机数据');
+      }
+      
+      // 获取主车
+      const { data: vehicleData } = await supabase.rpc('get_my_vehicles');
+      if (vehicleData && vehicleData.length > 0) {
+        const vehicles = vehicleData as VehicleInfo[];
+        const primary = vehicles.find((v) => v.is_primary);
+        setMyVehicle(primary || vehicles[0]);
+      }
+    } catch (error) {
+      console.error('加载信息失败:', error);
+    }
+  }, [loadMyRoutes]);
 
   // 加载项目的地点列表（只加载车队长常用线路中的地点）
   const loadProjectLocations = async (projectId: string) => {

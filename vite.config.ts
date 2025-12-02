@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => ({
       '@supabase/supabase-js',
       '@tanstack/react-query',
       'recharts',
-      // ✅ 包含 @radix-ui 组件，确保正确预构建和初始化顺序
+      // ✅ 包含所有 @radix-ui 组件，确保正确预构建和初始化顺序
       '@radix-ui/react-dialog',
       '@radix-ui/react-select',
       '@radix-ui/react-tabs',
@@ -34,10 +34,22 @@ export default defineConfig(({ mode }) => ({
       '@radix-ui/react-toast',
       '@radix-ui/react-checkbox',
       '@radix-ui/react-switch',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-label',
+      '@radix-ui/react-slot',
+      // ✅ 包含其他可能依赖 React 的库
+      'lucide-react',
+      'class-variance-authority',
+      'clsx',
+      'tailwind-merge',
     ],
     exclude: ['xlsx'],
     // ✅ 强制重新构建，确保所有依赖正确初始化
     force: true,
+    // ✅ 使用 esbuild 选项，确保正确的模块格式
+    esbuildOptions: {
+      target: 'es2015',
+    },
   },
   
   resolve: {
@@ -50,8 +62,13 @@ export default defineConfig(({ mode }) => ({
       'react-dom',
       'react/jsx-runtime',
       '@radix-ui/react-tooltip',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
       // 其他 radix 组件通常不需要手动列出，只要 react 核心被去重即可
     ],
+    // ✅ 确保使用物理路径解析，避免符号链接导致的模块重复
+    preserveSymlinks: false,
   },
   
   build: {
@@ -61,8 +78,9 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: true,
     assetsInlineLimit: 4096,
     
-    // ✅ 修改 1: 降低目标版本以提高稳定性，避免 ESNext 的激进初始化导致的 TDZ 错误
-    target: 'es2020', 
+    // ✅ 修改 1: 使用更保守的目标版本，避免 TDZ (Temporal Dead Zone) 错误
+    // es2015 使用更传统的模块系统，避免 ESNext 的激进优化导致的初始化顺序问题
+    target: 'es2015', 
     minify: 'esbuild',
     sourcemap: false,
 

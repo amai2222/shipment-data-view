@@ -173,14 +173,20 @@ function useToast() {
   const [state, setState] = useState<State>(memoryState)
 
   useEffect(() => {
-    listeners.push(setState)
+    // ✅ 修复：延迟添加到 listeners，确保模块已完全初始化，避免 TDZ 错误
+    const timer = setTimeout(() => {
+      listeners.push(setState)
+    }, 0)
+    
     return () => {
+      clearTimeout(timer)
       const index = listeners.indexOf(setState)
       if (index > -1) {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+    // ✅ 修复：移除 state 依赖，避免无限循环和初始化顺序问题
+  }, [])
 
   return {
     ...state,
