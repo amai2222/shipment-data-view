@@ -71,43 +71,41 @@ export default defineConfig(({ mode }) => ({
           return 'assets/[name]-[hash:8].[ext]';
         },
         
-        // ✅ 修改 2: 更安全的拆包策略
-        // 既保证了 React 单例，又避免了将所有东西塞进一个包导致的初始化顺序死锁
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            
-            // 1. 核心 React 依赖 (必须在一起以避免 Context/Hooks 问题)
-            if (
-              id.includes('react') || 
-              id.includes('react-dom') || 
-              id.includes('react-router') ||
-              id.includes('scheduler') ||
-              id.includes('prop-types')
-            ) {
-              return 'react-core';
-            }
-
-            // 2. 大型独立库 (单独拆分，减少主包体积)
-            if (id.includes('recharts')) return 'recharts-vendor';
-            if (id.includes('xlsx')) return 'xlsx-vendor';
-            if (id.includes('@supabase')) return 'supabase-vendor';
-            if (id.includes('lottie')) return 'lottie-vendor';
-            
-            // 3. UI 组件库 (Radix, Lucide 等通常可以放一起)
-            if (
-                id.includes('@radix-ui') || 
-                id.includes('lucide') ||
-                id.includes('class-variance-authority') ||
-                id.includes('clsx') ||
-                id.includes('tailwind-merge')
-            ) {
-              return 'ui-vendor';
-            }
-            
-            // 4. 其他所有第三方库
-            return 'vendor';
-          }
-        },
+         // ✅ 修改 2: 更安全的拆包策略
+         // 关键原则：所有依赖 React 的库必须能访问到 React 实例
+         manualChunks: (id) => {
+           if (id.includes('node_modules')) {
+             
+             // 1. 明确不依赖 React 的库，单独打包
+             if (id.includes('xlsx')) return 'xlsx-vendor';
+             if (id.includes('@supabase/supabase-js')) return 'supabase-vendor';
+             if (id.includes('date-fns')) return 'date-fns-vendor';
+             if (id.includes('zod')) return 'zod-vendor';
+             
+             // 2. 核心 React 依赖和所有依赖 React 的库打包在一起
+             // 这样可以确保它们都使用同一个 React 实例
+             if (
+               id.includes('react') || 
+               id.includes('react-dom') || 
+               id.includes('react-router') ||
+               id.includes('scheduler') ||
+               id.includes('prop-types') ||
+               id.includes('@radix-ui') ||  // Radix UI 依赖 React
+               id.includes('@tanstack/react-query') ||  // React Query 依赖 React
+               id.includes('recharts') ||  // Recharts 依赖 React
+               id.includes('lucide-react') ||  // Lucide React 依赖 React
+               id.includes('class-variance-authority') ||  // CVA 可能依赖 React
+               id.includes('clsx') ||
+               id.includes('tailwind-merge')
+             ) {
+               return 'react-vendor';
+             }
+             
+             // 3. 其他不确定的库也打包到 react-vendor，确保安全
+             // 这样可以避免 createContext、forwardRef 等错误
+             return 'react-vendor';
+           }
+         },
       },
     },
     chunkSizeWarningLimit: 1000,
