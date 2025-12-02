@@ -118,138 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .maybeSingle();
 
               if (error) {
-                const errorMessage = error.message || '';
-                const errorString = JSON.stringify(error);
-                
-                // ✅ 检测状态码 0 错误（网络请求被取消或失败）
-                const isStatusZeroError = errorMessage.includes('status provided (0)') || 
-                                         errorMessage.includes('RangeError') ||
-                                         errorString.includes('status provided (0)') ||
-                                         errorString.includes('RangeError');
-                
-                if (isStatusZeroError) {
-                  console.log('⚠️ 网络请求被取消或失败（状态码 0），尝试重试');
-                  // 如果有缓存的 profile，使用缓存
-                  if (profileCache && profileCache.id === currentUser.id) {
-                    console.log('✅ 使用缓存的 profile');
-                    setProfile(profileCache);
-                    setLoading(false);
-                    return;
-                  }
-                  // 如果没有缓存，延迟重试（最多重试3次）
-                  console.log('⚠️ 无缓存 profile，1秒后重试获取');
-                  let retryCount = 0;
-                  const maxRetries = 3;
-                  
-                  const retryFetchProfile = async (): Promise<void> => {
-                    try {
-                      const { data: retryData, error: retryError } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', currentUser.id)
-                        .maybeSingle();
-                      
-                      if (retryError) {
-                        const retryErrorMessage = retryError.message || '';
-                        const retryErrorString = JSON.stringify(retryError);
-                        const isRetryStatusZeroError = retryErrorMessage.includes('status provided (0)') || 
-                                                       retryErrorMessage.includes('RangeError') ||
-                                                       retryErrorString.includes('status provided (0)') ||
-                                                       retryErrorString.includes('RangeError');
-                        
-                        if (isRetryStatusZeroError && retryCount < maxRetries) {
-                          retryCount++;
-                          console.log(`⚠️ 重试 ${retryCount}/${maxRetries} 仍然遇到状态码 0 错误，${(retryCount * 1000)}ms 后再次重试`);
-                          setTimeout(retryFetchProfile, retryCount * 1000);
-                          return;
-                        }
-                        
-                        // 如果重试次数已用完或不是状态码 0 错误，输出错误但不阻止登录
-                        if (!isRetryStatusZeroError) {
-                          console.error('重试获取用户配置文件仍然失败:', retryError);
-                        } else {
-                          console.warn('⚠️ 重试多次后仍然遇到状态码 0 错误，尝试使用 session 中的用户信息');
-                        }
-                        
-                        // 即使失败，也尝试使用 session 中的基本信息创建一个最小化的 profile
-                        if (currentUser) {
-                          const minimalProfile: UserProfile = {
-                            id: currentUser.id,
-                            email: currentUser.email || '',
-                            username: currentUser.email?.split('@')[0] || '',
-                            full_name: currentUser.user_metadata?.full_name || '',
-                            role: (currentUser.user_metadata?.role as UserRole) || 'operator',
-                            is_active: true
-                          };
-                          setProfile(minimalProfile);
-                          profileCache = minimalProfile;
-                          console.log('✅ 使用 session 中的基本信息创建最小化 profile');
-                        }
-                        setLoading(false);
-                        return;
-                      }
-                      
-                      if (retryData) {
-                        const anyProfile = retryData as Record<string, unknown>;
-                        let partnerId: string | undefined;
-                        if (anyProfile.role === 'partner') {
-                          try {
-                            const { data: partnerData } = await supabase
-                              .from('partners')
-                              .select('id')
-                              .eq('partner_type', '货主')
-                              .limit(1)
-                              .single();
-                            partnerId = partnerData?.id;
-                          } catch (e) {
-                            console.warn('查询货主ID失败:', e);
-                          }
-                        }
-                        
-                        const userProfile: UserProfile = {
-                          id: String(anyProfile.id || ''),
-                          email: String(anyProfile.email || ''),
-                          username: String(anyProfile.username || anyProfile.email || ''),
-                          full_name: String(anyProfile.full_name || ''),
-                          role: (anyProfile.role as UserRole) ?? 'operator',
-                          is_active: Boolean(anyProfile.is_active ?? true),
-                          partnerId
-                        };
-                        setProfile(userProfile);
-                        profileCache = userProfile;
-                        if (currentUser && partnerId) {
-                          (currentUser as ExtendedUser).partnerId = partnerId;
-                          setUser(currentUser as ExtendedUser);
-                        }
-                        console.log('✅ 重试成功，已获取用户配置文件');
-                        setLoading(false);
-                      } else {
-                        setLoading(false);
-                      }
-                    } catch (retryErr) {
-                      const retryErrMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
-                      const retryErrString = JSON.stringify(retryErr || {});
-                      const isRetryErrStatusZero = retryErrMessage.includes('status provided (0)') || 
-                                                   retryErrMessage.includes('RangeError') ||
-                                                   retryErrString.includes('status provided (0)') ||
-                                                   retryErrString.includes('RangeError');
-                      
-                      if (isRetryErrStatusZero && retryCount < maxRetries) {
-                        retryCount++;
-                        console.log(`⚠️ 重试 ${retryCount}/${maxRetries} 时发生状态码 0 异常，${(retryCount * 1000)}ms 后再次重试`);
-                        setTimeout(retryFetchProfile, retryCount * 1000);
-                        return;
-                      }
-                      
-                      console.error('重试获取用户配置文件时发生异常:', retryErr);
-                      setLoading(false);
-                    }
-                  };
-                  
-                  setTimeout(retryFetchProfile, 1000);
-                  return;
-                }
-                
                 console.error('获取用户配置文件失败:', error);
                 // ✅ 如果是401错误或JWT错误，可能是token过期，等待自动刷新
                 if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
@@ -259,7 +127,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
                 // ✅ 其他错误也不清空 profile，保持当前状态
                 console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
-                setLoading(false);
                 return;
               } else if (profileData) {
                 const anyProfile = profileData as Record<string, unknown>;
@@ -312,33 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.warn('⚠️ 未找到用户配置文件，保持当前状态');
               }
             } catch (catchError) {
-              const errorMessage = catchError instanceof Error ? catchError.message : String(catchError);
-              const errorString = JSON.stringify(catchError || {});
-              
-              // ✅ 检测状态码 0 错误（网络请求被取消或失败）
-              const isStatusZeroError = errorMessage.includes('status provided (0)') || 
-                                       errorMessage.includes('RangeError') ||
-                                       errorString.includes('status provided (0)') ||
-                                       errorString.includes('RangeError');
-              
-              if (isStatusZeroError) {
-                console.log('⚠️ 处理用户配置文件时发生状态码 0 错误，忽略');
-                // 如果有缓存的 profile，使用缓存
-                if (profileCache && profileCache.id === currentUser.id) {
-                  console.log('✅ 使用缓存的 profile');
-                  setProfile(profileCache);
-                  setLoading(false);
-                  return;
-                }
-                // 否则保持当前状态
-                setLoading(false);
-                return;
-              }
-              
               console.error('处理用户配置文件时发生意外错误:', catchError);
               // ✅ 不清空 profile，避免因临时网络问题导致登出
               console.warn('⚠️ 获取用户信息异常，但保持当前登录状态');
-              setLoading(false);
             } finally {
               setLoading(false);
             }
