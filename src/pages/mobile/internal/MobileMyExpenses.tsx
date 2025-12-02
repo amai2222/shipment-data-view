@@ -858,7 +858,7 @@ export default function MobileMyExpenses() {
             <div className="flex items-center gap-3 flex-1">
               <div className="w-14 h-14 rounded-full bg-white/25 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-lg">
                 <User className="h-7 w-7 text-white" />
-                  </div>
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-xl mb-1">
                   {profile?.full_name || '司机'}
@@ -869,9 +869,9 @@ export default function MobileMyExpenses() {
                 <div className="text-xs text-blue-100 flex items-center gap-2">
                   <Calendar className="h-3 w-3" />
                   {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
-                  </div>
                 </div>
-                </div>
+              </div>
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -886,7 +886,7 @@ export default function MobileMyExpenses() {
             >
               <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-              </div>
+          </div>
           
           {/* 余额卡片 */}
           <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-md">
@@ -900,7 +900,7 @@ export default function MobileMyExpenses() {
               </div>
             </div>
           </div>
-            </div>
+        </div>
 
         {/* 🔔 待接单派单提示 - 优化设计 */}
         {pendingDispatchCount > 0 && (
@@ -925,10 +925,10 @@ export default function MobileMyExpenses() {
                         {pendingDispatchCount} 个
                       </span>
                       <span>派单等待接单</span>
+                    </div>
                   </div>
-                </div>
                   <ArrowRight className="h-7 w-7 animate-bounce-x" />
-              </div>
+                </div>
               </div>
               <div className="bg-gradient-to-r from-orange-50 to-red-50 px-5 py-3 text-center border-t border-orange-200">
                 <span className="text-orange-700 font-semibold text-sm flex items-center justify-center gap-1">
@@ -996,8 +996,8 @@ export default function MobileMyExpenses() {
                 <div className="text-xs text-gray-500">费用冲销管理</div>
               </div>
             </div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
           
         {/* 我的服务 - 优化设计 */}
         <Card className="shadow-lg border-0">
