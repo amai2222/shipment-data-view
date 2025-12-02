@@ -1,6 +1,6 @@
 // 移动端 - 司机快速录入运单
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -781,18 +781,28 @@ export default function MobileQuickEntry() {
     }
   }, [toast]);
 
-  // 添加所有 useEffect hooks
+  // ✅ 优化初始化加载：使用 ref 防止重复加载
+  const hasInitialized = useRef(false);
+  
   useEffect(() => {
+    // 防止重复初始化
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    
+    // 初始化加载
     loadMyInfo();
     loadRecentWaybills();
-  }, [loadMyInfo, loadRecentWaybills]);
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 当获取到车队长ID和司机ID后，加载项目列表
   useEffect(() => {
     if (fleetManagerId && driverId) {
       loadFavoriteProjects();
     }
-  }, [fleetManagerId, driverId, loadFavoriteProjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fleetManagerId, driverId]);
 
   // 当选择项目后，加载该项目的合作链路
   useEffect(() => {
@@ -802,21 +812,24 @@ export default function MobileQuickEntry() {
       setFavoriteChains([]);
       setFavoriteChainId('');
     }
-  }, [favoriteProjectId, loadFavoriteChains]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favoriteProjectId]);
 
   // 当获取到车队长ID后，加载项目（如果还没有加载）
   useEffect(() => {
     if (fleetManagerId && myRoutes.length === 0) {
       loadMyRoutes(fleetManagerId);
     }
-  }, [fleetManagerId, myRoutes.length, loadMyRoutes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fleetManagerId, myRoutes.length]);
 
   // 当选择项目后，加载常用线路（过滤出该项目的线路）- 用于"新增运单"标签页
   useEffect(() => {
     if (formData.project_id && fleetManagerId && driverId) {
       loadFavoriteRoutes(formData.project_id);
     }
-  }, [formData.project_id, fleetManagerId, driverId, loadFavoriteRoutes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.project_id, fleetManagerId, driverId]);
 
   // 当在"常用运单"标签页选择项目后，加载常用线路
   // 或者在组件加载时（fleetManagerId 和 driverId 就绪后）加载所有常用线路
@@ -825,7 +838,8 @@ export default function MobileQuickEntry() {
       // 如果选择了项目，只加载该项目的线路；否则加载所有分配给该司机的线路
       loadFavoriteRoutes(favoriteProjectId || undefined);
     }
-  }, [favoriteProjectId, fleetManagerId, driverId, loadFavoriteRoutes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [favoriteProjectId, fleetManagerId, driverId]);
 
   // 当选择线路时，自动填充装货地和卸货地
   useEffect(() => {
