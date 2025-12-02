@@ -5,7 +5,16 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { MobileBottomNav, MobileBottomNavLayout } from './MobileBottomNav';
 import { 
   Home, 
@@ -13,9 +22,13 @@ import {
   Calendar, 
   Truck,
   DollarSign,
+  Receipt,
   User,
   RefreshCw,
-  Bell
+  Bell,
+  Settings,
+  Lock,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,8 +59,8 @@ const driverNavItems = [
   },
   {
     href: '/m/internal/my-vehicles',
-    icon: Truck,
-    label: '我的车辆'
+    icon: Receipt,
+    label: '我的费用'
   },
   {
     href: '/m/internal/driver-salary',
@@ -63,9 +76,10 @@ export function DriverMobileLayout({
   showRefresh = false,
   onRefresh
 }: DriverMobileLayoutProps) {
-  const { profile, user } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
 
   const getUserInitials = (name?: string) => {
     if (!name) return 'U';
@@ -76,6 +90,24 @@ export function DriverMobileLayout({
     // 处理英文姓名：取每个单词的首字母
     const names = name.split(' ');
     return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  // 处理退出登录
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: '已退出登录',
+        description: '感谢使用'
+      });
+    } catch (error) {
+      console.error('退出登录失败:', error);
+      toast({
+        title: '退出失败',
+        description: '请重试',
+        variant: 'destructive'
+      });
+    }
   };
 
   // 判断当前页面是否应该显示底部导航
@@ -95,23 +127,73 @@ export function DriverMobileLayout({
       {showHeader && (
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-14 items-center px-4">
-            {/* 左侧：用户头像和信息 */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={profile?.avatar_url} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {getUserInitials(profile?.full_name || profile?.username)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {profile?.full_name || profile?.username || '司机'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {profile?.email || user?.email || ''}
-                </p>
-              </div>
-            </div>
+            {/* 左侧：用户头像和信息（可点击打开菜单） */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile?.avatar_url} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      {getUserInitials(profile?.full_name || profile?.username)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {profile?.full_name || profile?.username || '司机'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {profile?.email || user?.email || ''}
+                    </p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 rounded-xl shadow-lg border-0 bg-white">
+                <DropdownMenuLabel className="px-4 py-3 border-b">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={profile?.avatar_url} />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm font-semibold">
+                        {getUserInitials(profile?.full_name || profile?.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {profile?.full_name || profile?.username || '司机'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {profile?.email || user?.email || ''}
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <div className="py-1">
+                  <DropdownMenuItem 
+                    onClick={() => navigate('/m/internal/driver-settings')}
+                    className="px-4 py-3 cursor-pointer focus:bg-accent/50"
+                  >
+                    <Settings className="mr-3 h-5 w-5 text-muted-foreground" />
+                    <span className="text-base">设置</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => navigate('/m/internal/driver-security')}
+                    className="px-4 py-3 cursor-pointer focus:bg-accent/50"
+                  >
+                    <Lock className="mr-3 h-5 w-5 text-muted-foreground" />
+                    <span className="text-base">修改密码</span>
+                  </DropdownMenuItem>
+                </div>
+                <DropdownMenuSeparator className="my-1" />
+                <div className="py-1">
+                  <DropdownMenuItem 
+                    onClick={handleLogout}
+                    className="px-4 py-3 cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50/50"
+                  >
+                    <LogOut className="mr-3 h-5 w-5" />
+                    <span className="text-base font-medium">退出登录</span>
+                  </DropdownMenuItem>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* 中间：标题 */}
             <div className="flex-1 text-center">

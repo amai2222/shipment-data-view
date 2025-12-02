@@ -112,7 +112,9 @@ import {
   MobileMyDispatches,
   MobileMyWaybills,
   MobileExpenseWriteoff,
-  MobileInternalWaybillDetail
+  MobileInternalWaybillDetail,
+  MobileDriverSettings,
+  MobileDriverSecurity
 } from "./App.lazy";
 
 // 懒加载公共组件（非懒加载）
@@ -841,7 +843,7 @@ const App = () => (
 
             <Route path="/m/internal/my-vehicles" element={
               <ProtectedRoute requiredPermission="internal.my_expenses">
-                <MobileMyVehicles />
+                <MobileMyExpenses />
               </ProtectedRoute>
             } />
 
@@ -854,6 +856,19 @@ const App = () => (
             <Route path="/m/internal/quick-entry" element={
               <ProtectedRoute requiredPermission="internal.my_expenses">
                 <MobileQuickEntry />
+              </ProtectedRoute>
+            } />
+
+            {/* 司机设置和安全 */}
+            <Route path="/m/internal/driver-settings" element={
+              <ProtectedRoute requiredPermission="internal.my_expenses">
+                <MobileDriverSettings />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/m/internal/driver-security" element={
+              <ProtectedRoute requiredPermission="internal.my_expenses">
+                <MobileDriverSecurity />
               </ProtectedRoute>
             } />
 

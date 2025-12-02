@@ -1,5 +1,5 @@
-// 移动端 - 司机工作台
-// 司机登录后的默认首页
+// 移动端 - 我的费用
+// 整合费用申请和费用冲销功能
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +29,6 @@ import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { DriverMobileLayout } from '@/components/mobile/DriverMobileLayout';
-import { useOptimizedRealtimeSubscription } from '@/hooks/useMemoryLeakFix';
 import {
   Plus,
   Calendar,
@@ -41,20 +40,11 @@ import {
   Upload,
   Image as ImageIcon,
   Loader2,
-  ArrowLeft,
-  User,
   Truck,
-  RefreshCw,
-  Bell,
-  ArrowRight,
   Camera,
   ImagePlus,
   X,
-  MapPin,
-  Calculator,
-  Package,
-  Weight,
-  BarChart3
+  Calculator
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -88,24 +78,12 @@ interface ExpenseApplication {
   expense_date: string;
   expense_type: string;
   amount: number;
-  actual_amount: number | null;  // 实际消费金额（冲销时填写）
+  actual_amount: number | null;
   description: string;
   receipt_photos: string[];
   status: string;
   review_comment: string | null;
-  writeoff_time: string | null;  // 冲销时间
-  created_at: string;
-}
-
-interface Waybill {
-  id: string;
-  auto_number: string;
-  project_name: string;
-  loading_location: string;
-  unloading_location: string;
-  loading_date: string;
-  loading_weight: number;
-  unloading_weight: number | null;
+  writeoff_time: string | null;
   created_at: string;
 }
 
@@ -115,30 +93,18 @@ export default function MobileMyExpenses() {
   const { profile } = useAuth();
   
   const [loading, setLoading] = useState(false);
-  interface Vehicle {
-    vehicle_id: string;
-    license_plate: string;
-    vehicle_type: string;
-    is_primary: boolean;
-  }
-  const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
-  const [waybills, setWaybills] = useState<Waybill[]>([]);
-  const [loadingWaybills, setLoadingWaybills] = useState(false);
-  const [activeTab, setActiveTab] = useState('expenses');
+  const [activeTab, setActiveTab] = useState('application'); // 'application' | 'writeoff'
   const [applications, setApplications] = useState<ExpenseApplication[]>([]);
-  const [pendingDispatchCount, setPendingDispatchCount] = useState(0);
+  const [writeoffApplications, setWriteoffApplications] = useState<ExpenseApplication[]>([]);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showWriteoffDialog, setShowWriteoffDialog] = useState(false);
   const [selectedApp, setSelectedApp] = useState<ExpenseApplication | null>(null);
+  const [selectedWriteoffApp, setSelectedWriteoffApp] = useState<ExpenseApplication | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expenseBalance, setExpenseBalance] = useState<number>(0);  // ✅ 费用余额
-  const [primaryLicensePlate, setPrimaryLicensePlate] = useState<string | null>(null);  // ✅ 主车牌号
+  const [expenseBalance, setExpenseBalance] = useState<number>(0);
   
-  // ✅ 补充图片相关状态
-  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
-  const [uploadingAdditional, setUploadingAdditional] = useState(false);
-  
-  // 新申请表单
+  // 费用申请表单
   const [formData, setFormData] = useState({
     expense_date: format(new Date(), 'yyyy-MM-dd'),
     expense_type: 'fuel',
@@ -147,11 +113,22 @@ export default function MobileMyExpenses() {
     receipt_photos: [] as string[]
   });
   
+  // 费用冲销表单
+  const [actualAmount, setActualAmount] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  
   const [uploading, setUploading] = useState(false);
-  const isInitialLoad = useRef(true);  // ✅ 跟踪是否是首次加载
-  const scrollPositionRef = useRef<number>(0);  // ✅ 保存滚动位置
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const isInitialLoad = useRef(true);
 
-  // ✅ 用 useCallback 包装加载函数，避免依赖变化导致重复订阅
+  interface Vehicle {
+    vehicle_id: string;
+    license_plate: string;
+    vehicle_type: string;
+    is_primary: boolean;
+  }
+  const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
+
   // 加载我的车辆
   const loadMyVehicles = useCallback(async () => {
     try {
@@ -160,27 +137,10 @@ export default function MobileMyExpenses() {
       setMyVehicles(data || []);
     } catch (error: unknown) {
       console.error('加载车辆失败:', error);
-      // 不显示错误提示，避免干扰用户体验
     }
   }, []);
 
-  // ✅ 加载待接单的派单数量
-  const loadPendingDispatches = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_my_dispatch_orders', {
-        p_status: 'pending'
-      });
-      
-      if (error) throw error;
-      setPendingDispatchCount(data?.length || 0);
-    } catch (error: unknown) {
-      console.error('加载派单失败:', error);
-      // 不显示错误提示，避免干扰用户体验
-      setPendingDispatchCount(0);
-    }
-  }, []);
-
-  // ✅ 加载费用余额
+  // 加载费用余额
   const loadExpenseBalance = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_driver_expense_balance');
@@ -193,56 +153,12 @@ export default function MobileMyExpenses() {
     }
   }, []);
 
-  // ✅ 加载主车牌号
-  const loadPrimaryLicensePlate = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_my_vehicles');
-      if (error) throw error;
-      // 查找主车辆（is_primary = true）
-      const vehicles = (data || []) as Vehicle[];
-      const primaryVehicle = vehicles.find((v) => v.is_primary === true);
-      if (primaryVehicle) {
-        setPrimaryLicensePlate(primaryVehicle.license_plate);
-      } else if (vehicles.length > 0) {
-        // 如果没有主车辆，使用第一辆车
-        setPrimaryLicensePlate(vehicles[0].license_plate);
-      }
-    } catch (error: unknown) {
-      console.error('加载车牌号失败:', error);
-    }
-  }, []);
-
-  // ✅ 加载运单记录列表
-  const loadWaybills = useCallback(async () => {
-    setLoadingWaybills(true);
-    try {
-      const { data, error } = await supabase.rpc('get_my_waybills', {
-        p_days: 30,
-        p_limit: 50
-      });
-      
-      if (error) throw error;
-      setWaybills(data || []);
-    } catch (error: unknown) {
-      console.error('加载运单失败:', error);
-      toast({
-        title: '加载失败',
-        description: '无法加载运单记录',
-        variant: 'destructive'
-      });
-      setWaybills([]);
-    } finally {
-      setLoadingWaybills(false);
-    }
-  }, [toast]);
-
-  // ✅ 加载费用申请列表
+  // 加载费用申请列表
   const loadApplications = useCallback(async () => {
     setLoading(true);
     setError(null);
     const wasInitialLoad = isInitialLoad.current;
     try {
-      // ✅ 使用实际的数据库查询
       const { data: driverInfo, error: driverError } = await supabase.rpc('get_my_driver_info');
       
       if (driverError) throw driverError;
@@ -260,7 +176,7 @@ export default function MobileMyExpenses() {
         return;
       }
 
-      const driverId = driverInfo[0].driver_id;  // ✅ 修复：使用正确的字段名
+      const driverId = driverInfo[0].driver_id;
 
       const { data, error } = await supabase
         .from('internal_driver_expense_applications')
@@ -272,13 +188,12 @@ export default function MobileMyExpenses() {
       
       setApplications(data || []);
       setError(null);
-      isInitialLoad.current = false;  // ✅ 标记首次加载完成
+      isInitialLoad.current = false;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '无法加载费用申请记录';
       console.error('加载失败:', error);
       setError(errorMessage);
       setApplications([]);
-      // 只在首次加载失败时显示错误提示
       if (wasInitialLoad) {
         toast({
           title: '加载失败',
@@ -292,262 +207,61 @@ export default function MobileMyExpenses() {
     }
   }, [toast]);
 
-  // ✅ 初始化加载
-  useEffect(() => {
-    // 使用 try-catch 包裹，防止初始化失败导致组件崩溃
-    try {
-      loadApplications();
-      loadMyVehicles();
-      loadPendingDispatches();
-      loadExpenseBalance();
-      loadPrimaryLicensePlate();
-      
-      // ✅ 优化预加载：延迟时间，减少预加载页面数量
-      // 移除 MobileQuickEntry 的预加载，避免引起 recharts 初始化错误
-      setTimeout(() => {
-        Promise.all([
-          import('./MobileMyDispatches').catch(() => null),
-          import('./MobileMyWaybills').catch(() => null),
-          import('./MobileDriverSalary').catch(() => null)
-        ]).catch(() => {
-          // 预加载失败不影响主功能
-        });
-      }, 3000); // 延迟到3秒，避免影响初始加载
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '页面初始化失败';
-      console.error('页面初始化失败:', error);
-      setError(errorMessage);
-    }
-  }, [loadApplications, loadMyVehicles, loadPendingDispatches, loadExpenseBalance, loadPrimaryLicensePlate]);
-
-  // ✅ 监听标签切换，防止页面滚动
-  useEffect(() => {
-    // 在标签切换后，恢复滚动位置
-    const restoreScroll = () => {
-      if (scrollPositionRef.current > 0) {
-        window.scrollTo({
-          top: scrollPositionRef.current,
-          behavior: 'instant'
-        });
-      }
-    };
-    
-    // 立即恢复
-    restoreScroll();
-    
-    // 延迟恢复（确保DOM更新完成）
-    const timer1 = setTimeout(restoreScroll, 0);
-    const timer2 = setTimeout(restoreScroll, 10);
-    
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
-  }, [activeTab]);
-
-  // ✅ 添加实时订阅 - 监听费用申请表的变化
-  interface RealtimePayload {
-    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-    new?: ExpenseApplication;
-    old?: ExpenseApplication;
-  }
-  const handleRealtimeUpdate = useCallback((payload: RealtimePayload) => {
-    try {
-      console.log('📢 费用申请数据变更:', payload);
-      
-      // 当有数据变更时，重新加载列表
-      if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-        console.log('🔄 正在刷新费用申请列表...');
-        
-        // 延迟一点刷新，确保数据已提交
-        setTimeout(() => {
-          loadApplications();
-          loadPendingDispatches();  // 同时刷新派单数量
-        }, 500);
-        
-        // 如果是审核状态变更，显示提示
-        if (payload.eventType === 'UPDATE' && payload.new?.status !== payload.old?.status) {
-          const newStatus = payload.new?.status;
-          console.log('✅ 状态变更:', payload.old?.status, '→', newStatus);
-          
-          if (newStatus === 'approved') {
-            toast({
-              title: '审核通过 ✅',
-              description: `费用申请 ${payload.new?.application_number || ''} 已通过审核`,
-            });
-          } else if (newStatus === 'rejected') {
-            toast({
-              title: '审核未通过 ❌',
-              description: `费用申请 ${payload.new?.application_number || ''} 已被驳回`,
-              variant: 'destructive'
-            });
-          }
-        }
-      }
-    } catch (error: unknown) {
-      console.error('处理实时更新失败:', error);
-      // 不抛出错误，避免影响其他功能
-    }
-  }, [toast, loadApplications, loadPendingDispatches]);
-
-  // ✅ 订阅派单通知
-  interface DispatchPayload {
-    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-    new?: {
-      order_number: string;
-      status: string;
-    };
-    old?: {
-      status: string;
-    };
-  }
-  const handleDispatchUpdate = useCallback((payload: DispatchPayload) => {
-    try {
-      console.log('📢 派单数据变更:', payload);
-      
-      // 新派单通知
-      if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
-        console.log('🔔 收到新派单!');
-        toast({
-          title: '新派单通知 🔔',
-          description: `收到新的派单：${payload.new?.order_number || ''}`,
-          duration: 10000,  // 显示10秒
-        });
-        loadPendingDispatches();
-      }
-      
-      // 派单状态变更
-      if (payload.eventType === 'UPDATE') {
-        console.log('🔄 派单状态变更，刷新数量');
-        loadPendingDispatches();
-      }
-    } catch (error: unknown) {
-      console.error('处理派单更新失败:', error);
-      // 不抛出错误，避免影响其他功能
-    }
-  }, [toast, loadPendingDispatches]);
-
-  // 订阅费用申请表的实时变化
-  useOptimizedRealtimeSubscription(
-    'internal_driver_expense_applications',
-    handleRealtimeUpdate,
-    true  // 启用实时订阅
-  );
-
-  // ✅ 订阅派单表的实时变化
-  useOptimizedRealtimeSubscription(
-    'dispatch_orders',
-    handleDispatchUpdate,
-    true  // 启用实时订阅
-  );
-
-  // 提交费用申请
-  const handleSubmit = async () => {
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      toast({
-        title: '输入错误',
-        description: '请输入有效的费用金额',
-        variant: 'destructive'
-      });
-      return;
-    }
-
+  // 加载费用冲销列表（已审核通过的申请）
+  const loadWriteoffApplications = useCallback(async () => {
     setLoading(true);
     try {
-      // ✅ 先上传照片到七牛云
-      let photoUrls: string[] = [];
-      if (selectedFiles.length > 0) {
-        setUploading(true);
-        photoUrls = await uploadFilesToQiniu();
-        setUploading(false);
-      }
-
-      // ✅ 调用 RPC 函数提交费用申请
-      const { data, error } = await supabase.rpc('submit_expense_application', {
-        p_expense_date: formData.expense_date,
-        p_expense_type: formData.expense_type,
-        p_amount: parseFloat(formData.amount),
-        p_description: formData.description,
-        p_receipt_photos: photoUrls.length > 0 ? photoUrls : null
-      });
-
+      const { data, error } = await supabase
+        .from('internal_driver_expense_applications')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
+      
       if (error) throw error;
       
-      if (!data.success) {
-        toast({ title: '提交失败', description: data.message, variant: 'destructive' });
-        return;
-      }
-
-      toast({
-        title: '提交成功',
-        description: '费用申请已提交，等待审核'
-      });
-
-      setShowNewDialog(false);
-      setFormData({
-        expense_date: format(new Date(), 'yyyy-MM-dd'),
-        expense_type: 'fuel',
-        amount: '',
-        description: '',
-        receipt_photos: []
-      });
-      setSelectedFiles([]);  // 清空已选照片
-      
-      loadApplications();
+      setWriteoffApplications((data || []) as ExpenseApplication[]);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
-      console.error('提交失败:', error);
+      console.error('加载失败:', error);
       toast({
-        title: '提交失败',
-        description: errorMessage,
+        title: '加载失败',
+        description: error instanceof Error ? error.message : '无法加载费用申请',
         variant: 'destructive'
       });
     } finally {
       setLoading(false);
-      setUploading(false);
     }
-  };
+  }, [toast]);
 
-  // 选择照片文件
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  // 初始化加载
+  useEffect(() => {
+    try {
+      loadApplications();
+      loadWriteoffApplications();
+      loadMyVehicles();
+      loadExpenseBalance();
+    } catch (error: unknown) {
+      console.error('页面初始化失败:', error);
+    }
+  }, [loadApplications, loadWriteoffApplications, loadMyVehicles, loadExpenseBalance]);
 
-  // 选择照片（从相册）
+  // 处理文件选择
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     
-    if (imageFiles.length !== files.length) {
-      toast({
-        title: "提示",
-        description: "只能上传图片文件",
-        variant: "destructive",
-      });
-    }
-
     if (imageFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...imageFiles]);
+      toast({
+        title: "选择成功",
+        description: `已添加 ${imageFiles.length} 张照片`,
+        duration: 2000,
+      });
     }
     
-    // ✅ 重置 input，允许重复选择同一文件
     event.target.value = '';
   };
 
-  // ✅ 拍照上传（优化：支持连续拍照多张）
-  const handleCameraCapture = (event: React.MouseEvent) => {
-    // 阻止事件冒泡，防止触发其他操作
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // 触发隐藏的拍照 input
-    const cameraInput = document.getElementById('camera-file-input') as HTMLInputElement;
-    if (cameraInput) {
-      // ✅ 重置 input，确保每次都能触发 change 事件（即使选择同一张照片）
-      cameraInput.value = '';
-      cameraInput.click();
-    }
-  };
-
-  // ✅ 处理拍照返回的文件（支持多图）
+  // 处理拍照
   const handleCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -561,78 +275,26 @@ export default function MobileMyExpenses() {
       });
     }
     
-    // ✅ 重置 input，允许重复拍照（重要：确保每次拍照都能触发 change 事件）
     event.target.value = '';
   };
 
-  // ✅ 补充图片：选择照片（从相册）
-  const handleAdditionalFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
-    if (imageFiles.length !== files.length) {
-      toast({
-        title: "提示",
-        description: "只能上传图片文件",
-        variant: "destructive",
-      });
-    }
-
-    if (imageFiles.length > 0) {
-      setAdditionalFiles(prev => [...prev, ...imageFiles]);
-    }
-    
-    event.target.value = '';
+  // 删除照片
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // ✅ 补充图片：拍照（优化：支持连续拍照多张）
-  const handleAdditionalCameraCapture = (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const cameraInput = document.getElementById('additional-camera-input') as HTMLInputElement;
-    if (cameraInput) {
-      // ✅ 重置 input，确保每次都能触发 change 事件
-      cameraInput.value = '';
-      cameraInput.click();
-    }
-  };
+  // 上传照片到七牛云
+  const uploadFilesToQiniu = async (): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
 
-  // ✅ 补充图片：处理拍照返回的文件（支持多图）
-  const handleAdditionalCameraFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
-    if (imageFiles.length > 0) {
-      setAdditionalFiles(prev => [...prev, ...imageFiles]);
-      toast({
-        title: "拍照成功",
-        description: `已添加 ${imageFiles.length} 张照片，可继续拍照`,
-        duration: 2000,
-      });
-    }
-    
-    // ✅ 重置 input，允许重复拍照
-    event.target.value = '';
-  };
-
-  // ✅ 删除补充图片
-  const removeAdditionalFile = (index: number) => {
-    setAdditionalFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // ✅ 上传补充图片到七牛云
-  const uploadAdditionalFilesToQiniu = async (): Promise<string[]> => {
-    if (additionalFiles.length === 0) return [];
-
-    const filesToUpload = additionalFiles.map(file => ({
+    const filesToUpload = selectedFiles.map(file => ({
       fileName: file.name,
       fileData: ''
     }));
 
     // 读取文件为 base64
-    for (let i = 0; i < additionalFiles.length; i++) {
-      const file = additionalFiles[i];
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
       const reader = new FileReader();
       await new Promise((resolve) => {
         reader.onload = () => {
@@ -661,119 +323,150 @@ export default function MobileMyExpenses() {
     return data.urls;
   };
 
-  // ✅ 提交补充图片
-  const handleAddAdditionalPhotos = async () => {
-    if (!selectedApp || additionalFiles.length === 0) return;
+  // 提交费用申请
+  const handleSubmitApplication = async () => {
+    if (!formData.expense_date) {
+      toast({
+        title: '请选择日期',
+        description: '请选择费用发生日期',
+        variant: 'destructive'
+      });
+      return;
+    }
 
-    setUploadingAdditional(true);
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      toast({
+        title: '请输入金额',
+        description: '费用金额必须大于0',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setUploading(true);
     try {
-      // 先上传照片到七牛云
-      const photoUrls = await uploadAdditionalFilesToQiniu();
+      // 先上传照片
+      const photoUrls = await uploadFilesToQiniu();
       
-      if (photoUrls.length === 0) {
-        toast({
-          title: '提示',
-          description: '没有可上传的照片',
-          variant: 'destructive'
-        });
-        return;
+      // 获取司机ID
+      const { data: driverInfo, error: driverError } = await supabase.rpc('get_my_driver_info');
+      if (driverError) throw driverError;
+      if (!driverInfo || driverInfo.length === 0) {
+        throw new Error('未找到司机档案信息');
       }
+      const driverId = driverInfo[0].driver_id;
 
-      // 调用 RPC 函数追加图片
-      const { data, error } = await supabase.rpc('add_expense_application_photos', {
-        p_application_id: selectedApp.id,
-        p_additional_photos: photoUrls
+      // 提交申请
+      const { data, error } = await supabase
+        .from('internal_driver_expense_applications')
+        .insert({
+          driver_id: driverId,
+          expense_date: formData.expense_date,
+          expense_type: formData.expense_type,
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          receipt_photos: photoUrls,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: '提交成功',
+        description: '费用申请已提交，等待车队长审核'
+      });
+
+      setShowNewDialog(false);
+      setFormData({
+        expense_date: format(new Date(), 'yyyy-MM-dd'),
+        expense_type: 'fuel',
+        amount: '',
+        description: '',
+        receipt_photos: []
+      });
+      setSelectedFiles([]);
+      loadApplications();
+      loadExpenseBalance();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
+      console.error('提交失败:', error);
+      toast({
+        title: '提交失败',
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 打开费用冲销对话框
+  const handleOpenWriteoff = (app: ExpenseApplication) => {
+    setSelectedWriteoffApp(app);
+    setActualAmount(app.actual_amount?.toString() || '');
+    setShowWriteoffDialog(true);
+  };
+
+  // 提交费用冲销
+  const handleWriteoff = async () => {
+    if (!selectedWriteoffApp) return;
+
+    const actual = parseFloat(actualAmount);
+    if (isNaN(actual) || actual < 0) {
+      toast({
+        title: '输入错误',
+        description: '实际消费金额必须大于等于0',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc('writeoff_expense_application', {
+        p_application_id: selectedWriteoffApp.id,
+        p_actual_amount: actual
       });
 
       if (error) throw error;
       
       if (!data.success) {
         toast({
-          title: '添加失败',
-          description: data.message || '无法添加图片',
+          title: '冲销失败',
+          description: data.message || '无法完成冲销',
           variant: 'destructive'
         });
         return;
       }
 
       toast({
-        title: '添加成功',
-        description: `已成功添加 ${photoUrls.length} 张图片`
+        title: '冲销成功',
+        description: `结余：¥${data.balance.toFixed(2)} ${data.balance >= 0 ? '(结余)' : '(待补报销)'}`
       });
 
-      // 清空已选文件
-      setAdditionalFiles([]);
-      
-      // 刷新申请列表和详情
-      loadApplications();
-      
-      // 更新当前选中的申请（追加新图片）
-      if (selectedApp) {
-        const updatedPhotos = [
-          ...(Array.isArray(selectedApp.receipt_photos) ? selectedApp.receipt_photos : []),
-          ...photoUrls
-        ];
-        setSelectedApp({
-          ...selectedApp,
-          receipt_photos: updatedPhotos
-        });
-      }
+      setShowWriteoffDialog(false);
+      setSelectedWriteoffApp(null);
+      setActualAmount('');
+      loadWriteoffApplications();
+      loadExpenseBalance();
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
-      console.error('添加图片失败:', error);
+      console.error('冲销失败:', error);
       toast({
-        title: '添加失败',
-        description: errorMessage,
+        title: '冲销失败',
+        description: error instanceof Error ? error.message : '请稍后重试',
         variant: 'destructive'
       });
     } finally {
-      setUploadingAdditional(false);
+      setSubmitting(false);
     }
   };
 
-  // 删除照片
-  const removeSelectedFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // 上传照片到七牛云
-  const uploadFilesToQiniu = async (): Promise<string[]> => {
-    if (selectedFiles.length === 0) return [];
-
-    const filesToUpload = selectedFiles.map(file => ({
-      fileName: file.name,
-      fileData: ''
-    }));
-
-    // 读取文件为 base64
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      const reader = new FileReader();
-      await new Promise((resolve) => {
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          filesToUpload[i].fileData = base64.split(',')[1]; // 去掉前缀
-          resolve(null);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // ✅ 调用七牛云上传，存储到 other/siji/feiyong/ 目录
-      const { data, error } = await supabase.functions.invoke('qiniu-upload', {
-        body: {
-        files: filesToUpload,
-          namingParams: {
-          projectName: 'feiyong',  // ✅ 触发费用上传模式
-          customName: `${profile?.full_name || '司机'}-${format(new Date(), 'yyyyMMdd-HHmmss')}`
-          }
-        }
-      });
-
-      if (error) throw error;
-    if (!data.success) throw new Error(data.error || '上传失败');
-
-    return data.urls;
+  // 计算结余
+  const calculateBalance = (app: ExpenseApplication): number | null => {
+    if (app.actual_amount === null) return null;
+    return app.amount - app.actual_amount;
   };
 
   // 获取费用类型配置
@@ -795,439 +488,139 @@ export default function MobileMyExpenses() {
     ).reduce((sum, a) => sum + a.amount, 0)
   };
 
-  // ✅ 如果页面初始化失败，显示错误提示
-  if (error && applications.length === 0 && !loading) {
-    return (
-      <DriverMobileLayout 
-        title="工作台" 
-        showHeader={false}
-        showRefresh={true}
-        onRefresh={() => {
-          loadApplications();
-          loadPendingDispatches();
-          loadExpenseBalance();
-          loadPrimaryLicensePlate();
-          toast({ title: '已刷新' });
-        }}
-      >
-        <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
-          <div className="text-center space-y-4 max-w-md">
-            <div className="text-6xl">⚠️</div>
-            <h2 className="text-xl font-bold">页面加载失败</h2>
-            <p className="text-muted-foreground text-sm">
-              {error}
-            </p>
-            <Button 
-              onClick={() => {
-                setError(null);
-                loadApplications();
-                loadMyVehicles();
-                loadPendingDispatches();
-              }}
-              className="mt-4"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              重试
-            </Button>
-          </div>
-        </div>
-      </DriverMobileLayout>
-    );
-  }
-
   return (
-    <DriverMobileLayout 
-      title="工作台" 
-      showHeader={false}
-      showRefresh={true}
-      onRefresh={() => {
-        loadApplications();
-        loadPendingDispatches();
-        loadExpenseBalance();
-        loadPrimaryLicensePlate();
-        toast({ title: '已刷新' });
-      }}
-    >
-      <div className="space-y-4">
-        {/* 顶部状态栏 - 优化设计，参考货拉拉/滴滴货运 */}
-        <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 -mx-4 -mt-4 px-4 pt-6 pb-5 text-white shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="w-14 h-14 rounded-full bg-white/25 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-lg">
-                <User className="h-7 w-7 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-xl mb-1">
-                  {profile?.full_name || '司机'}
-                  {primaryLicensePlate && (
-                    <span className="ml-2 text-sm font-normal opacity-90">({primaryLicensePlate})</span>
-                  )}
-                </div>
-                <div className="text-xs text-blue-100 flex items-center gap-2">
-                  <Calendar className="h-3 w-3" />
-                  {format(new Date(), 'MM月dd日 EEEE', { locale: zhCN })}
-                </div>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20 rounded-full h-9 w-9 p-0"
-              onClick={() => {
-                loadApplications();
-                loadPendingDispatches();
-                loadExpenseBalance();
-                loadPrimaryLicensePlate();
-                toast({ title: '已刷新' });
-              }}
-            >
-              <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-          
-          {/* 余额卡片 */}
-          <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-md">
+    <DriverMobileLayout title="我的费用">
+      <div className="space-y-4 pb-20">
+        {/* 费用余额卡片 */}
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-blue-100 mb-1">费用余额</div>
-                <div className="text-2xl font-bold">¥{expenseBalance.toFixed(2)}</div>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 🔔 待接单派单提示 - 优化设计 */}
-        {pendingDispatchCount > 0 && (
-          <Card 
-            className="border-0 shadow-2xl cursor-pointer transition-all active:scale-[0.98] overflow-hidden"
-            onClick={() => navigate('/m/internal/my-dispatches')}
-          >
-            <CardContent className="p-0">
-              <div className="bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white p-5 relative overflow-hidden">
-                {/* 背景装饰 */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
-                
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-lg animate-pulse">
-                    <Bell className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-2xl font-bold mb-1">有新派单！</div>
-                    <div className="text-base opacity-95 flex items-center gap-2">
-                      <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm font-semibold">
-                        {pendingDispatchCount} 个
-                      </span>
-                      <span>派单等待接单</span>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-7 w-7 animate-bounce-x" />
+                <div className="text-sm text-muted-foreground mb-1">费用余额</div>
+                <div className={`text-2xl font-bold ${expenseBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  ¥{expenseBalance.toFixed(2)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {expenseBalance >= 0 ? '有结余' : '待补报销'}
                 </div>
               </div>
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 px-5 py-3 text-center border-t border-orange-200">
-                <span className="text-orange-700 font-semibold text-sm flex items-center justify-center gap-1">
-                  <span>👆</span>
-                  <span>点击立即查看详情</span>
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 我的任务卡片 - 优化设计 */}
-        <Card className="shadow-lg border-0 overflow-hidden">
-          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-gray-800">
-              <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                <Truck className="h-5 w-5 text-white" />
-              </div>
-              我的任务
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="grid grid-cols-4 divide-x divide-gray-100">
-              <div 
-                className="p-4 text-center cursor-pointer active:bg-blue-50 transition-all active:scale-95"
-                onClick={() => navigate('/m/internal/my-dispatches')}
-              >
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-3 shadow-md">
-                  <FileText className="h-7 w-7 text-white" />
-                </div>
-                <div className="font-bold text-sm mb-1 text-gray-800">派单接单</div>
-                <div className="text-xs text-gray-500">查看和接受派单</div>
-              </div>
-          
-              <div 
-                className="p-4 text-center cursor-pointer active:bg-green-50 transition-all active:scale-95"
-                onClick={() => navigate('/m/internal/quick-entry')}
-              >
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mb-3 shadow-md">
-                  <Plus className="h-7 w-7 text-white" />
-                </div>
-                <div className="font-bold text-sm mb-1 text-gray-800">手动录单</div>
-                <div className="text-xs text-gray-500">自主录入运单</div>
-              </div>
-
-              <div 
-                className="p-4 text-center cursor-pointer active:bg-orange-50 transition-all active:scale-95"
-                onClick={() => setShowNewDialog(true)}
-              >
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-3 shadow-md">
-                  <FileText className="h-7 w-7 text-white" />
-                </div>
-                <div className="font-bold text-sm mb-1 text-gray-800">费用申请</div>
-                <div className="text-xs text-gray-500">提交费用申请</div>
-              </div>
-
-              <div 
-                className="p-4 text-center cursor-pointer active:bg-purple-50 transition-all active:scale-95"
-                onClick={() => navigate('/m/internal/expense-writeoff')}
-              >
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-3 shadow-md">
-                  <Calculator className="h-7 w-7 text-white" />
-                </div>
-                <div className="font-bold text-sm mb-1 text-gray-800">费用冲销</div>
-                <div className="text-xs text-gray-500">费用冲销管理</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-          
-        {/* 我的服务 - 优化设计 */}
-        <Card className="shadow-lg border-0">
-          <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50 to-purple-50">
-            <CardTitle className="text-base font-bold text-gray-800">我的服务</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-4 gap-4">
-              {/* 我的行程 */}
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
-                onClick={() => navigate('/m/internal/my-waybills')}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-md">
-                  <MapPin className="h-7 w-7 text-white" />
-                </div>
-                <span className="text-xs text-center font-medium text-gray-700">我的行程</span>
-              </div>
-
-              {/* 我的车辆 */}
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
-                onClick={() => navigate('/m/internal/my-vehicles')}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                  <Truck className="h-7 w-7 text-white" />
-                </div>
-                <span className="text-xs text-center font-medium text-gray-700">我的车辆</span>
-              </div>
-              
-              {/* 收支明细 */}
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
-                onClick={() => navigate('/m/internal/salary-records')}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-md">
-                  <Calendar className="h-7 w-7 text-white" />
-                </div>
-                <span className="text-xs text-center font-medium text-gray-700">收支明细</span>
-              </div>
-          
-              {/* 我的收入 */}
-              <div 
-                className="flex flex-col items-center gap-2 cursor-pointer active:scale-95 transition-all"
-                onClick={() => navigate('/m/internal/driver-salary')}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
-                  <DollarSign className="h-7 w-7 text-white" />
-                </div>
-                <span className="text-xs text-center font-medium text-gray-700">我的收入</span>
+              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                <DollarSign className="h-8 w-8 text-blue-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 本月数据统计 - 优化设计 */}
-        <Card className="shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                <BarChart3 className="h-5 w-5 text-white" />
-              </div>
-              本月数据
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-xl bg-yellow-50 border border-yellow-100">
-                <div className="text-xs text-yellow-700 mb-2 font-medium">待审核</div>
-                <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
-                <div className="text-xs text-yellow-600 mt-1">项</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-green-50 border border-green-100">
-                <div className="text-xs text-green-700 mb-2 font-medium">已通过</div>
-                <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
-                <div className="text-xs text-green-600 mt-1">项</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-blue-50 border border-blue-100">
-                <div className="text-xs text-blue-700 mb-2 font-medium">费用合计</div>
-                <div className="text-2xl font-bold text-blue-600">¥{stats.thisMonth.toFixed(0)}</div>
-                <div className="text-xs text-blue-600 mt-1">元</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 标签页：费用申请和费用冲销 */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="application">费用申请</TabsTrigger>
+            <TabsTrigger value="writeoff">费用冲销</TabsTrigger>
+          </TabsList>
 
-        {/* 申请记录和运单记录 - 标签页 - 优化设计 */}
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-b pb-3">
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-gray-800">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md">
-                <FileText className="h-5 w-5 text-white" />
-              </div>
-              <span>我的记录</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Tabs 
-              value={activeTab} 
-              onValueChange={(value) => {
-                // 保存当前滚动位置
-                scrollPositionRef.current = window.scrollY || window.pageYOffset || 0;
-                
-                // 切换标签时加载对应数据
-                if (value === 'expenses' && activeTab !== 'expenses') {
-                  setActiveTab(value);
-                  loadApplications();
-                } else if (value === 'waybills' && activeTab !== 'waybills') {
-                  setActiveTab(value);
-                  loadWaybills();
-                } else {
-                  setActiveTab(value);
-                }
-                
-                // 立即恢复滚动位置，防止页面移位
-                setTimeout(() => {
-                  window.scrollTo({
-                    top: scrollPositionRef.current,
-                    behavior: 'instant'  // 使用 instant 避免动画导致的滚动
-                  });
-                }, 0);
-                
-                // 双重保险：在下一帧也恢复一次
-                requestAnimationFrame(() => {
-                  window.scrollTo({
-                    top: scrollPositionRef.current,
-                    behavior: 'instant'
-                  });
-                });
-              }} 
+          {/* 费用申请标签页 */}
+          <TabsContent value="application" className="space-y-4 mt-4">
+            {/* 统计卡片 */}
+            <div className="grid grid-cols-3 gap-2">
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">待审核</div>
+                  <div className="text-lg font-bold text-yellow-600">{stats.pending}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">已通过</div>
+                  <div className="text-lg font-bold text-green-600">{stats.approved}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">本月金额</div>
+                  <div className="text-lg font-bold text-blue-600">¥{stats.thisMonth.toFixed(0)}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 新建申请按钮 */}
+            <Button 
+              onClick={() => setShowNewDialog(true)} 
               className="w-full"
+              size="lg"
             >
-              <TabsList className="grid w-full grid-cols-2 bg-gray-100 h-11 rounded-none p-1 mx-4 mt-4">
-                <TabsTrigger 
-                  value="expenses" 
-                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
-                >
-                  <FileText className="h-4 w-4 mr-1.5" />
-                  申请记录
-                  {applications.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs">
-                      {applications.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="waybills" 
-                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm rounded-md font-medium transition-all"
-                >
-                  <Package className="h-4 w-4 mr-1.5" />
-                  运单记录
-                  {waybills.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs">
-                      {waybills.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+              <Plus className="h-5 w-5 mr-2" />
+              新建费用申请
+            </Button>
 
-              {/* 申请记录标签页 */}
-              <TabsContent value="expenses" className="space-y-3 pt-4 px-4 pb-4 mt-0">
+            {/* 申请列表 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">费用申请记录</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 {loading ? (
                   <div className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     <p className="text-sm text-muted-foreground mt-2">加载中...</p>
                   </div>
+                ) : error && applications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
                 ) : applications.length === 0 ? (
                   <div className="text-center py-8">
                     <FileText className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-                    <p className="text-sm text-muted-foreground mt-2">暂无费用申请</p>
-                    <Button 
-                      variant="link" 
-                      onClick={() => setShowNewDialog(true)}
-                      className="mt-2"
-                    >
-                      点击新增
-                    </Button>
+                    <p className="text-sm text-muted-foreground mt-2">暂无费用申请记录</p>
                   </div>
                 ) : (
                   applications.map(app => {
                     const typeConfig = getExpenseTypeConfig(app.expense_type);
                     const statusConfig = getStatusConfig(app.status);
                     const StatusIcon = statusConfig.icon;
-                    const isWriteoff = app.writeoff_time !== null;  // 是否已冲销
-                    const balance = app.actual_amount !== null 
-                      ? app.amount - app.actual_amount 
-                      : null;  // 结余（申请金额 - 实际金额）
                     
                     return (
                       <Card 
                         key={app.id} 
-                        className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.01] border border-gray-100 shadow-sm bg-white"
+                        className="cursor-pointer hover:shadow-md transition-all"
                         onClick={() => {
                           setSelectedApp(app);
                           setShowDetailDialog(true);
                         }}
                       >
-                        <CardContent className="p-3.5">
-                          {/* 第一行：费用类型 + 状态 + 金额 */}
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <Badge className={`${typeConfig.color} shadow-sm text-xs font-medium px-2 py-0.5 flex-shrink-0`}>
+                        <CardContent className="p-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Badge className={typeConfig.color}>
                                 {typeConfig.label}
                               </Badge>
-                              <Badge className={`${statusConfig.color} shadow-sm text-xs font-medium px-2 py-0.5 flex-shrink-0`}>
-                                <StatusIcon className="h-3 w-3 mr-0.5" />
+                              <Badge className={statusConfig.color}>
+                                <StatusIcon className="h-3 w-3 mr-1" />
                                 {statusConfig.label}
                               </Badge>
-                              {isWriteoff && (
-                                <Badge className="bg-red-100 text-red-800 shadow-sm text-xs font-medium px-2 py-0.5 flex-shrink-0">
-                                  <CheckCircle className="h-3 w-3 mr-0.5" />
-                                  已冲销
-                                </Badge>
-                              )}
                             </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                              <div className="text-lg font-bold text-primary leading-tight">
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="text-lg font-bold text-blue-600">
                                 ¥{app.amount.toFixed(2)}
                               </div>
+                              <div className="text-xs text-muted-foreground">
+                                {format(new Date(app.expense_date), 'MM-dd', { locale: zhCN })}
+                              </div>
                             </div>
-                          </div>
-
-                          {/* 第二行（小字）：日期 + 空白 + 凭证数 */}
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>{format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}</span>
+                            
+                            {app.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {app.description}
+                              </p>
+                            )}
+                            
+                            <div className="text-xs text-muted-foreground">
+                              单号：{app.application_number}
                             </div>
-                            <div className="flex-1"></div>
-                            {app.receipt_photos.length > 0 && (
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <ImageIcon className="h-3 w-3" />
-                                <span>{app.receipt_photos.length}张凭证</span>
+                            
+                            {app.review_comment && (
+                              <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                                审批意见：{app.review_comment}
                               </div>
                             )}
                           </div>
@@ -1236,89 +629,139 @@ export default function MobileMyExpenses() {
                     );
                   })
                 )}
-              </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              {/* 运单记录标签页 */}
-              <TabsContent value="waybills" className="space-y-3 pt-4 px-4 pb-4 mt-0">
-                {loadingWaybills ? (
+          {/* 费用冲销标签页 */}
+          <TabsContent value="writeoff" className="space-y-4 mt-4">
+            {/* 说明卡片 */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Calculator className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">费用冲销说明</p>
+                    <p>对已审核通过的费用申请进行冲销，输入实际消费金额。</p>
+                    <p className="mt-1">• 正数结余：申请金额大于实际金额，表示有结余</p>
+                    <p>• 负数结余：申请金额小于实际金额，表示待补报销</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 申请列表 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">已审核通过的费用申请</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loading ? (
                   <div className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     <p className="text-sm text-muted-foreground mt-2">加载中...</p>
                   </div>
-                ) : waybills.length === 0 ? (
+                ) : writeoffApplications.length === 0 ? (
                   <div className="text-center py-8">
-                    <Package className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-                    <p className="text-sm text-muted-foreground mt-2">暂无运单记录</p>
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
+                    <p className="text-sm text-muted-foreground mt-2">暂无已审核通过的费用申请</p>
                   </div>
                 ) : (
-                  waybills.map(waybill => (
-                    <Card 
-                      key={waybill.id} 
-                      className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-0 shadow-sm bg-gradient-to-br from-white to-gray-50"
-                      onClick={() => navigate(`/m/internal/waybill/${waybill.id}`)}
-                    >
-                      <CardContent className="p-4 relative overflow-hidden">
-                        {/* 装饰性背景图案 */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-50 to-transparent rounded-full -mr-16 -mt-16 opacity-50"></div>
-                        
-                        <div className="flex items-start justify-between relative z-10">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-3">
-                              <Badge className="bg-blue-100 text-blue-800 shadow-sm">
-                                <Package className="h-3 w-3 mr-1" />
-                                {waybill.auto_number}
-                              </Badge>
+                  writeoffApplications.map(app => {
+                    const typeConfig = getExpenseTypeConfig(app.expense_type);
+                    const balance = calculateBalance(app);
+                    const isWriteoffed = app.actual_amount !== null;
+                    
+                    return (
+                      <Card 
+                        key={app.id} 
+                        className={`cursor-pointer hover:shadow-lg transition-all ${isWriteoffed ? 'bg-gray-50' : ''}`}
+                        onClick={() => !isWriteoffed && handleOpenWriteoff(app)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge className={typeConfig.color}>
+                                  {typeConfig.label}
+                                </Badge>
+                                {isWriteoffed && (
+                                  <Badge className="bg-gray-100 text-gray-800">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    已冲销
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(app.expense_date), 'yyyy年MM月dd日', { locale: zhCN })}
+                                </div>
+                                
+                                <div className="text-xs text-muted-foreground">
+                                  申请单号：{app.application_number}
+                                </div>
+                                
+                                {app.description && (
+                                  <p className="text-muted-foreground line-clamp-1">
+                                    {app.description}
+                                  </p>
+                                )}
+                                
+                                {isWriteoffed && (
+                                  <div className="mt-2 space-y-1 pt-2 border-t">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-muted-foreground">申请金额：</span>
+                                      <span className="font-medium">¥{app.amount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-muted-foreground">实际金额：</span>
+                                      <span className="font-medium">¥{app.actual_amount!.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs font-bold">
+                                      <span className={balance! >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        {balance! >= 0 ? '结余：' : '待补：'}
+                                      </span>
+                                      <span className={balance! >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        ¥{Math.abs(balance!).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(waybill.loading_date), 'yyyy年MM月dd日', { locale: zhCN })}
-                              </div>
-                              
-                              <div className="space-y-1.5">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <MapPin className="h-3 w-3 text-blue-600" />
-                                  <span className="text-gray-700">{waybill.loading_location}</span>
+                            {!isWriteoffed && (
+                              <div className="ml-2">
+                                <div className="text-lg font-bold text-blue-600">
+                                  ¥{app.amount.toFixed(2)}
                                 </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <MapPin className="h-3 w-3 text-green-600" />
-                                  <span className="text-gray-700">{waybill.unloading_location}</span>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  点击冲销
                                 </div>
                               </div>
-                              
-                              <div className="text-xs text-muted-foreground">
-                                项目：{waybill.project_name}
-                              </div>
-                            </div>
+                            )}
                           </div>
-                          
-                          <div className="text-right ml-4">
-                            <div className="flex items-center gap-1 text-lg font-bold text-green-600">
-                              <Weight className="h-4 w-4" />
-                              {waybill.loading_weight.toFixed(2)}吨
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-        {/* 新增费用申请对话框 */}
+        {/* 新建费用申请对话框 */}
         <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                新增费用申请
-              </DialogTitle>
+              <DialogTitle>新建费用申请</DialogTitle>
               <DialogDescription>
-                填写费用信息并上传凭证照片
+                填写费用信息并上传相关凭证
               </DialogDescription>
             </DialogHeader>
             
@@ -1334,8 +777,8 @@ export default function MobileMyExpenses() {
               
               <div className="grid gap-2">
                 <Label>费用类型</Label>
-                <Select
-                  value={formData.expense_type}
+                <Select 
+                  value={formData.expense_type} 
                   onValueChange={value => setFormData(prev => ({ ...prev, expense_type: value }))}
                 >
                   <SelectTrigger>
@@ -1352,15 +795,14 @@ export default function MobileMyExpenses() {
               </div>
               
               <div className="grid gap-2">
-                <Label>费用金额（元）</Label>
+                <Label>费用金额</Label>
                 <Input
                   type="text"
-                  inputMode="decimal"
                   placeholder="0.00"
                   value={formData.amount}
                   onChange={e => {
-                    const limitedValue = limitAmountInput(e.target.value);
-                    setFormData(prev => ({ ...prev, amount: limitedValue }));
+                    const value = limitAmountInput(e.target.value);
+                    setFormData(prev => ({ ...prev, amount: value }));
                   }}
                 />
               </div>
@@ -1368,7 +810,7 @@ export default function MobileMyExpenses() {
               <div className="grid gap-2">
                 <Label>费用说明</Label>
                 <Textarea
-                  placeholder="请输入费用说明..."
+                  placeholder="请描述费用详情..."
                   value={formData.description}
                   onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
@@ -1376,91 +818,65 @@ export default function MobileMyExpenses() {
               </div>
               
               <div className="grid gap-2">
-                <Label>凭证照片（可选）</Label>
-                
-                {/* 上传按钮区域 - 符合主流APP设计 */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-24 flex flex-col gap-2"
-                    onClick={handleCameraCapture}
-                    disabled={uploading}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Camera className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <span className="text-sm">拍照</span>
-                    <span className="text-xs text-muted-foreground">可连续拍摄多张</span>
-                  </Button>
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-24 flex flex-col gap-2"
-                    onClick={() => document.getElementById('photo-file-input')?.click()}
-                    disabled={uploading}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                      <ImagePlus className="h-6 w-6 text-green-600" />
-                    </div>
-                    <span className="text-sm">相册</span>
-                  </Button>
-                </div>
-                
-                {/* 隐藏的文件输入 - 相册选择 */}
-                <input
-                  id="photo-file-input"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-                
-                {/* ✅ 隐藏的文件输入 - 拍照（单独处理） */}
-                <input
-                  id="camera-file-input"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  className="hidden"
-                  onChange={handleCameraFileSelect}
-                />
-                
-                {/* 照片预览网格 */}
-                {selectedFiles.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="relative aspect-square">
-                        <img 
-                          src={URL.createObjectURL(file)} 
-                          alt={`照片${index + 1}`} 
-                          className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
-                        />
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="destructive"
-                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
-                          aria-label="删除费用申请"
-                          title="删除费用申请"
-                          onClick={() => removeSelectedFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                <Label>凭证照片</Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button type="button" variant="outline" className="w-full" asChild>
+                        <span>
+                          <ImageIcon className="h-4 w-4 mr-2" />
+                          选择照片
+                        </span>
+                      </Button>
+                    </label>
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        multiple
+                        onChange={handleCameraFileSelect}
+                        className="hidden"
+                      />
+                      <Button type="button" variant="outline" className="w-full" asChild>
+                        <span>
+                          <Camera className="h-4 w-4 mr-2" />
+                          拍照
+                        </span>
+                      </Button>
+                    </label>
                   </div>
-                )}
-                
-                  {uploading && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    正在上传照片到云端...
+                  
+                  {selectedFiles.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`预览 ${index + 1}`}
+                            className="w-full h-24 object-cover rounded border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6"
+                            onClick={() => removeSelectedFile(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   )}
+                </div>
               </div>
             </div>
             
@@ -1468,214 +884,154 @@ export default function MobileMyExpenses() {
               <Button variant="outline" onClick={() => setShowNewDialog(false)}>
                 取消
               </Button>
-              <Button onClick={handleSubmit} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              <Button onClick={handleSubmitApplication} disabled={uploading}>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 提交申请
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* 申请详情对话框 */}
+        {/* 费用申请详情对话框 */}
         <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>费用申请详情</DialogTitle>
+            </DialogHeader>
+            
             {selectedApp && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    申请详情
-                  </DialogTitle>
-                </DialogHeader>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge className={getExpenseTypeConfig(selectedApp.expense_type).color}>
-                      {getExpenseTypeConfig(selectedApp.expense_type).label}
-                    </Badge>
-                    <Badge className={getStatusConfig(selectedApp.status).color}>
-                      {getStatusConfig(selectedApp.status).label}
-                    </Badge>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">申请单号</Label>
+                    <p className="text-sm font-medium">{selectedApp.application_number}</p>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">申请单号</div>
-                      <div className="font-mono">{selectedApp.application_number}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">费用日期</div>
-                      <div>{format(new Date(selectedApp.expense_date), 'yyyy-MM-dd')}</div>
-                    </div>
-                    <div className="col-span-2">
-                      <div className="text-muted-foreground">费用金额</div>
-                      <div className="text-2xl font-bold text-primary">¥{selectedApp.amount.toFixed(2)}</div>
-                    </div>
-                    {selectedApp.description && (
-                      <div className="col-span-2">
-                        <div className="text-muted-foreground">费用说明</div>
-                        <div className="mt-1">{selectedApp.description}</div>
-                      </div>
-                    )}
-                    {selectedApp.review_comment && (
-                      <div className="col-span-2">
-                        <div className="text-muted-foreground">审核意见</div>
-                        <div className="mt-1 text-orange-600">{selectedApp.review_comment}</div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* 现有凭证照片 */}
-                  {selectedApp.receipt_photos.length > 0 && (
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-2">凭证照片 ({selectedApp.receipt_photos.length} 张)</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {selectedApp.receipt_photos.map((url, index) => (
-                          <div key={index} className="relative aspect-square">
-                            <img
-                              src={url}
-                              alt={`凭证${index + 1}`}
-                              className="w-full h-full object-cover rounded border"
-                            />
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-colors rounded"
-                              title="点击查看大图"
-                            >
-                              <ImageIcon className="h-4 w-4 text-white opacity-0 hover:opacity-100" />
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ✅ 补充图片功能 */}
-                  <div className="border-t pt-4">
-                    <div className="text-sm font-medium mb-3">补充图片</div>
-                    
-                    {/* 上传按钮区域 */}
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-20 flex flex-col gap-1"
-                        onClick={handleAdditionalCameraCapture}
-                        disabled={uploadingAdditional}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Camera className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <span className="text-xs font-medium">拍照</span>
-                        <span className="text-[10px] text-muted-foreground leading-tight">可连续拍摄</span>
-                      </Button>
-                      
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-20 flex flex-col gap-2"
-                        onClick={() => document.getElementById('additional-photo-input')?.click()}
-                        disabled={uploadingAdditional}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                          <ImagePlus className="h-5 w-5 text-green-600" />
-                        </div>
-                        <span className="text-xs">相册</span>
-                      </Button>
-                    </div>
-
-                    {/* 隐藏的文件输入 - 补充图片 */}
-                    <input
-                      id="additional-photo-input"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleAdditionalFileSelect}
-                    />
-                    
-                    <input
-                      id="additional-camera-input"
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      multiple
-                      className="hidden"
-                      onChange={handleAdditionalCameraFileSelect}
-                    />
-
-                    {/* 补充图片预览 */}
-                    {additionalFiles.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-xs text-muted-foreground mb-2">
-                          待上传 ({additionalFiles.length} 张)
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {additionalFiles.map((file, index) => (
-                            <div key={index} className="relative aspect-square">
-                              <img 
-                                src={URL.createObjectURL(file)} 
-                                alt={`补充照片${index + 1}`} 
-                                className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
-                              />
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="destructive"
-                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg"
-                                aria-label="删除附加文件"
-                                title="删除附加文件"
-                                onClick={() => removeAdditionalFile(index)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 上传状态提示 */}
-                    {uploadingAdditional && (
-                      <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg mb-3">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        正在上传照片到云端...
-                      </div>
-                    )}
-
-                    {/* 提交补充图片按钮 */}
-                    {additionalFiles.length > 0 && !uploadingAdditional && (
-                      <Button
-                        onClick={handleAddAdditionalPhotos}
-                        className="w-full"
-                        size="sm"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        上传 {additionalFiles.length} 张图片
-                      </Button>
-                    )}
+                  <div>
+                    <Label className="text-muted-foreground">费用日期</Label>
+                    <p className="text-sm font-medium">
+                      {format(new Date(selectedApp.expense_date), 'yyyy-MM-dd', { locale: zhCN })}
+                    </p>
                   </div>
                 </div>
                 
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowDetailDialog(false);
-                      setAdditionalFiles([]);  // 关闭时清空补充图片
-                    }}
-                  >
-                    关闭
-                  </Button>
-                </DialogFooter>
-              </>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">费用类型</Label>
+                    <Badge className={getExpenseTypeConfig(selectedApp.expense_type).color}>
+                      {getExpenseTypeConfig(selectedApp.expense_type).label}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">状态</Label>
+                    <div>
+                      <Badge className={getStatusConfig(selectedApp.status).color}>
+                        {getStatusConfig(selectedApp.status).label}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-muted-foreground">费用金额</Label>
+                  <p className="text-2xl font-bold text-blue-600">¥{selectedApp.amount.toFixed(2)}</p>
+                </div>
+                
+                {selectedApp.description && (
+                  <div>
+                    <Label className="text-muted-foreground">费用说明</Label>
+                    <p className="text-sm">{selectedApp.description}</p>
+                  </div>
+                )}
+                
+                {selectedApp.review_comment && (
+                  <div>
+                    <Label className="text-muted-foreground">审批意见</Label>
+                    <p className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+                      {selectedApp.review_comment}
+                    </p>
+                  </div>
+                )}
+                
+                {selectedApp.receipt_photos && selectedApp.receipt_photos.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">凭证照片</Label>
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {selectedApp.receipt_photos.map((photo, index) => (
+                        <img
+                          key={index}
+                          src={photo}
+                          alt={`凭证 ${index + 1}`}
+                          className="w-full h-24 object-cover rounded border"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
+            
+            <DialogFooter>
+              <Button onClick={() => setShowDetailDialog(false)}>关闭</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 费用冲销对话框 */}
+        <Dialog open={showWriteoffDialog} onOpenChange={setShowWriteoffDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>费用冲销</DialogTitle>
+              <DialogDescription>
+                输入实际消费金额
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedWriteoffApp && (
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label>申请金额</Label>
+                  <div className="p-3 bg-gray-100 rounded text-center font-medium text-lg">
+                    ¥{selectedWriteoffApp.amount.toFixed(2)}
+                  </div>
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label>实际消费金额</Label>
+                  <Input
+                    type="text"
+                    placeholder="0.00"
+                    value={actualAmount}
+                    onChange={e => {
+                      const value = limitAmountInput(e.target.value);
+                      setActualAmount(value);
+                    }}
+                  />
+                </div>
+                
+                {actualAmount && !isNaN(parseFloat(actualAmount)) && (
+                  <div className="p-3 bg-blue-50 rounded">
+                    <div className="text-sm text-muted-foreground mb-1">预计结余</div>
+                    <div className={`text-lg font-bold ${(selectedWriteoffApp.amount - parseFloat(actualAmount)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ¥{(selectedWriteoffApp.amount - parseFloat(actualAmount)).toFixed(2)}
+                      {(selectedWriteoffApp.amount - parseFloat(actualAmount)) >= 0 ? ' (结余)' : ' (待补)'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowWriteoffDialog(false)}>
+                取消
+              </Button>
+              <Button onClick={handleWriteoff} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                确认冲销
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
     </DriverMobileLayout>
   );
 }
-

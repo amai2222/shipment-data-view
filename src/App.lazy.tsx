@@ -171,6 +171,8 @@ export const MobileDriverSalary = conditionalLazy(() => import('./pages/mobile/i
 export const MobileMyVehicles = conditionalLazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
 export const MobileSalaryRecords = conditionalLazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));
 export const MobileQuickEntry = conditionalLazy(() => import('./pages/mobile/internal/MobileQuickEntry'));
+export const MobileDriverSettings = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverSettings'));
+export const MobileDriverSecurity = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverSecurity'));
 
 // 车队长端
 export const MobileFleetDashboard = conditionalLazy(() => import('./pages/mobile/internal/MobileFleetDashboard'));
