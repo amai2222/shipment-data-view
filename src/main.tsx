@@ -41,7 +41,13 @@ window.addEventListener('error', (event) => {
     // 页面路由相关的错误（可能是浏览器扩展导致的）
     'my-vehicles',
     'driver-dashboard',
-    'quick-entry'
+    'quick-entry',
+    // RangeError: 状态码 0 错误（网络请求被取消或失败，非关键）
+    'RangeError',
+    'Failed to construct \'Response\'',
+    'status provided (0)',
+    'status 0',
+    'outside the range [200, 599]'
   ];
   
   // 检查是否是应该忽略的错误
@@ -98,7 +104,13 @@ window.addEventListener('unhandledrejection', (event) => {
     // 页面路由相关的错误（可能是浏览器扩展导致的）
     'my-vehicles',
     'driver-dashboard',
-    'quick-entry'
+    'quick-entry',
+    // RangeError: 状态码 0 错误（网络请求被取消或失败，非关键）
+    'RangeError',
+    'Failed to construct \'Response\'',
+    'status provided (0)',
+    'status 0',
+    'outside the range [200, 599]'
   ];
   
   const shouldIgnore = ignoredRejections.some(pattern => 

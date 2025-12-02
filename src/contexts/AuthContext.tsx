@@ -118,15 +118,110 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .maybeSingle();
 
               if (error) {
-                console.error('获取用户配置文件失败:', error);
+                const errorMessage = error.message || '';
+                const errorString = JSON.stringify(error);
+                
+                // ✅ 只在明确是网络请求被取消的情况下忽略（状态码 0 且包含特定关键词）
+                // 注意：不能过于宽泛，否则会隐藏真正的错误
+                const isCancelledRequest = (errorMessage.includes('status provided (0)') || 
+                                          errorString.includes('status provided (0)')) && 
+                                         (errorMessage.includes('aborted') || 
+                                          errorMessage.includes('cancelled') ||
+                                          errorMessage.includes('Failed to fetch'));
+                
+                if (isCancelledRequest) {
+                  // 网络请求被明确取消，静默忽略
+                  console.log('⚠️ 网络请求被取消，忽略此错误');
+                  setLoading(false); // 确保加载状态被清除
+                  return;
+                }
+                
                 // ✅ 如果是401错误或JWT错误，可能是token过期，等待自动刷新
                 if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
                   console.log('⚠️ Token可能已过期，等待Supabase自动刷新...');
                   // 不立即清除状态，等待Supabase的autoRefreshToken机制自动刷新
+                  setLoading(false); // 确保加载状态被清除
                   return; // ✅ 不设置 profile 为 null
                 }
-                // ✅ 其他错误也不清空 profile，保持当前状态
-                console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
+                
+                // ✅ 其他错误：记录错误详情，但不清空 profile（如果已有缓存）
+                // 如果是首次登录且获取 profile 失败，需要重试
+                console.error('获取用户配置文件失败:', error);
+                console.error('错误详情:', {
+                  code: error.code,
+                  message: error.message,
+                  details: error.details,
+                  hint: error.hint
+                });
+                
+                // 如果已有缓存的 profile，保持当前状态
+                if (profileCache && profileCache.id === currentUser.id) {
+                  console.warn('⚠️ 获取用户配置文件失败，但使用缓存的 profile');
+                  setProfile(profileCache);
+                  setLoading(false);
+                  return;
+                }
+                
+                // 如果是首次登录且获取 profile 失败，尝试重试一次
+                console.warn('⚠️ 首次获取用户配置文件失败，尝试重试...');
+                setTimeout(async () => {
+                  try {
+                    const { data: retryData, error: retryError } = await supabase
+                      .from('profiles')
+                      .select('*')
+                      .eq('id', currentUser.id)
+                      .maybeSingle();
+                    
+                    if (retryError) {
+                      console.error('重试获取用户配置文件仍然失败:', retryError);
+                      setLoading(false);
+                      return;
+                    }
+                    
+                    if (retryData) {
+                      const anyProfile = retryData as Record<string, unknown>;
+                      // 处理 profile 数据（与下面的逻辑相同）
+                      let partnerId: string | undefined;
+                      if (anyProfile.role === 'partner') {
+                        try {
+                          const { data: partnerData } = await supabase
+                            .from('partners')
+                            .select('id')
+                            .eq('partner_type', '货主')
+                            .limit(1)
+                            .single();
+                          partnerId = partnerData?.id;
+                        } catch (err) {
+                          console.warn('查询货主ID失败:', err);
+                        }
+                      }
+                      
+                      const userProfile: UserProfile = {
+                        id: anyProfile.id as string,
+                        email: anyProfile.email as string,
+                        username: anyProfile.username as string,
+                        full_name: anyProfile.full_name as string,
+                        role: anyProfile.role as UserRole,
+                        is_active: anyProfile.is_active as boolean,
+                        work_wechat_userid: anyProfile.work_wechat_userid as string | undefined,
+                        work_wechat_department: anyProfile.work_wechat_department as number[] | undefined,
+                        avatar_url: anyProfile.avatar_url as string | undefined,
+                        created_at: anyProfile.created_at as string | undefined,
+                        partnerId
+                      };
+                      
+                      profileCache = userProfile;
+                      setProfile(userProfile);
+                      setLoading(false);
+                    } else {
+                      setLoading(false);
+                    }
+                  } catch (retryErr) {
+                    console.error('重试获取用户配置文件时发生异常:', retryErr);
+                    setLoading(false);
+                  }
+                }, 1000); // 1秒后重试
+                
                 return;
               } else if (profileData) {
                 const anyProfile = profileData as Record<string, unknown>;
