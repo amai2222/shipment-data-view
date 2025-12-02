@@ -60,6 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Supabase会自动在token过期前刷新，只要refresh_token有效，session就不会过期
 
   useEffect(() => {
+    // ✅ 使用 ref 缓存 profile，避免重复查询
+    let profileCache: UserProfile | null = null;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('🔐 认证状态变更:', event, session ? '有session' : '无session');
@@ -77,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('⚠️ 用户已登出，清除用户状态');
           setUser(null);
           setProfile(null);
+          profileCache = null;
           setLoading(false);
           
           // 如果当前不在登录页，则跳转到登录页
@@ -87,13 +91,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // ✅ TOKEN_REFRESHED事件：Supabase自动刷新了token，继续使用
+        // ✅ TOKEN_REFRESHED事件：Supabase自动刷新了token，不需要重新查询 profile
         if (event === 'TOKEN_REFRESHED') {
-          console.log('✅ Token已自动刷新，session继续有效');
-          // 不执行任何操作，继续使用新的session
+          console.log('✅ Token已自动刷新，使用缓存的profile');
+          // 不执行任何操作，继续使用现有的 profile
+          setLoading(false);
+          return;
         }
 
-        if (currentUser) {
+        // ✅ 只在 SIGNED_IN 和 INITIAL_SESSION 时查询 profile
+        if (currentUser && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+          // 如果已有缓存且用户ID相同，直接使用缓存
+          if (profileCache && profileCache.id === currentUser.id) {
+            console.log('✅ 使用缓存的profile，避免重复查询');
+            setProfile(profileCache);
+            setLoading(false);
+            return;
+          }
+          
           setTimeout(async () => {
             try {
               const { data: profileData, error } = await supabase
@@ -114,8 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
                 return;
               } else if (profileData) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const anyProfile = profileData as any;
+                const anyProfile = profileData as Record<string, unknown>;
                 
                 // 如果是partner角色，查询关联的货主ID
                 let partnerId: string | undefined;
@@ -134,15 +148,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
                 
                 const userProfile: UserProfile = {
-                  id: anyProfile.id,
-                  email: anyProfile.email || '',
-                  username: anyProfile.username || anyProfile.email || '',
-                  full_name: anyProfile.full_name || '',
+                  id: String(anyProfile.id || ''),
+                  email: String(anyProfile.email || ''),
+                  username: String(anyProfile.username || anyProfile.email || ''),
+                  full_name: String(anyProfile.full_name || ''),
                   role: (anyProfile.role as UserRole) ?? 'operator',
-                  is_active: anyProfile.is_active ?? true,
+                  is_active: Boolean(anyProfile.is_active ?? true),
                   partnerId
                 };
                 setProfile(userProfile);
+                profileCache = userProfile; // ✅ 缓存 profile
                 
                 // 更新user对象的partnerId
                 if (currentUser && partnerId) {
@@ -181,7 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []); // 暂时移除所有 Hook 依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在组件挂载时执行一次
 
   // ★★★ 4. 修改 signIn 函数以处理重定向
   const signIn = async (usernameOrEmail: string, password: string) => {
