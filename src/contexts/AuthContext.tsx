@@ -118,126 +118,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .maybeSingle();
 
               if (error) {
-                const errorMessage = error.message || '';
-                const errorDetails = error.details || '';
-                const errorString = JSON.stringify(error);
-                
-                // ✅ 检测状态码 0 错误（RangeError: status provided (0)）
-                // 这种错误通常是网络请求被取消、CORS问题或请求超时，不是真正的错误
-                const isStatusZeroError = 
-                  errorMessage.includes('status provided (0)') ||
-                  errorMessage.includes('status 0') ||
-                  errorMessage.includes('RangeError') ||
-                  errorDetails.includes('status provided (0)') ||
-                  errorDetails.includes('status 0') ||
-                  errorString.includes('status provided (0)') ||
-                  errorString.includes('RangeError: Failed to construct \'Response\'');
-                
-                if (isStatusZeroError) {
-                  // 状态码 0 错误通常是网络问题或请求被取消，静默忽略
-                  // 不记录为错误，避免控制台噪音
-                  setLoading(false); // 确保加载状态被清除
-                  return;
-                }
-                
-                // ✅ 检测网络请求被取消的情况
-                const isCancelledRequest = 
-                  errorMessage.includes('aborted') || 
-                  errorMessage.includes('cancelled') ||
-                  errorMessage.includes('Failed to fetch');
-                
-                if (isCancelledRequest) {
-                  // 网络请求被明确取消，静默忽略
-                  setLoading(false); // 确保加载状态被清除
-                  return;
-                }
-                
+                console.error('获取用户配置文件失败:', error);
                 // ✅ 如果是401错误或JWT错误，可能是token过期，等待自动刷新
                 if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
                   console.log('⚠️ Token可能已过期，等待Supabase自动刷新...');
                   // 不立即清除状态，等待Supabase的autoRefreshToken机制自动刷新
-                  setLoading(false); // 确保加载状态被清除
                   return; // ✅ 不设置 profile 为 null
                 }
-                
-                // ✅ 其他错误：记录错误详情，但不清空 profile（如果已有缓存）
-                // 如果是首次登录且获取 profile 失败，需要重试
-                console.error('获取用户配置文件失败:', error);
-                console.error('错误详情:', {
-                  code: error.code,
-                  message: error.message,
-                  details: error.details,
-                  hint: error.hint
-                });
-                
-                // 如果已有缓存的 profile，保持当前状态
-                if (profileCache && profileCache.id === currentUser.id) {
-                  console.warn('⚠️ 获取用户配置文件失败，但使用缓存的 profile');
-                  setProfile(profileCache);
-                  setLoading(false);
-                  return;
-                }
-                
-                // 如果是首次登录且获取 profile 失败，尝试重试一次
-                console.warn('⚠️ 首次获取用户配置文件失败，尝试重试...');
-                setTimeout(async () => {
-                  try {
-                    const { data: retryData, error: retryError } = await supabase
-                      .from('profiles')
-                      .select('*')
-                      .eq('id', currentUser.id)
-                      .maybeSingle();
-                    
-                    if (retryError) {
-                      console.error('重试获取用户配置文件仍然失败:', retryError);
-                      setLoading(false);
-                      return;
-                    }
-                    
-                    if (retryData) {
-                      const anyProfile = retryData as Record<string, unknown>;
-                      // 处理 profile 数据（与下面的逻辑相同）
-                      let partnerId: string | undefined;
-                      if (anyProfile.role === 'partner') {
-                        try {
-                          const { data: partnerData } = await supabase
-                            .from('partners')
-                            .select('id')
-                            .eq('partner_type', '货主')
-                            .limit(1)
-                            .single();
-                          partnerId = partnerData?.id;
-                        } catch (err) {
-                          console.warn('查询货主ID失败:', err);
-                        }
-                      }
-                      
-                      const userProfile: UserProfile = {
-                        id: anyProfile.id as string,
-                        email: anyProfile.email as string,
-                        username: anyProfile.username as string,
-                        full_name: anyProfile.full_name as string,
-                        role: anyProfile.role as UserRole,
-                        is_active: anyProfile.is_active as boolean,
-                        work_wechat_userid: anyProfile.work_wechat_userid as string | undefined,
-                        work_wechat_department: anyProfile.work_wechat_department as number[] | undefined,
-                        avatar_url: anyProfile.avatar_url as string | undefined,
-                        created_at: anyProfile.created_at as string | undefined,
-                        partnerId
-                      };
-                      
-                      profileCache = userProfile;
-                      setProfile(userProfile);
-                      setLoading(false);
-                    } else {
-                      setLoading(false);
-                    }
-                  } catch (retryErr) {
-                    console.error('重试获取用户配置文件时发生异常:', retryErr);
-                    setLoading(false);
-                  }
-                }, 1000); // 1秒后重试
-                
+                // ✅ 其他错误也不清空 profile，保持当前状态
+                console.warn('⚠️ 获取用户配置文件失败，但保持当前登录状态');
                 return;
               } else if (profileData) {
                 const anyProfile = profileData as Record<string, unknown>;
@@ -318,55 +207,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!usernameOrEmail.includes('@')) {
         const { data, error } = await supabase.functions.invoke('username-login', {
-          body: { username: usernameOrEmail.trim(), password }
+          body: { username: usernameOrEmail, password }
         });
-        
-        if (error) {
-          console.error('username-login 函数调用失败:', error);
-          console.error('错误详情:', {
-            message: error.message,
-            context: error.context,
-            status: error.status
-          });
-          
-          // 尝试解析错误响应
-          let errorMessage = '用户名或密码错误';
-          if (error.context?.body) {
-            try {
-              const errorBody = typeof error.context.body === 'string' 
-                ? JSON.parse(error.context.body) 
-                : error.context.body;
-              if (errorBody?.error) {
-                errorMessage = errorBody.error === 'Invalid credentials' 
-                  ? '用户名或密码错误' 
-                  : errorBody.error;
-              }
-            } catch (e) {
-              console.error('解析错误响应失败:', e);
-            }
-          }
-          
-          // 如果是 400 错误，可能是参数问题
-          if (error.status === 400) {
-            if (error.message?.includes('Missing username or password')) {
-              errorMessage = '请输入用户名和密码';
-            } else if (error.message?.includes('Invalid credentials')) {
-              errorMessage = '用户名或密码错误';
-            } else {
-              errorMessage = '登录请求格式错误，请重试';
-            }
-          }
-          
-          loginError = errorMessage;
-        } else if (!data?.access_token || !data?.refresh_token) {
-          console.error('username-login 返回数据不完整:', data);
-          loginError = '登录失败，请重试';
+        if (error || !data?.access_token || !data?.refresh_token) {
+          loginError = '用户名或密码错误';
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { access_token, refresh_token } = data as { access_token: string; refresh_token: string };
           const { error: setErr } = await supabase.auth.setSession({ access_token, refresh_token });
           if (setErr) {
-            console.error('设置 session 失败:', setErr);
             loginError = '登录失败，请重试';
           }
         }
