@@ -24,9 +24,12 @@ export default defineConfig(({ mode }) => ({
       'react-router-dom',
       '@supabase/supabase-js',
       '@tanstack/react-query',
+      'recharts', // ✅ 明确包含 recharts，确保正确预构建
     ],
-    // 排除大型库，让它们按需加载（但 recharts 会被打包到 react-vendor）
+    // 排除大型库，让它们按需加载
     exclude: ['xlsx'],
+    // ✅ 强制重新构建依赖，确保 recharts 正确初始化
+    force: true,
   },
   resolve: {
     alias: {
@@ -77,7 +80,7 @@ export default defineConfig(({ mode }) => ({
           return 'assets/[name]-[hash:8].[ext]';
         },
         // 手动代码分割：将大型库单独打包
-        // ✅ 关键修复：将 recharts 打包到 react-vendor，避免初始化顺序错误
+        // ✅ 关键修复：使用更细粒度的分割策略，确保 recharts 正确初始化
         manualChunks: (id) => {
           if (!id.includes('node_modules')) {
             return; // 非 node_modules 的代码不处理
@@ -92,9 +95,17 @@ export default defineConfig(({ mode }) => ({
           }
           if (id.includes('zod')) return 'zod-vendor';
           
-          // ✅ 所有其他库（包括 React、@radix-ui、recharts、@tanstack/react-query 等）都打包到 react-vendor
-          // 这样可以确保它们都使用同一个 React 实例，避免 forwardRef、useLayoutEffect 和 recharts 初始化错误
-          return 'react-vendor';
+          // ✅ recharts 单独打包，避免初始化顺序问题
+          if (id.includes('recharts')) return 'recharts-vendor';
+          
+          // ✅ React 核心库和直接依赖 React 的库打包到 react-vendor
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || 
+              id.includes('@radix-ui') || id.includes('@tanstack/react-query')) {
+            return 'react-vendor';
+          }
+          
+          // ✅ 其他库打包到 vendor-libs
+          return 'vendor-libs';
         },
       },
     },
