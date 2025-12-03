@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { convertPointsWgs84ToBd09 } from '@/utils/coordinateConverter';
+import { wgs84ToBd09 } from '@/utils/coordinateConverter';
 
 interface TrackingPoint {
   lat: number;
@@ -61,16 +61,25 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('VehicleTrackingMap useEffect 触发，trackingData:', trackingData);
+    console.log('🔵 VehicleTrackingMap useEffect 触发');
+    console.log('trackingData:', trackingData);
     console.log('mapContainerRef.current:', mapContainerRef.current);
+    console.log('mapLoading:', mapLoading);
+    console.log('mapError:', mapError);
+    
+    // 重置状态
+    setMapLoading(true);
+    setMapError(null);
     
     if (!trackingData) {
-      console.log('trackingData 为空，等待数据...');
+      console.log('⚠️ trackingData 为空，等待数据...');
+      setMapLoading(false);
       return;
     }
     
     if (!mapContainerRef.current) {
-      console.log('地图容器未准备好，等待DOM元素...');
+      console.log('⚠️ 地图容器未准备好，等待DOM元素...');
+      setMapLoading(false);
       return;
     }
 
@@ -120,9 +129,14 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
             lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
           }
           
+          // 🔴 修复：支持 lng、longitude 和 lon 三种字段名
           if (point.lng !== undefined) {
             const lngValue = typeof point.lng === 'string' ? parseFloat(point.lng) : (point.lng as number);
             // 如果坐标值很大（> 180 或 > 1000），说明可能是未转换的格式
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+          } else if (point.lon !== undefined) {
+            // ✅ 新增：支持 lon 字段（GPS硬件常用格式）
+            const lngValue = typeof point.lon === 'string' ? parseFloat(point.lon) : (point.lon as number);
             lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
           } else if (point.longitude !== undefined) {
             const lngValue = typeof point.longitude === 'string' ? parseFloat(point.longitude) : (point.longitude as number);
@@ -267,16 +281,24 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
     console.log('解析后的轨迹点数量:', points.length);
     if (points.length > 0) {
-      console.log('第一个轨迹点（Edge Function处理后）:', points[0]);
+      console.log('第一个轨迹点（解析后，WGS-84坐标）:', points[0]);
       
       // 🔴 坐标系统转换：将 WGS-84 坐标系转换为 BD-09 坐标系（百度地图坐标系）
-      // 注意：Edge Function 已经进行了坐标转换（WGS-84 -> BD-09）
-      // 如果 Edge Function 没有转换或需要前端再次转换，可以取消下面的注释
-      // console.log('开始坐标转换：WGS-84 -> BD-09');
-      // points = convertPointsWgs84ToBd09(points);
-      // console.log('坐标转换完成');
+      // 注意：虽然 Edge Function 可能已经进行了坐标转换，但为了确保兼容性，
+      // 前端也需要进行转换（如果 Edge Function 没有转换或转换失败）
+      console.log('🔄 开始坐标转换：WGS-84 -> BD-09');
+      // 手动转换每个点的坐标，保持其他属性不变
+      points = points.map(point => {
+        const converted = wgs84ToBd09(point.lat, point.lng);
+        return {
+          ...point,
+          lat: converted.lat,
+          lng: converted.lng
+        };
+      });
+      console.log('✅ 坐标转换完成');
       
-      console.log('第一个轨迹点（最终坐标，应该是 BD-09）:', points[0]);
+      console.log('第一个轨迹点（转换后，BD-09坐标）:', points[0]);
       console.log('最后一个轨迹点:', points[points.length - 1]);
       console.log('轨迹点坐标范围（BD-09）:', {
         minLat: Math.min(...points.map(p => p.lat)),
@@ -300,12 +322,20 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
     // 加载百度地图API
     const loadMap = async () => {
+      console.log('🟢 开始加载地图，轨迹点数量:', points.length);
+      console.log('🟢 当前 mapLoading 状态:', mapLoading);
+      
+      // 确保加载状态为 true
+      setMapLoading(true);
+      
       // 如果百度地图API已经加载，直接初始化地图
       if (window.BMap) {
-        console.log('百度地图API已加载，直接初始化地图');
+        console.log('✅ 百度地图API已加载，直接初始化地图');
         initMap(points);
         return;
       }
+      
+      console.log('⏳ 百度地图API未加载，开始加载API...');
 
       // 设置超时机制，防止无限加载
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -378,8 +408,9 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         const callbackName = `initBaiduMap_${Date.now()}`;
         
         // 设置全局回调函数
+        console.log('📝 设置百度地图API回调函数:', callbackName);
         (window as unknown as Record<string, () => void>)[callbackName] = () => {
-          console.log('百度地图API回调函数被调用');
+          console.log('✅ 百度地图API回调函数被调用！');
           clearTimeoutIfNeeded(); // 清除超时定时器
           
           // 清理回调函数
@@ -387,11 +418,12 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           
           // 延迟一下确保 BMap 完全初始化
           setTimeout(() => {
+            console.log('🔍 检查 window.BMap:', typeof window.BMap, window.BMap);
             if (window.BMap) {
-              console.log('百度地图API加载成功，BMap已定义');
+              console.log('✅ 百度地图API加载成功，BMap已定义，开始初始化地图');
               initMap(points);
             } else {
-              console.error('百度地图API加载失败：BMap未定义');
+              console.error('❌ 百度地图API加载失败：BMap未定义');
               setMapError('地图API加载失败：BMap未定义。请检查API Key配置和网络连接');
               setMapLoading(false);
             }
@@ -399,11 +431,17 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         };
         
         const script = document.createElement('script');
-        script.src = `https://api.map.baidu.com/api?v=3.0&ak=${baiduMapKey}&callback=${callbackName}`;
+        const apiUrl = `https://api.map.baidu.com/api?v=3.0&ak=${baiduMapKey}&callback=${callbackName}`;
+        console.log('📥 加载百度地图API脚本:', apiUrl);
+        script.src = apiUrl;
         script.async = true;
         
-        script.onerror = () => {
-          console.error('百度地图API脚本加载失败');
+        script.onload = () => {
+          console.log('✅ 百度地图API脚本加载完成（onload事件）');
+        };
+        
+        script.onerror = (error) => {
+          console.error('❌ 百度地图API脚本加载失败（onerror事件）:', error);
           clearTimeoutIfNeeded();
           setMapError('地图API加载失败，请检查网络连接和API Key配置');
           setMapLoading(false);
@@ -411,7 +449,9 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           delete (window as unknown as Record<string, () => void>)[callbackName];
         };
         
+        console.log('📤 将脚本添加到 document.head');
         document.head.appendChild(script);
+        console.log('✅ 脚本已添加到 document.head');
       } catch (error) {
         console.error('加载地图API失败:', error);
         clearTimeoutIfNeeded();
@@ -519,11 +559,14 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           map.centerAndZoom(viewport.center, viewport.zoom);
         }
 
-        console.log('百度地图初始化成功');
+        console.log('✅ 百度地图初始化成功！');
+        console.log('✅ 设置 mapLoading = false');
         setMapLoading(false);
+        console.log('✅ mapLoading 已设置为 false');
       } catch (error) {
-        console.error('地图初始化失败:', error);
+        console.error('❌ 地图初始化失败:', error);
         setMapError(`地图初始化失败: ${error instanceof Error ? error.message : String(error)}`);
+        console.log('❌ 设置 mapLoading = false (错误情况)');
         setMapLoading(false);
       }
     }
@@ -535,6 +578,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         mapInstanceRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingData, licensePlate]);
 
   if (loading || mapLoading) {
