@@ -55,6 +55,14 @@ declare global {
 }
 
 export function VehicleTrackingMap({ trackingData, licensePlate, loading }: VehicleTrackingMapProps) {
+  // 🔴 组件渲染时立即打印日志
+  console.log('🚀 VehicleTrackingMap 组件渲染');
+  console.log('🚀 Props:', { trackingData, licensePlate, loading });
+  console.log('🚀 trackingData 类型:', typeof trackingData);
+  console.log('🚀 trackingData 是否为数组:', Array.isArray(trackingData));
+  console.log('🚀 trackingData 是否为 null:', trackingData === null);
+  console.log('🚀 trackingData 是否为 undefined:', trackingData === undefined);
+  
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<unknown>(null);
   const [mapLoading, setMapLoading] = useState(true);
@@ -121,26 +129,26 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           // 🔴 提取坐标值：支持字符串和数字格式
           if (point.lat !== undefined) {
             const latValue = typeof point.lat === 'string' ? parseFloat(point.lat) : (point.lat as number);
-            // 如果坐标值很大（> 90 或 > 1000），说明可能是未转换的格式，需要除以1000000
-            // 例如：20876161 / 1000000 = 20.876161（合理的纬度值）
-            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+            // 如果坐标值很大（> 90），说明可能是未转换的格式，需要除以600000
+            // 例如：12525696 / 600000 = 20.87616（合理的纬度值）
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000 ? latValue / 600000 : latValue) : latValue;
           } else if (point.latitude !== undefined) {
             const latValue = typeof point.latitude === 'string' ? parseFloat(point.latitude) : (point.latitude as number);
-            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000 ? latValue / 600000 : latValue) : latValue;
           }
           
           // 🔴 修复：支持 lng、longitude 和 lon 三种字段名
           if (point.lng !== undefined) {
             const lngValue = typeof point.lng === 'string' ? parseFloat(point.lng) : (point.lng as number);
-            // 如果坐标值很大（> 180 或 > 1000），说明可能是未转换的格式
-            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+            // 如果坐标值很大（> 180），说明可能是未转换的格式，需要除以600000
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000 ? lngValue / 600000 : lngValue) : lngValue;
           } else if (point.lon !== undefined) {
             // ✅ 新增：支持 lon 字段（GPS硬件常用格式）
             const lngValue = typeof point.lon === 'string' ? parseFloat(point.lon) : (point.lon as number);
-            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000 ? lngValue / 600000 : lngValue) : lngValue;
           } else if (point.longitude !== undefined) {
             const lngValue = typeof point.longitude === 'string' ? parseFloat(point.longitude) : (point.longitude as number);
-            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000 ? lngValue / 600000 : lngValue) : lngValue;
           }
           
           // 记录前几个点的坐标转换情况（用于调试）
@@ -214,21 +222,21 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           if (point.lat !== undefined) {
             const latValue = typeof point.lat === 'string' ? parseFloat(point.lat) : (point.lat as number);
             // 如果坐标值很大（> 90），说明可能是未转换的格式
-            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000 ? latValue / 600000 : latValue) : latValue;
           } else if (point.latitude !== undefined) {
             const latValue = typeof point.latitude === 'string' ? parseFloat(point.latitude) : (point.latitude as number);
-            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000 ? latValue / 600000 : latValue) : latValue;
           }
           
           if (point.lng !== undefined) {
             const lngValue = typeof point.lng === 'string' ? parseFloat(point.lng) : (point.lng as number);
-            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000 ? lngValue / 600000 : lngValue) : lngValue;
           } else if (point.lon !== undefined) {
             const lngValue = typeof point.lon === 'string' ? parseFloat(point.lon) : (point.lon as number);
-            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000 ? lngValue / 600000 : lngValue) : lngValue;
           } else if (point.longitude !== undefined) {
             const lngValue = typeof point.longitude === 'string' ? parseFloat(point.longitude) : (point.longitude as number);
-            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000 ? lngValue / 600000 : lngValue) : lngValue;
           }
           
           const time = (point.time as number) ?? Date.now();
@@ -431,10 +439,14 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         };
         
         const script = document.createElement('script');
+        // 🔴 使用 HTTPS 协议，确保在 HTTPS 网站中正常加载
+        // 使用 v=3.0 版本，支持更多功能
         const apiUrl = `https://api.map.baidu.com/api?v=3.0&ak=${baiduMapKey}&callback=${callbackName}`;
         console.log('📥 加载百度地图API脚本:', apiUrl);
+        console.log('📥 API Key:', baiduMapKey ? `${baiduMapKey.substring(0, 8)}...` : '未设置');
         script.src = apiUrl;
         script.async = true;
+        script.defer = true; // 延迟加载，确保DOM完全加载后再执行
         
         script.onload = () => {
           console.log('✅ 百度地图API脚本加载完成（onload事件）');
@@ -499,7 +511,73 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         // 初始化百度地图
         const map = new window.BMap.Map(mapContainerRef.current);
         const centerPoint = new window.BMap.Point(centerLng, centerLat);
+        
+        // 设置地图中心点和缩放级别
         map.centerAndZoom(centerPoint, 13);
+        
+        // 🔴 启用地图控件（必需，否则地图可能不显示）
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.enableScrollWheelZoom(true); // 启用滚轮缩放
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.enableDragging(true); // 启用拖拽
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.enableDoubleClickZoom(true); // 启用双击缩放
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.enableKeyboard(true); // 启用键盘操作
+        
+        // 🔴 添加地图控件（缩放、平移等）
+        // @ts-expect-error - 百度地图API在运行时可用
+        const navControl = new window.BMap.NavigationControl({
+          // @ts-expect-error - 百度地图API常量在运行时可用
+          anchor: window.BMap_ANCHOR_TOP_LEFT,
+          // @ts-expect-error - 百度地图API常量在运行时可用
+          type: window.BMap_NAVIGATION_CONTROL_LARGE
+        });
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.addControl(navControl);
+        
+        // 🔴 添加比例尺控件
+        // @ts-expect-error - 百度地图API在运行时可用
+        const scaleControl = new window.BMap.ScaleControl({
+          // @ts-expect-error - 百度地图API常量在运行时可用
+          anchor: window.BMap_ANCHOR_BOTTOM_LEFT
+        });
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.addControl(scaleControl);
+        
+        // 🔴 添加地图类型控件（可选，允许切换地图类型）
+        // @ts-expect-error - 百度地图API在运行时可用
+        const mapTypeControl = new window.BMap.MapTypeControl({
+          // @ts-expect-error - 百度地图API常量在运行时可用
+          anchor: window.BMap_ANCHOR_TOP_RIGHT,
+          // @ts-expect-error - 百度地图API常量在运行时可用
+          mapTypes: [window.BMAP_NORMAL_MAP, window.BMAP_SATELLITE_MAP, window.BMAP_HYBRID_MAP]
+        });
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.addControl(mapTypeControl);
+        
+        // 🔴 设置默认地图类型为普通地图（确保底图显示）
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.setMapType(window.BMAP_NORMAL_MAP);
+        
+        // 🔴 确保地图容器有正确的尺寸（如果容器尺寸为0，地图可能不显示）
+        const container = mapContainerRef.current;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          console.log('🗺️ 地图容器尺寸:', { width: rect.width, height: rect.height });
+          if (rect.width === 0 || rect.height === 0) {
+            console.warn('⚠️ 地图容器尺寸为0，可能导致地图不显示');
+          }
+        }
+        
+        // 🔴 延迟一下，确保地图完全加载
+        setTimeout(() => {
+          // @ts-expect-error - 百度地图API方法在运行时可用
+          map.setViewport(path.length > 0 ? path : [centerPoint]);
+          console.log('✅ 百度地图视图已调整');
+        }, 100);
+        
+        console.log('✅ 百度地图初始化完成，已添加所有控件');
 
         mapInstanceRef.current = map;
 
@@ -581,7 +659,15 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingData, licensePlate]);
 
+  // 🔴 渲染前打印状态
+  console.log('🎨 VehicleTrackingMap 准备渲染');
+  console.log('🎨 loading:', loading);
+  console.log('🎨 mapLoading:', mapLoading);
+  console.log('🎨 mapError:', mapError);
+  console.log('🎨 mapContainerRef.current:', mapContainerRef.current);
+
   if (loading || mapLoading) {
+    console.log('⏳ 显示加载状态');
     return (
       <Card>
         <CardContent className="p-0">
@@ -597,6 +683,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   }
 
   if (mapError) {
+    console.log('❌ 显示错误状态:', mapError);
     return (
       <Card>
         <CardContent className="p-0">
@@ -611,6 +698,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
     );
   }
 
+  console.log('✅ 显示地图容器');
   return (
     <Card>
       <CardContent className="p-0">

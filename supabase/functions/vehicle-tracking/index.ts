@@ -397,24 +397,24 @@ serve(async (req) => {
       // 类型断言
       const tracePoint = point as TracePoint;
       // 转换坐标：lat/lon 可能是字符串格式，需要转换为数字
-      // 注意：如果 lat/lon 是字符串格式（如 "22153458"），可能需要除以某个倍数（如 1000000）得到实际坐标
+      // 注意：如果 lat/lon 是字符串格式（如 "12525696"），需要除以600000得到实际坐标
       let latitude: number = 0;
       let longitude: number = 0;
       
       // 🔴 提取并转换坐标：支持字符串和数字格式，自动识别大数字并转换
       if (tracePoint.lat !== undefined) {
         const latNum = typeof tracePoint.lat === 'string' ? parseFloat(tracePoint.lat) : Number(tracePoint.lat);
-        // 如果 lat 是很大的数字（> 1000），可能是以某种单位存储的，需要除以1000000
-        // 根据实际数据判断：20876161 / 1000000 = 20.876161（合理的纬度值）
+        // 如果 lat 是很大的数字（> 1000），可能是以某种单位存储的，需要除以600000
+        // 根据实际数据判断：12525696 / 600000 = 20.87616（合理的纬度值）
         if (!isNaN(latNum) && latNum !== 0 && Math.abs(latNum) > 1000) {
-          latitude = latNum / 1000000;
+          latitude = latNum / 600000;
         } else if (!isNaN(latNum) && latNum !== 0) {
           latitude = latNum;
         }
       } else if (tracePoint.latitude !== undefined) {
         const latNum = typeof tracePoint.latitude === 'string' ? parseFloat(tracePoint.latitude) : Number(tracePoint.latitude);
         if (!isNaN(latNum) && latNum !== 0 && Math.abs(latNum) > 1000) {
-          latitude = latNum / 1000000;
+          latitude = latNum / 600000;
         } else if (!isNaN(latNum) && latNum !== 0) {
           latitude = latNum;
         }
@@ -422,23 +422,23 @@ serve(async (req) => {
       
       if (tracePoint.lon !== undefined) {
         const lonNum = typeof tracePoint.lon === 'string' ? parseFloat(tracePoint.lon) : Number(tracePoint.lon);
-        // 如果 lon 是很大的数字（> 1000），需要除以1000000
+        // 如果 lon 是很大的数字（> 1000），需要除以600000
         if (!isNaN(lonNum) && lonNum !== 0 && Math.abs(lonNum) > 1000) {
-          longitude = lonNum / 1000000;
+          longitude = lonNum / 600000;
         } else if (!isNaN(lonNum) && lonNum !== 0) {
           longitude = lonNum;
         }
       } else if (tracePoint.longitude !== undefined) {
         const lonNum = typeof tracePoint.longitude === 'string' ? parseFloat(tracePoint.longitude) : Number(tracePoint.longitude);
         if (!isNaN(lonNum) && lonNum !== 0 && Math.abs(lonNum) > 1000) {
-          longitude = lonNum / 1000000;
+          longitude = lonNum / 600000;
         } else if (!isNaN(lonNum) && lonNum !== 0) {
           longitude = lonNum;
         }
       } else if (tracePoint.lng !== undefined) {
         const lonNum = typeof tracePoint.lng === 'string' ? parseFloat(String(tracePoint.lng)) : Number(tracePoint.lng);
         if (!isNaN(lonNum) && lonNum !== 0 && Math.abs(lonNum) > 1000) {
-          longitude = lonNum / 1000000;
+          longitude = lonNum / 600000;
         } else if (!isNaN(lonNum) && lonNum !== 0) {
           longitude = lonNum;
         }

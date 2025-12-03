@@ -507,6 +507,14 @@ export default function VehicleTracking() {
           ) : trackingData ? (
             <div className="space-y-4">
               {/* 地图显示 */}
+              {(() => {
+                console.log('📊 VehicleTracking 准备渲染 VehicleTrackingMap');
+                console.log('📊 trackingData:', trackingData);
+                console.log('📊 trackingData 类型:', typeof trackingData);
+                console.log('📊 trackingData 是否为数组:', Array.isArray(trackingData));
+                console.log('📊 loading:', loading);
+                return null;
+              })()}
               <VehicleTrackingMap 
                 trackingData={trackingData} 
                 licensePlate={useVehicleId ? undefined : licensePlate}
