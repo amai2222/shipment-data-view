@@ -3,7 +3,9 @@
 
 import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -15,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { MobileBottomNav, MobileBottomNavLayout } from './MobileBottomNav';
 import { 
   Home, 
@@ -80,6 +83,25 @@ export function DriverMobileLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+
+  // 获取未读通知数量
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['driver-unread-notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { data, error } = await supabase.rpc('get_unread_notification_count', {
+        p_user_id: user.id
+      });
+      if (error) {
+        console.warn('获取未读通知数量失败:', error);
+        return 0;
+      }
+      return data || 0;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30 * 1000, // 每30秒刷新一次
+    staleTime: 10 * 1000, // 10秒内使用缓存
+  });
 
   const getUserInitials = (name?: string) => {
     if (!name) return 'U';
@@ -216,11 +238,19 @@ export function DriverMobileLayout({
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate('/m/notifications')}
-                className="h-8 w-8"
+                onClick={() => navigate('/m/internal/notifications')}
+                className="h-8 w-8 relative"
                 aria-label="通知"
               >
                 <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                )}
               </Button>
             </div>
           </div>

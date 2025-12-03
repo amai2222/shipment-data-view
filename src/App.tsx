@@ -787,8 +787,16 @@ const App = () => (
               </ProtectedRoute>
             } />
 
+            {/* 通知中心 - 所有角色都可以访问 */}
             <Route path="/m/notifications" element={
-              <ProtectedRoute requiredPermission="dashboard.transport">
+              <ProtectedRoute>
+                <MobileNotifications />
+              </ProtectedRoute>
+            } />
+            
+            {/* 司机专用通知路由（兼容性） */}
+            <Route path="/m/internal/notifications" element={
+              <ProtectedRoute>
                 <MobileNotifications />
               </ProtectedRoute>
             } />
