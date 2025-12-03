@@ -189,32 +189,48 @@ export function AppSidebar() {
 
   // 优化：使用useMemo缓存过滤后的菜单项，避免每次渲染都重新计算
   const filteredMenuItems = useMemo(() => {
+    // 调试：检查车辆轨迹查询菜单的权限
+    const vehicleTrackingUrl = '/contracts/vehicle-tracking';
+    const vehicleTrackingKey = getMenuKey(vehicleTrackingUrl);
+    const hasVehicleTrackingAccess = vehicleTrackingKey ? hasMenuAccess(vehicleTrackingKey) : false;
+    
+    console.log('[AppSidebar] 车辆轨迹查询菜单检查:', {
+      url: vehicleTrackingUrl,
+      menuKey: vehicleTrackingKey,
+      hasAccess: hasVehicleTrackingAccess
+    });
+    
     return menuItems.map(group => ({
       ...group,
       items: group.items.filter(item => {
-        // 管理员拥有所有菜单权限（优先检查）
-        if (isAdmin) {
-          return true;
-        }
-        
         const menuKey = getMenuKey(item.url);
+        
         // 对于审核管理菜单，检查主权限
         if (group.title === "审核管理") {
           return hasMenuAccess('audit');
         }
-        // 如果有权限键，检查权限
+        // 如果有权限键，检查权限（统一使用数据库权限检查，移除硬编码 admin 判断）
         if (menuKey) {
-          return hasMenuAccess(menuKey);
+          const hasAccess = hasMenuAccess(menuKey);
+          // 调试：特别记录车辆轨迹查询菜单
+          if (item.url === vehicleTrackingUrl) {
+            console.log('[AppSidebar] 车辆轨迹查询菜单过滤:', {
+              title: item.title,
+              url: item.url,
+              menuKey,
+              hasAccess
+            });
+          }
+          return hasAccess;
         }
-        // 如果没有配置权限键，默认不可见（除非是管理员）
+        // 如果没有配置权限键，默认不可见
         return false;
       })
     })).filter(group => {
       // 如果组内没有可访问的菜单项，隐藏整个组
-      // 已移除硬编码的 isAdmin 判断，统一使用权限过滤
       return group.items.length > 0;
     });
-  }, [hasMenuAccess, getMenuKey, isAdmin]);
+  }, [hasMenuAccess, getMenuKey]);
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     // 初始化时展开包含当前路由的分组

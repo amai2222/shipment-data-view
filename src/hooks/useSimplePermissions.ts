@@ -40,22 +40,19 @@ export function useSimplePermissions() {
           .single();
 
         if (error) {
-          // Admin角色使用默认全权限
-          if (userRole === 'admin') {
-            safeLogger.info('Admin角色使用默认全权限');
-            setDbPermissions({
-              menu_permissions: ['projects', 'business-entry', 'drivers', 'partners', 'locations', 'reports', 'finance-management', 'user-management', 'role-management', 'system-settings', 'contracts.vehicle_tracking', 'all'],
-              function_permissions: ['create', 'edit', 'delete', 'view', 'export', 'import', 'approve', 'reject', 'assign', 'unassign', 'all'],
-              project_permissions: ['all', 'create', 'edit', 'delete', 'view', 'assign', 'approve'],
-              data_permissions: ['all', 'own', 'team', 'department', 'company']
-            });
-            return;
-          }
-          
-          safeLogger.warn('从数据库加载权限失败，使用默认权限:', error);
+          // 移除硬编码的 admin 默认权限，统一从数据库加载
+          safeLogger.warn('从数据库加载权限失败:', error);
           setDbPermissions(null);
         } else {
           safeLogger.debug('从数据库加载权限成功:', data);
+          // 调试：特别记录权限加载结果
+          console.log('[useSimplePermissions] 从数据库加载权限成功:', {
+            role: userRole,
+            menuPermissions: data?.menu_permissions,
+            menuPermissionsCount: data?.menu_permissions?.length || 0,
+            hasVehicleTracking: data?.menu_permissions?.includes('contracts.vehicle_tracking'),
+            hasAll: data?.menu_permissions?.includes('all')
+          });
           setDbPermissions(data);
         }
       } catch (error) {
@@ -96,24 +93,39 @@ export function useSimplePermissions() {
     }
   }, [userRole, dbPermissions]);
 
-  // 检查菜单权限
+  // 检查菜单权限 - 使用数据库加载的权限数据（移除硬编码）
   const hasMenuAccess = useMemo(() => {
     return (menuKey: string): boolean => {
       try {
         if (!menuKey) return false;
         
-        // 管理员拥有所有权限（优先检查，不依赖权限加载状态）
-        if (userRole === 'admin') {
-          safeLogger.debug('管理员权限检查通过:', menuKey);
-          return true;
-        }
-        
+        // 如果权限数据未加载，返回 false（不再硬编码 admin）
         if (!rolePermissions || !rolePermissions.menu_permissions) {
-          safeLogger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey, '角色:', userRole);
+          console.warn('[useSimplePermissions] 菜单权限检查失败 - 角色权限未加载:', {
+            menuKey,
+            userRole,
+            rolePermissions: rolePermissions ? '已加载' : '未加载',
+            loading
+          });
           return false;
         }
+        
+        // 检查权限数组中是否包含该权限键或 'all'
         const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
                          rolePermissions.menu_permissions.includes('all');
+        
+        // 调试：特别记录车辆轨迹查询权限检查
+        if (menuKey === 'contracts.vehicle_tracking') {
+          console.log('[useSimplePermissions] 车辆轨迹查询权限检查:', {
+            menuKey,
+            userRole,
+            hasAccess,
+            menuPermissions: rolePermissions.menu_permissions,
+            includesTracking: rolePermissions.menu_permissions.includes(menuKey),
+            includesAll: rolePermissions.menu_permissions.includes('all')
+          });
+        }
+        
         safeLogger.permission('menu', menuKey, hasAccess);
         return hasAccess;
       } catch (error) {
@@ -121,19 +133,18 @@ export function useSimplePermissions() {
         return false;
       }
     };
-  }, [userRole, rolePermissions]);
+  }, [userRole, rolePermissions, loading]);
 
-  // 检查功能权限
+  // 检查功能权限 - 使用数据库加载的权限数据（移除硬编码）
   const hasFunctionAccess = (functionKey: string): boolean => {
     try {
       if (!functionKey) return false;
       
-      // 管理员拥有所有权限
-      if (userRole === 'admin') return true;
-      
+      // 如果权限数据未加载，返回 false（不再硬编码 admin）
       if (!rolePermissions || !rolePermissions.function_permissions) {
         return false;
       }
+      
       return rolePermissions.function_permissions.includes(functionKey) || 
              rolePermissions.function_permissions.includes('all');
     } catch (error) {
@@ -142,14 +153,12 @@ export function useSimplePermissions() {
     }
   };
 
-  // 检查项目权限
+  // 检查项目权限 - 使用数据库加载的权限数据（移除硬编码）
   const hasProjectAccess = (projectKey: string): boolean => {
     try {
       if (!projectKey) return false;
       
-      // 管理员拥有所有权限
-      if (userRole === 'admin') return true;
-      
+      // 如果权限数据未加载，返回 false（不再硬编码 admin）
       if (!rolePermissions || !rolePermissions.project_permissions) {
         return false;
       }
@@ -161,14 +170,12 @@ export function useSimplePermissions() {
     }
   };
 
-  // 检查数据权限
+  // 检查数据权限 - 使用数据库加载的权限数据（移除硬编码）
   const hasDataAccess = (dataKey: string): boolean => {
     try {
       if (!dataKey) return false;
       
-      // 管理员拥有所有权限
-      if (userRole === 'admin') return true;
-      
+      // 如果权限数据未加载，返回 false（不再硬编码 admin）
       if (!rolePermissions || !rolePermissions.data_permissions) {
         return false;
       }
