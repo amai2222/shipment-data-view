@@ -94,9 +94,9 @@ interface InvoiceRequestRaw {
   total_count?: number; // 用于分页
 }
 
-interface LogisticsRecordDetail { 
-  id: string; 
-  auto_number: string; 
+interface LogisticsRecordDetail {
+  id: string;
+  auto_number: string;
   driver_name: string; 
   license_plate: string; 
   loading_location: string; 
@@ -104,7 +104,9 @@ interface LogisticsRecordDetail {
   loading_date: string; 
   loading_weight: number | null; 
   payable_cost: number | null;  // ✅ 新增：司机应收
-  invoiceable_amount: number | null; 
+  invoiceable_amount: number | null;
+  external_tracking_numbers?: string[] | null;
+  other_platform_names?: string[] | null;
 }
 
 // 运单记录查询结果类型
@@ -1434,7 +1436,7 @@ export default function InvoiceAudit() {
       // 分别查询运单信息（logistics_records表中没有invoiceable_amount字段）
       const { data: logisticsData, error: logisticsError } = await supabase
         .from('logistics_records')
-        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight, payable_cost')
+        .select('id, auto_number, driver_name, license_plate, loading_location, unloading_location, loading_date, loading_weight, payable_cost, external_tracking_numbers, other_platform_names')
         .in('id', logisticsRecordIds);
 
       if (logisticsError) throw logisticsError;
@@ -1454,6 +1456,8 @@ export default function InvoiceAudit() {
           loading_date: string;
           loading_weight: number | null;
           payable_cost: number | null;
+          external_tracking_numbers?: string[] | null;
+          other_platform_names?: string[] | null;
         } | undefined;
         return {
           id: record?.id || detail.logistics_record_id,
@@ -1466,6 +1470,8 @@ export default function InvoiceAudit() {
           loading_weight: record?.loading_weight || null,
           payable_cost: record?.payable_cost || null,  // ✅ 新增：司机应收
           invoiceable_amount: detail.invoiceable_amount || detail.amount || 0,
+          external_tracking_numbers: record?.external_tracking_numbers || null,
+          other_platform_names: record?.other_platform_names || null,
         };
       });
       
@@ -1653,9 +1659,23 @@ export default function InvoiceAudit() {
         p_request_ids: idsToDelete 
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("RPC调用失败:", error);
+        throw new Error(`调用作废函数失败: ${error.message || '未知错误'}`);
+      }
+
+      // 检查返回结果
+      if (!data) {
+        throw new Error('函数返回数据为空');
+      }
 
       const result = data as VoidAndDeleteInvoiceRequestsResult;
+      
+      // 检查函数返回的success字段
+      if (!result.success) {
+        throw new Error(result.message || '作废操作失败');
+      }
+
       let description = `已永久删除 ${result.deleted_requests || 0} 个开票申请单，${result.affected_logistics_records || 0} 条运单状态已回滚为未开票。`;
       if (skippedCompleted > 0) {
         description += `\n已跳过 ${skippedCompleted} 个已开票的申请单。`;
@@ -1669,9 +1689,12 @@ export default function InvoiceAudit() {
       fetchInvoiceRequests();
     } catch (error) {
       console.error("批量作废删除失败:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({ 
-        title: "错误", 
-        description: `操作失败: ${error instanceof Error ? error.message : '未知错误'}`, 
+        title: "作废失败", 
+        description: errorMessage.includes('权限不足') 
+          ? errorMessage 
+          : `操作失败: ${errorMessage}`, 
         variant: "destructive" 
       });
     } finally {
@@ -2259,9 +2282,9 @@ export default function InvoiceAudit() {
             </DialogDescription>
               </div>
             </div>
-            {/* ✅ 复制运单号按钮 - 居中显示 */}
+            {/* ✅ 复制按钮组 - 居中显示 */}
             {modalRecords.length > 0 && (
-              <div className="flex justify-center mt-4">
+              <div className="flex justify-center gap-3 mt-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -2284,6 +2307,64 @@ export default function InvoiceAudit() {
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   复制运单号
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // 收集所有外部运单号
+                    const allExternalTrackingNumbers: string[] = [];
+                    
+                    modalRecords.forEach(rec => {
+                      if (rec.external_tracking_numbers && rec.external_tracking_numbers.length > 0) {
+                        // 处理外部运单号数组（可能是 string[][] 或 PlatformTracking[] 格式）
+                        rec.external_tracking_numbers.forEach((trackingItem: unknown) => {
+                          if (typeof trackingItem === 'string') {
+                            // 如果是字符串，按 | 分割
+                            const numbers = trackingItem.split('|').filter(Boolean);
+                            allExternalTrackingNumbers.push(...numbers);
+                          } else if (Array.isArray(trackingItem)) {
+                            // 如果是数组，转换为字符串
+                            allExternalTrackingNumbers.push(...trackingItem.map(String).filter(Boolean));
+                          } else if (trackingItem && typeof trackingItem === 'object' && 'trackingNumbers' in trackingItem) {
+                            // 如果是 PlatformTracking 格式
+                            const platformTracking = trackingItem as { trackingNumbers: string[] };
+                            allExternalTrackingNumbers.push(...platformTracking.trackingNumbers.filter(Boolean));
+                          } else if (trackingItem) {
+                            // 其他情况，转换为字符串
+                            allExternalTrackingNumbers.push(String(trackingItem));
+                          }
+                        });
+                      }
+                    });
+                    
+                    if (allExternalTrackingNumbers.length === 0) {
+                      toast({
+                        title: "提示",
+                        description: "当前申请单中没有其他平台运单编号",
+                        variant: "default",
+                      });
+                      return;
+                    }
+                    
+                    const trackingNumbersText = allExternalTrackingNumbers.join(',');
+                    navigator.clipboard.writeText(trackingNumbersText).then(() => {
+                      toast({
+                        title: "复制成功",
+                        description: `已复制 ${allExternalTrackingNumbers.length} 个其他平台运单编号到剪贴板`,
+                      });
+                    }).catch(() => {
+                      toast({
+                        title: "复制失败",
+                        description: "无法复制到剪贴板",
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                  className="bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border-purple-200 text-purple-700 hover:text-purple-800 shadow-sm hover:shadow-md transition-all duration-200"
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  一键复制其他平台运单编号
                 </Button>
               </div>
             )}
