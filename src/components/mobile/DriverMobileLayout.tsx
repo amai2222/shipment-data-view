@@ -66,9 +66,9 @@ const driverNavItems = [
     label: '我的费用'
   },
   {
-    href: '/m/internal/driver-salary',
-    icon: DollarSign,
-    label: '我的收入'
+    href: '/m/internal/my-vehicles',
+    icon: Truck,
+    label: '我的车辆'
   }
 ];
 

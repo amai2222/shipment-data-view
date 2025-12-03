@@ -94,6 +94,9 @@ import {
   MobileMyExpensesPage,
   MobileDriverSalary,
   MobileMyVehicles,
+  MobileVehicleProfile,
+  MobileVehicleChangeApplication,
+  MobileVehicleExpenses,
   MobileSalaryRecords,
   MobileQuickEntry,
   // 车队长端
@@ -853,6 +856,24 @@ const App = () => (
             <Route path="/m/internal/my-vehicles" element={
               <ProtectedRoute requiredPermission="internal.my_vehicles">
                 <MobileMyVehicles />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/internal/vehicle-profile" element={
+              <ProtectedRoute requiredPermission="internal.my_vehicles">
+                <MobileVehicleProfile />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/internal/vehicle-change-application" element={
+              <ProtectedRoute requiredPermission="internal.my_vehicles">
+                <MobileVehicleChangeApplication />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/m/internal/vehicle-expenses" element={
+              <ProtectedRoute requiredPermission="internal.my_vehicles">
+                <MobileVehicleExpenses />
               </ProtectedRoute>
             } />
 

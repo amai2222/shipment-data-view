@@ -170,6 +170,9 @@ export const MobileMyExpenses = conditionalLazy(() => import('./pages/mobile/int
 export const MobileMyExpensesPage = conditionalLazy(() => import('./pages/mobile/internal/MobileMyExpensesPage'));
 export const MobileDriverSalary = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverSalary'));
 export const MobileMyVehicles = conditionalLazy(() => import('./pages/mobile/internal/MobileMyVehicles'));
+export const MobileVehicleProfile = conditionalLazy(() => import('./pages/mobile/internal/MobileVehicleProfile'));
+export const MobileVehicleChangeApplication = conditionalLazy(() => import('./pages/mobile/internal/MobileVehicleChangeApplication'));
+export const MobileVehicleExpenses = conditionalLazy(() => import('./pages/mobile/internal/MobileVehicleExpenses'));
 export const MobileSalaryRecords = conditionalLazy(() => import('./pages/mobile/internal/MobileSalaryRecords'));
 export const MobileQuickEntry = conditionalLazy(() => import('./pages/mobile/internal/MobileQuickEntry'));
 export const MobileDriverSettings = conditionalLazy(() => import('./pages/mobile/internal/MobileDriverSettings'));
