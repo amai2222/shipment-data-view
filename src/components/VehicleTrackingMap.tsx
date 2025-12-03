@@ -65,6 +65,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<unknown>(null);
+  const scriptLoadingRef = useRef(false); // 🔴 跟踪脚本是否正在加载
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
 
@@ -74,6 +75,9 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
     console.log('mapContainerRef.current:', mapContainerRef.current);
     console.log('mapLoading:', mapLoading);
     console.log('mapError:', mapError);
+    
+    // 🔴 修复 linter 警告：在 cleanup 函数中使用变量保存 ref 值
+    const container = mapContainerRef.current;
     
     // 重置状态
     setMapLoading(true);
@@ -85,7 +89,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
       return;
     }
     
-    if (!mapContainerRef.current) {
+    if (!container) {
       console.log('⚠️ 地图容器未准备好，等待DOM元素...');
       setMapLoading(false);
       return;
@@ -322,14 +326,49 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
       // 确保加载状态为 true
       setMapLoading(true);
       
-      // 如果百度地图API已经加载，直接初始化地图
+      // 🔴 修复：检查百度地图API是否已加载，同时检查脚本标签是否已存在
+      // 如果 BMap 已存在，直接初始化地图
       if (window.BMap) {
-        console.log('✅ 百度地图API已加载，直接初始化地图');
+        console.log('✅ 百度地图API已加载（window.BMap存在），直接初始化地图');
         initMap(points);
         return;
       }
       
+      // 🔴 修复：检查脚本标签是否已经存在，避免重复加载导致竞争状态
+      const existingScript = document.querySelector('script[src*="api.map.baidu.com"]');
+      if (existingScript) {
+        console.log('⏳ 百度地图API脚本标签已存在，等待加载完成...');
+        
+        // 如果脚本正在加载，等待其完成
+        if (scriptLoadingRef.current) {
+          console.log('⏳ 脚本正在加载中，等待加载完成...');
+          // 设置一个轮询检查，等待 BMap 加载完成
+          const checkInterval = setInterval(() => {
+            if (window.BMap) {
+              clearInterval(checkInterval);
+              console.log('✅ 百度地图API加载完成，开始初始化地图');
+              scriptLoadingRef.current = false;
+              initMap(points);
+            }
+          }, 100); // 每100ms检查一次
+          
+          // 设置超时，避免无限等待
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            if (!window.BMap) {
+              console.error('❌ 等待脚本加载超时');
+              setMapError('地图API加载超时，请刷新页面重试');
+              setMapLoading(false);
+              scriptLoadingRef.current = false;
+            }
+          }, 10000); // 10秒超时
+          
+          return;
+        }
+      }
+      
       console.log('⏳ 百度地图API未加载，开始加载API...');
+      scriptLoadingRef.current = true; // 🔴 标记脚本正在加载
 
       // 设置超时机制，防止无限加载
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -406,6 +445,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         (window as unknown as Record<string, () => void>)[callbackName] = () => {
           console.log('✅ 百度地图API回调函数被调用！');
           clearTimeoutIfNeeded(); // 清除超时定时器
+          scriptLoadingRef.current = false; // 🔴 标记脚本加载完成
           
           // 清理回调函数
           delete (window as unknown as Record<string, () => void>)[callbackName];
@@ -436,12 +476,19 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         
         script.onload = () => {
           console.log('✅ 百度地图API脚本加载完成（onload事件）');
+          // 检查脚本加载后的网络请求状态
+          console.log('📡 检查百度地图API网络请求状态...');
         };
         
         script.onerror = (error) => {
           console.error('❌ 百度地图API脚本加载失败（onerror事件）:', error);
+          console.error('📡 请在浏览器 Network 标签中检查以下请求:');
+          console.error('  - 请求URL:', apiUrl);
+          console.error('  - 检查请求是否返回 200 状态码');
+          console.error('  - 检查是否有权限错误（如：Invalid AK 等）');
           clearTimeoutIfNeeded();
-          setMapError('地图API加载失败，请检查网络连接和API Key配置');
+          scriptLoadingRef.current = false; // 🔴 标记脚本加载失败
+          setMapError('地图API加载失败。请检查：1) 浏览器 Network 标签中的请求是否返回 200；2) 是否有权限错误（如 Invalid AK）');
           setMapLoading(false);
           // 清理回调函数
           delete (window as unknown as Record<string, () => void>)[callbackName];
@@ -467,6 +514,28 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         setMapLoading(false);
         return;
       }
+      
+      // 🔴 核心修复：清理旧的地图实例，避免重复初始化导致的 DOM 冲突
+      // 如果存在旧的地图实例，先销毁它
+      if (mapInstanceRef.current) {
+        console.log('🧹 检测到旧的地图实例，正在清理...');
+        try {
+          // 百度地图实例可以通过 clearOverlays 和 removeOverlay 清理
+          // 但最安全的方式是直接清空容器
+          if (mapContainerRef.current) {
+            mapContainerRef.current.innerHTML = '';
+          }
+          mapInstanceRef.current = null;
+          console.log('✅ 旧地图实例已清理');
+        } catch (error) {
+          console.warn('⚠️ 清理旧地图实例时出错（可忽略）:', error);
+          // 即使清理失败，也继续初始化新地图
+        }
+      }
+      
+      // 🔴 最优先：清空地图容器内容，这通常能解决 90% 的 React 地图不显示问题
+      mapContainerRef.current.innerHTML = '';
+      console.log('✅ 已清空地图容器内容');
       
       if (!window.BMap) {
         console.error('百度地图API未加载，BMap未定义');
@@ -546,13 +615,26 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         // @ts-expect-error - 百度地图API方法在运行时可用
         map.setMapType(window.BMAP_NORMAL_MAP);
         
-        // 🔴 确保地图容器有正确的尺寸（如果容器尺寸为0，地图可能不显示）
+        // 🔴 检查地图容器尺寸（如果容器尺寸为0，地图可能不显示）
         const container = mapContainerRef.current;
         if (container) {
           const rect = container.getBoundingClientRect();
-          console.log('🗺️ 地图容器尺寸:', { width: rect.width, height: rect.height });
+          const computedStyle = window.getComputedStyle(container);
+          console.log('🗺️ 地图容器尺寸检查:');
+          console.log('  - getBoundingClientRect:', { width: rect.width, height: rect.height });
+          console.log('  - computedStyle width:', computedStyle.width);
+          console.log('  - computedStyle height:', computedStyle.height);
+          console.log('  - computedStyle display:', computedStyle.display);
+          console.log('  - computedStyle visibility:', computedStyle.visibility);
+          
           if (rect.width === 0 || rect.height === 0) {
-            console.warn('⚠️ 地图容器尺寸为0，可能导致地图不显示');
+            console.error('❌ 地图容器尺寸为0！这会导致地图无法显示！');
+            console.error('  - 容器宽度:', rect.width, '高度:', rect.height);
+            setMapError(`地图容器尺寸为0（宽:${rect.width}px, 高:${rect.height}px）。请检查CSS样式，确保容器有明确的宽度和高度。`);
+            setMapLoading(false);
+            return;
+          } else {
+            console.log('✅ 地图容器尺寸正常:', { width: rect.width, height: rect.height });
           }
         }
 
@@ -648,10 +730,18 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
     // 清理函数
     return () => {
+      console.log('🧹 VehicleTrackingMap 清理函数执行');
+      // 🔴 使用闭包中保存的 container 变量
       if (mapInstanceRef.current) {
         // 清理地图实例
+        console.log('🧹 清理地图实例');
+        if (container) {
+          container.innerHTML = '';
+        }
         mapInstanceRef.current = null;
       }
+      // 重置脚本加载状态
+      scriptLoadingRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingData, licensePlate]);
