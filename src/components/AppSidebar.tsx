@@ -141,6 +141,7 @@ export function AppSidebar() {
       
       // 合同管理
       '/contracts': 'contracts.list',
+      '/contracts/vehicle-tracking': 'contracts.vehicle_tracking',
       
       // 信息维护
       '/projects': 'maintenance.projects',
@@ -202,7 +203,7 @@ export function AppSidebar() {
       // 已移除硬编码的 isAdmin 判断，统一使用权限过滤
       return group.items.length > 0;
     });
-  }, [hasMenuAccess, isAdmin, getMenuKey]);
+  }, [hasMenuAccess, getMenuKey]);
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     // 初始化时展开包含当前路由的分组
