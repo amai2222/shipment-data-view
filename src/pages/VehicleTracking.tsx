@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus } from 'lucide-react';
+import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 interface TrackingPoint {
   lat: number;
@@ -42,6 +43,16 @@ export default function VehicleTracking() {
   const [syncLicensePlate, setSyncLicensePlate] = useState('');
   const [syncLoadWeight, setSyncLoadWeight] = useState('0');
   const [syncLoading, setSyncLoading] = useState(false);
+  
+  // 查询ID并同步相关状态
+  const [syncIdLicensePlate, setSyncIdLicensePlate] = useState('');
+  const [syncIdLoading, setSyncIdLoading] = useState(false);
+  
+  // 新增查询入库相关状态
+  const [addAndSyncDialogOpen, setAddAndSyncDialogOpen] = useState(false);
+  const [addAndSyncLicensePlate, setAddAndSyncLicensePlate] = useState('');
+  const [addAndSyncLoadWeight, setAddAndSyncLoadWeight] = useState('0');
+  const [addAndSyncLoading, setAddAndSyncLoading] = useState(false);
 
   // 根据车牌号查询车辆ID（如果有映射）
   const getVehicleIdByLicensePlate = async (plate: string): Promise<string | null> => {
@@ -399,6 +410,144 @@ export default function VehicleTracking() {
     }
   };
 
+  // 查询车辆ID并同步到数据库
+  const handleSyncVehicleId = async () => {
+    if (!syncIdLicensePlate.trim()) {
+      toast({
+        title: "输入错误",
+        description: "请输入车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSyncIdLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-vehicle-id', {
+        body: {
+          licensePlate: syncIdLicensePlate.trim()
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        toast({
+          title: "同步成功",
+          description: data.message || `车辆 ${syncIdLicensePlate} 的 ID 已成功同步到数据库`,
+        });
+        // 清空表单
+        setSyncIdLicensePlate('');
+      } else {
+        throw new Error(data?.message || '同步失败');
+      }
+    } catch (error) {
+      console.error('查询ID并同步失败:', error);
+      toast({
+        title: "同步失败",
+        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
+        variant: "destructive"
+      });
+    } finally {
+      setSyncIdLoading(false);
+    }
+  };
+
+  // 新增查询入库：先添加车辆到第三方，然后查询ID并同步到数据库
+  const handleAddAndSync = async () => {
+    if (!addAndSyncLicensePlate.trim()) {
+      toast({
+        title: "输入错误",
+        description: "请输入车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setAddAndSyncLoading(true);
+    try {
+      // 步骤1：添加车辆到第三方平台
+      toast({
+        title: "正在处理",
+        description: `正在添加车辆 ${addAndSyncLicensePlate} 到第三方平台...`,
+      });
+
+      const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-vehicle', {
+        body: {
+          licensePlate: addAndSyncLicensePlate.trim(),
+          loadWeight: addAndSyncLoadWeight.trim() || '0'
+        }
+      });
+
+      if (syncError) {
+        throw new Error(`添加车辆到第三方平台失败: ${syncError.message}`);
+      }
+
+      if (!syncData?.success) {
+        // 如果车辆已存在，也继续执行查询ID
+        if (syncData?.status === 'existed') {
+          toast({
+            title: "车辆已存在",
+            description: `车辆 ${addAndSyncLicensePlate} 已存在于第三方平台，继续查询ID...`,
+          });
+        } else {
+          throw new Error(syncData?.message || '添加车辆到第三方平台失败');
+        }
+      } else {
+        toast({
+          title: "添加成功",
+          description: `车辆 ${addAndSyncLicensePlate} 已成功添加到第三方平台`,
+        });
+      }
+
+      // 等待一小段时间，确保第三方平台数据已更新
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 步骤2：查询ID并同步到数据库
+      toast({
+        title: "正在处理",
+        description: `正在查询车辆 ${addAndSyncLicensePlate} 的ID并同步到数据库...`,
+      });
+
+      const { data: idData, error: idError } = await supabase.functions.invoke('sync-vehicle-id', {
+        body: {
+          licensePlate: addAndSyncLicensePlate.trim()
+        }
+      });
+
+      if (idError) {
+        throw new Error(`查询ID失败: ${idError.message}`);
+      }
+
+      if (!idData?.success) {
+        throw new Error(idData?.message || '查询ID并同步失败');
+      }
+
+      // 成功
+      toast({
+        title: "操作完成",
+        description: `车辆 ${addAndSyncLicensePlate} 已成功添加到第三方平台，ID已同步到数据库（${idData.data?.externalId}）`,
+      });
+
+      // 清空表单并关闭对话框
+      setAddAndSyncLicensePlate('');
+      setAddAndSyncLoadWeight('0');
+      setAddAndSyncDialogOpen(false);
+
+    } catch (error) {
+      console.error('新增查询入库失败:', error);
+      toast({
+        title: "操作失败",
+        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
+        variant: "destructive"
+      });
+    } finally {
+      setAddAndSyncLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* 标签页 */}
@@ -696,41 +845,39 @@ export default function VehicleTracking() {
                   )}
                 </Button>
               </div>
-        </CardContent>
-      </Card>
-        </TabsContent>
+            </CardContent>
+          </Card>
 
-        {/* 车辆进轨迹查询库标签页 */}
-        <TabsContent value="sync" className="space-y-6">
+          {/* 查询ID并同步到数据库 */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                添加车辆到轨迹查询库
+                <RefreshCw className="h-5 w-5" />
+                查询ID并同步到数据库
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>说明：</strong>将车辆信息同步到 ZKZY 平台，使其可以在轨迹查询中使用。
-                  车辆将被添加到轨迹查询库，包括车牌号和核定载质量等信息。
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800">
+                  <strong>说明：</strong>从第三方平台查询车辆ID，并将车牌号和ID同步到本地数据库（vehicles表）。
+                  如果车辆已存在则更新，不存在则插入新记录。
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="syncLicensePlate" className="flex items-center gap-2">
+                  <Label htmlFor="syncIdLicensePlate" className="flex items-center gap-2">
                     <Truck className="h-4 w-4" />
                     车牌号 <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="syncLicensePlate"
+                    id="syncIdLicensePlate"
                     placeholder="请输入车牌号（例如：冀EX9795）"
-                    value={syncLicensePlate}
-                    onChange={(e) => setSyncLicensePlate(e.target.value)}
+                    value={syncIdLicensePlate}
+                    onChange={(e) => setSyncIdLicensePlate(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        handleSyncVehicle();
+                        handleSyncVehicleId();
                       }
                     }}
                   />
@@ -738,50 +885,142 @@ export default function VehicleTracking() {
                     格式示例：冀EX9795、京A12345
                   </p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="syncLoadWeight" className="flex items-center gap-2">
-                    <Truck className="h-4 w-4" />
-                    核定载质量（吨）
-                  </Label>
-                  <Input
-                    id="syncLoadWeight"
-                    type="number"
-                    placeholder="请输入核定载质量（默认：0）"
-                    value={syncLoadWeight}
-                    onChange={(e) => setSyncLoadWeight(e.target.value)}
-                    min="0"
-                    step="0.01"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    可选，默认为 0
-                  </p>
-                </div>
               </div>
 
               <div className="flex justify-end pt-4">
                 <Button
-                  onClick={handleSyncVehicle}
-                  disabled={syncLoading || !syncLicensePlate.trim()}
+                  onClick={handleSyncVehicleId}
+                  disabled={syncIdLoading || !syncIdLicensePlate.trim()}
                   className="min-w-[120px]"
                 >
-                  {syncLoading ? (
+                  {syncIdLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      同步中...
+                      查询中...
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-2 h-4 w-4" />
-                      添加车辆
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      查询并同步
                     </>
                   )}
                 </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* 新增查询入库按钮 */}
+          <Card>
+            <CardContent className="pt-6">
+              <Button
+                onClick={() => setAddAndSyncDialogOpen(true)}
+                className="w-full"
+                size="lg"
+              >
+                <Database className="mr-2 h-5 w-5" />
+                新增查询入库
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                一键完成：添加车辆到第三方平台 → 查询ID → 同步到数据库
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 新增查询入库对话框 */}
+      <Dialog open={addAndSyncDialogOpen} onOpenChange={setAddAndSyncDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              新增查询入库
+            </DialogTitle>
+            <DialogDescription>
+              自动完成以下步骤：
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                <li>将车辆添加到第三方平台（ZKZY）</li>
+                <li>查询车辆的轨迹ID</li>
+                <li>将车牌号和ID同步到本地数据库（vehicle_tracking_id_mappings表）</li>
+              </ol>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="addAndSyncLicensePlate" className="flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                车牌号 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="addAndSyncLicensePlate"
+                placeholder="请输入车牌号（例如：冀EX9795）"
+                value={addAndSyncLicensePlate}
+                onChange={(e) => setAddAndSyncLicensePlate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !addAndSyncLoading) {
+                    handleAddAndSync();
+                  }
+                }}
+                disabled={addAndSyncLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                格式示例：冀EX9795、京A12345
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="addAndSyncLoadWeight" className="flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                核定载质量（吨）
+              </Label>
+              <Input
+                id="addAndSyncLoadWeight"
+                type="number"
+                placeholder="请输入核定载质量（默认：0）"
+                value={addAndSyncLoadWeight}
+                onChange={(e) => setAddAndSyncLoadWeight(e.target.value)}
+                min="0"
+                step="0.01"
+                disabled={addAndSyncLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                可选，默认为 0
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddAndSyncDialogOpen(false);
+                setAddAndSyncLicensePlate('');
+                setAddAndSyncLoadWeight('0');
+              }}
+              disabled={addAndSyncLoading}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleAddAndSync}
+              disabled={addAndSyncLoading || !addAndSyncLicensePlate.trim()}
+            >
+              {addAndSyncLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <Database className="mr-2 h-4 w-4" />
+                  开始处理
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
