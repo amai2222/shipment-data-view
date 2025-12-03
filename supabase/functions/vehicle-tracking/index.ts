@@ -1,102 +1,108 @@
 // 车辆轨迹查询代理函数
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// CORS配置
+// CORS配置（参考 Gemini 代码）
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 };
 
-// 轨迹查询API配置
-const TRACKING_API_BASE = 'https://zkzy.zkzy1688.com';
-const TRACKING_API_PATH = '/rest/entity/trace/sinoiov';
-
 serve(async (req) => {
-  // 处理CORS预检请求
+  // 处理跨域（参考 Gemini 代码）
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 从请求中获取参数
-    const { vehicleId, field = 'serialno', startTime, endTime } = await req.json();
+    const { vehicleId, startTime, endTime, field } = await req.json();
 
-    if (!vehicleId || !startTime || !endTime) {
-      return new Response(
-        JSON.stringify({ error: '缺少必需参数: vehicleId, startTime, endTime' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    // 🔴 检查: 如果没有 vehicleId，直接报错（参考 Gemini 代码）
+    if (!vehicleId) {
+      throw new Error('缺少 vehicleId 参数 (例如 #26:xxxx)');
     }
 
-    // 构建查询URL
-    const url = new URL(TRACKING_API_PATH, TRACKING_API_BASE);
-    url.searchParams.set('id', encodeURIComponent(vehicleId));
-    url.searchParams.set('field', field);
-    url.searchParams.set('startTime', String(startTime));
-    url.searchParams.set('endTime', String(endTime));
-
-    // 从环境变量获取认证信息（如果配置了）
-    // 如果没有配置，使用默认值（需要根据实际情况调整）
-    const authSession = Deno.env.get('TRACKING_AUTH_SESSION') || '#13:206-dde3b628224190a02a6908b5-cladmin-ZKZY';
+    // 准备第三方 API 参数（参考 Gemini 代码）
+    const SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION') || '#13:206-dde3b628224190a02a6908b5-cladmin-ZKZY'; // ⚠️ 注意：这个Token会过期，过期需更新
     
-    // URL编码认证信息（用于Cookie）
-    const encodedAuthSession = encodeURIComponent(authSession);
+    // 默认查询最近 12 小时（参考 Gemini 代码）
+    const now = new Date().getTime();
+    const start = startTime || (now - 12 * 60 * 60 * 1000);
+    const end = endTime || now;
 
-    // 调用外部API
-    const response = await fetch(url.toString(), {
+    // 构建 URL (URLSearchParams 会自动处理 # 号的编码)（参考 Gemini 代码）
+    const targetUrl = new URL('https://zkzy.zkzy1688.com/rest/entity/trace/sinoiov');
+    targetUrl.searchParams.append('id', vehicleId);      // 自动转为 %2326%3A...
+    // 根据 vehicleId 格式判断：如果以 # 开头，使用 'id'；否则使用 'serialno'（车牌号）
+    const queryField = field || (vehicleId.startsWith('#') ? 'id' : 'serialno');
+    targetUrl.searchParams.append('field', queryField);  // 关键参数（参考 Gemini 代码，但支持灵活配置）
+    targetUrl.searchParams.append('startTime', start.toString());
+    targetUrl.searchParams.append('endTime', end.toString());
+
+    console.log(`正在查询轨迹: ${vehicleId} | 时间范围: ${start} - ${end}`);
+
+    // 发起请求（参考 Gemini 代码的请求头格式）
+    const response = await fetch(targetUrl.toString(), {
       method: 'GET',
       headers: {
-        'accept': 'application/json, text/plain, */*',
-        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'x-auth-session': authSession,
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+        // 关键鉴权信息
+        'Cookie': `Auth-Session=${SESSION_TOKEN}`,
+        'x-auth-session': SESSION_TOKEN,
         'x-requested-with': 'XMLHttpRequest',
-        'referer': 'https://zkzy.zkzy1688.com/monitor/',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'cookie': `Auth-Session=${encodedAuthSession}`,
-      },
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)',
+        'Referer': 'https://zkzy.zkzy1688.com/monitor/'
+      }
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('轨迹查询API错误:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ 
-          error: `轨迹查询失败: ${response.status} ${response.statusText}`,
-          details: errorText 
-        }),
-        {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      throw new Error(`第三方接口报错: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    // 数据处理 (适配前端地图格式)（参考 Gemini 代码）
+    const rawData = await response.json();
+    
+    // 假设返回的数据是数组，我们对其进行坐标转换 (从 Lat,Lng 转为 Lng,Lat)
+    // 注意：这里是基于您提供的截图推测的格式，如果 trace 接口返回格式不同，这里可能需要调整
+    interface TracePoint {
+      lng?: number;
+      lat?: number;
+      gps?: [number, number, number]; // [lat, lng, alt]
+      time?: number | string;
+      createTime?: number | string;
+      loc_time?: number | string;
+      [key: string]: unknown; // 允许其他字段
+    }
 
-    return new Response(
-      JSON.stringify({ success: true, data }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    let formattedData = rawData;
+    if (Array.isArray(rawData)) {
+        formattedData = rawData.map((point: TracePoint) => {
+            // 如果 point 里包含 gps 数组 [lat, lng, alt]
+            // 或者 point 本身就是数组
+            // 这里做一个兼容处理
+            return {
+                ...point,
+                // 强制转换为前端好用的格式
+                longitude: point.lng || (Array.isArray(point.gps) ? point.gps[1] : 0),
+                latitude: point.lat || (Array.isArray(point.gps) ? point.gps[0] : 0),
+                time: point.time || point.createTime || point.loc_time
+            };
+        });
+    }
+
+    return new Response(JSON.stringify(formattedData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
-    console.error('轨迹查询代理错误:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: '轨迹查询代理失败',
-        message: error instanceof Error ? error.message : String(error)
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    console.error('轨迹查询失败:', error);
+    // 参考 Gemini 代码，简化错误处理
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 

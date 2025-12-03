@@ -67,30 +67,56 @@ export default function VehicleTracking() {
       });
 
       if (error) {
+        console.error('同步车辆ID错误详情:', {
+          error,
+          message: error.message,
+          context: error.context,
+          status: error.status
+        });
         throw new Error(`同步失败: ${error.message}`);
       }
 
-      if (!data || !data.success) {
-        throw new Error(data?.error || '同步失败');
+      // 检查响应数据（参考 Gemini 代码，直接返回数据）
+      if (!data) {
+        throw new Error('Edge Function 返回空数据');
       }
 
-      const { total, synced, errors, error_messages } = data;
+      // 如果返回了错误信息
+      if (data.error) {
+        console.error('Edge Function 返回错误:', data);
+        throw new Error(data.error || '同步失败');
+      }
+
+      // 检查 success 字段（如果存在）
+      if (data.success === false) {
+        throw new Error(data.message || data.error || '同步失败');
+      }
+
+      // 使用新的响应格式（参考 Gemini 代码）
+      const stats = data.stats || {};
+      const totalRemote = stats.total_remote || 0;
+      const syncedLocal = stats.synced_local || 0;
+      const message = data.message || '同步完成';
 
       toast({
         title: "同步完成",
-        description: `共处理 ${total} 条记录，成功同步 ${synced} 条，失败 ${errors} 条`,
-        variant: errors > 0 ? "default" : "default"
+        description: `${message}：共 ${totalRemote} 辆车，成功同步 ${syncedLocal} 辆`,
+        variant: "default"
       });
 
-      // 如果有错误信息，显示详细信息
-      if (errors > 0 && error_messages && error_messages.length > 0) {
-        console.warn('同步过程中的错误:', error_messages);
-        // 可以选择显示详细的错误信息
-        toast({
-          title: "部分同步失败",
-          description: `失败详情请查看控制台`,
-          variant: "default"
-        });
+      // 如果有详细信息，记录日志
+      if (data.details) {
+        console.log('同步详细信息:', data.details);
+        // 如果有错误信息，显示详细信息
+        if (data.details.errors > 0 && data.details.error_messages && data.details.error_messages.length > 0) {
+          console.warn('同步过程中的错误:', data.details.error_messages);
+          // 可以选择显示详细的错误信息
+          toast({
+            title: "部分同步失败",
+            description: `失败详情请查看控制台`,
+            variant: "default"
+          });
+        }
       }
     } catch (error) {
       console.error('同步车辆ID失败:', error);
@@ -177,24 +203,40 @@ export default function VehicleTracking() {
       const endTime = new Date(endDate + 'T23:59:59').getTime();
 
       // 调用Supabase Edge Function代理API
+      // Edge Function 会根据 vehicleId 格式自动判断使用 'id' 还是 'serialno'
       const { data, error } = await supabase.functions.invoke('vehicle-tracking', {
         body: {
           vehicleId: finalVehicleId,
-          field: 'serialno',
+          // 可选：明确指定 field，如果不指定，Edge Function 会根据 vehicleId 格式自动判断
+          field: useVehicleId ? 'id' : 'serialno',
           startTime: startTime,
           endTime: endTime
         }
       });
 
       if (error) {
-        throw new Error(`API调用失败: ${error.message}`);
+        console.error('Edge Function 调用错误详情:', {
+          error,
+          message: error.message,
+          context: error.context,
+          status: error.status
+        });
+        throw new Error(`API调用失败: ${error.message || 'Edge Function returned a non-2xx status code'}`);
       }
 
-      if (!data || !data.success) {
-        throw new Error(data?.error || '查询失败');
+      // 检查响应数据（参考 Gemini 代码，直接返回 API 数据，不包装 success）
+      if (!data) {
+        throw new Error('Edge Function 返回空数据');
       }
 
-      setTrackingData(data.data);
+      // 如果返回了错误信息
+      if (data.error) {
+        console.error('Edge Function 返回错误:', data);
+        throw new Error(data.error || data.message || '查询失败');
+      }
+
+      // 直接使用返回的数据（不再检查 success 字段）
+      setTrackingData(data);
       
       toast({
         title: "查询成功",
