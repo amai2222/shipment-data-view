@@ -1,0 +1,16 @@
+# 排除前端代码
+src/
+*.tsx
+*.jsx
+
+# 排除配置文件
+*.config.*
+tsconfig.json
+package.json
+node_modules/
+
+# 排除其他不需要的文件
+*.md
+*.log
+.env*
+

@@ -18,10 +18,12 @@ interface TrackingPoint {
   address?: string;
 }
 
-interface TrackingData {
+type TrackingData = TrackingPoint[] | {
   points?: TrackingPoint[];
+  data?: TrackingPoint[];
+  result?: TrackingPoint[];
   [key: string]: unknown;
-}
+};
 
 export default function VehicleTracking() {
   const { toast } = useToast();
@@ -171,6 +173,17 @@ export default function VehicleTracking() {
       return;
     }
 
+    // 验证日期范围不能太大（最多查询30天）
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 30) {
+      toast({
+        title: "日期范围过大",
+        description: `查询时间范围不能超过30天，当前为${daysDiff}天。请缩小日期范围后重试。`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     setTrackingData(null);
 
@@ -198,9 +211,38 @@ export default function VehicleTracking() {
         throw new Error('无法获取车辆ID');
       }
 
-      // 将日期转换为时间戳（毫秒）
-      const startTime = new Date(startDate + 'T00:00:00').getTime();
-      const endTime = new Date(endDate + 'T23:59:59').getTime();
+      // 🔴 修复：使用中国时区（+08:00）将日期转换为时间戳（毫秒）
+      // 确保时间戳计算正确，避免时区问题导致的时间戳异常
+      const startTimeStr = `${startDate}T00:00:00+08:00`;
+      const endTimeStr = `${endDate}T23:59:59+08:00`;
+      const startTime = new Date(startTimeStr).getTime();
+      const endTime = new Date(endTimeStr).getTime();
+
+      // 验证时间戳有效性
+      if (isNaN(startTime) || isNaN(endTime) || startTime < 0 || endTime < 0) {
+        throw new Error(`时间戳转换失败：startTime=${startTime}, endTime=${endTime}。请检查日期格式是否正确。`);
+      }
+
+      // 再次验证时间范围（使用时间戳）
+      if (endTime < startTime) {
+        throw new Error('结束时间不能早于开始时间');
+      }
+
+      // 验证时间范围不能太大（使用时间戳验证，最多30天）
+      const maxTimeRange = 30 * 24 * 60 * 60 * 1000; // 30天的毫秒数
+      if (endTime - startTime > maxTimeRange) {
+        throw new Error(`查询时间范围过大（超过30天），请缩小日期范围后重试。`);
+      }
+
+      console.log('时间戳转换结果:', {
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        startTimeISO: new Date(startTime).toISOString(),
+        endTimeISO: new Date(endTime).toISOString(),
+        timeRangeDays: Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24))
+      });
 
       // 调用Supabase Edge Function代理API
       // Edge Function 会根据 vehicleId 格式自动判断使用 'id' 还是 'serialno'
@@ -221,7 +263,26 @@ export default function VehicleTracking() {
           context: error.context,
           status: error.status
         });
-        throw new Error(`API调用失败: ${error.message || 'Edge Function returned a non-2xx status code'}`);
+        
+        // 尝试从 context 中获取更详细的错误信息
+        let errorDetails = error.message || 'Edge Function returned a non-2xx status code';
+        
+        // 如果 context 是 Response 对象，尝试读取错误响应体
+        if (error.context && error.context instanceof Response) {
+          try {
+            const errorBody = await error.context.clone().json();
+            if (errorBody && errorBody.error) {
+              errorDetails = errorBody.error;
+              if (errorBody.details) {
+                console.error('Edge Function 错误详情:', errorBody.details);
+              }
+            }
+          } catch (e) {
+            console.error('无法解析错误响应体:', e);
+          }
+        }
+        
+        throw new Error(`API调用失败: ${errorDetails}`);
       }
 
       // 检查响应数据（参考 Gemini 代码，直接返回 API 数据，不包装 success）
@@ -236,7 +297,31 @@ export default function VehicleTracking() {
       }
 
       // 直接使用返回的数据（不再检查 success 字段）
-      setTrackingData(data);
+      console.log('Edge Function 返回的数据:', data);
+      console.log('数据类型:', typeof data, '是否为数组:', Array.isArray(data));
+      
+      // 如果数据是数组，直接设置；如果是对象，尝试提取数组
+      if (Array.isArray(data)) {
+        console.log(`返回数组，长度: ${data.length}`);
+        setTrackingData(data);
+      } else if (data && typeof data === 'object') {
+        console.log('返回对象，键:', Object.keys(data));
+        // 尝试提取数组字段
+        const dataObj = data as Record<string, unknown>;
+        if (Array.isArray(dataObj.result)) {
+          console.log(`从 result 字段提取，长度: ${dataObj.result.length}`);
+          setTrackingData(dataObj.result);
+        } else if (Array.isArray(dataObj.data)) {
+          console.log(`从 data 字段提取，长度: ${dataObj.data.length}`);
+          setTrackingData(dataObj.data);
+        } else {
+          // 直接使用整个对象
+          setTrackingData(data);
+        }
+      } else {
+        console.error('返回数据格式不正确:', data);
+        throw new Error('返回数据格式不正确');
+      }
       
       toast({
         title: "查询成功",

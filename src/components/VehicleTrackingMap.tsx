@@ -66,12 +66,58 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
     // 解析轨迹数据
     const parseTrackingData = (data: unknown): TrackingPoint[] => {
-      if (!data || typeof data !== 'object') {
-        console.log('轨迹数据为空或不是对象');
+      console.log('开始解析轨迹数据，数据类型:', typeof data, '是否为数组:', Array.isArray(data));
+      console.log('原始数据:', JSON.stringify(data, null, 2));
+      
+      if (!data) {
+        console.log('轨迹数据为空');
+        return [];
+      }
+      
+      if (typeof data !== 'object') {
+        console.log('轨迹数据不是对象，类型:', typeof data);
         return [];
       }
 
       const dataObj = data as Record<string, unknown>;
+      console.log('数据对象键:', Object.keys(dataObj));
+      
+      // 如果数据本身就是数组（Edge Function 直接返回数组）
+      if (Array.isArray(data)) {
+        console.log(`数据是数组，长度: ${data.length}`);
+        if (data.length === 0) {
+          console.log('数组为空');
+          return [];
+        }
+        
+        // 转换数据格式：支持 latitude/longitude 和 lat/lng 两种格式
+        const points = (data as unknown[]).map((item: unknown, index: number) => {
+          const point = item as Record<string, unknown>;
+          console.log(`处理第 ${index} 个点:`, point);
+          
+          // 优先使用 lat/lng，如果没有则使用 latitude/longitude
+          const lat = (point.lat as number) ?? (point.latitude as number) ?? 0;
+          const lng = (point.lng as number) ?? (point.longitude as number) ?? 0;
+          const time = (point.time as number) ?? Date.now();
+          const speed = point.speed as number | undefined;
+          const direction = point.direction as number | undefined;
+          const address = point.address as string | undefined;
+          
+          console.log(`点 ${index} 坐标: lat=${lat}, lng=${lng}, time=${time}`);
+          
+          return {
+            lat,
+            lng,
+            time,
+            speed,
+            direction,
+            address
+          };
+        }).filter(p => p.lat !== 0 && p.lng !== 0); // 过滤掉无效坐标
+        
+        console.log(`过滤后的有效点数: ${points.length}`);
+        return points;
+      }
       
       // 尝试多种可能的数据格式
       if (Array.isArray(dataObj.points)) {
@@ -89,29 +135,23 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         return dataObj.tracks as TrackingPoint[];
       }
       
-      // 如果数据本身就是数组（Edge Function 直接返回数组）
-      if (Array.isArray(data)) {
-        console.log(`数据是数组，长度: ${(data as unknown[]).length}`);
-        // 转换数据格式：支持 latitude/longitude 和 lat/lng 两种格式
-        return (data as unknown[]).map((item: unknown) => {
+      if (Array.isArray(dataObj.result)) {
+        console.log(`从 result 字段提取数据，长度: ${dataObj.result.length}`);
+        // result 字段可能是原始格式，需要转换
+        return (dataObj.result as unknown[]).map((item: unknown) => {
           const point = item as Record<string, unknown>;
-          // 优先使用 lat/lng，如果没有则使用 latitude/longitude
           const lat = (point.lat as number) ?? (point.latitude as number) ?? 0;
           const lng = (point.lng as number) ?? (point.longitude as number) ?? 0;
           const time = (point.time as number) ?? Date.now();
-          const speed = point.speed as number | undefined;
-          const direction = point.direction as number | undefined;
-          const address = point.address as string | undefined;
-          
           return {
             lat,
             lng,
             time,
-            speed,
-            direction,
-            address
+            speed: point.speed as number | undefined,
+            direction: point.direction as number | undefined,
+            address: point.address as string | undefined
           };
-        });
+        }).filter(p => p.lat !== 0 && p.lng !== 0);
       }
 
       // 尝试从location字段解析
@@ -127,7 +167,8 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         }
       }
 
-      console.log('无法解析轨迹数据，数据键:', Object.keys(dataObj));
+      console.error('无法解析轨迹数据，数据键:', Object.keys(dataObj));
+      console.error('完整数据对象:', dataObj);
       return [];
     };
 
@@ -141,7 +182,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
     if (points.length === 0) {
       console.error('未找到有效的轨迹数据，原始数据:', trackingData);
-      setMapError('未找到有效的轨迹数据');
+      setMapError('未找到有效的轨迹数据。可能原因：1) 该时间段内车辆没有行驶轨迹；2) API返回数据为空；3) 数据格式不匹配。请尝试调整查询日期范围。');
       setMapLoading(false);
       return;
     }
@@ -158,28 +199,45 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         let baiduMapKey: string | null = null;
         
         try {
+          console.log('开始获取百度地图API Key...');
           const { data, error } = await supabase.functions.invoke('baidu-map-key', {
             method: 'GET'
           });
 
+          console.log('Edge Function 响应:', { data, error });
+
           if (error) {
             console.error('获取百度地图API Key失败:', error);
-          } else if (data && data.apiKey) {
-            baiduMapKey = data.apiKey;
-            console.log('成功获取百度地图API Key');
+            console.error('错误详情:', {
+              message: error.message,
+              context: error.context,
+              status: error.status
+            });
+          } else if (data) {
+            if (data.error) {
+              console.error('Edge Function 返回错误:', data.error);
+            } else if (data.apiKey) {
+              baiduMapKey = data.apiKey;
+              console.log('成功获取百度地图API Key');
+            } else {
+              console.warn('Edge Function 返回数据中没有 apiKey 字段:', data);
+            }
           }
         } catch (error) {
-          console.error('调用 Edge Function 失败:', error);
+          console.error('调用 Edge Function 异常:', error);
         }
         
         // 如果 Edge Function 获取失败，尝试从环境变量获取（开发环境备用）
         if (!baiduMapKey) {
           baiduMapKey = process.env.REACT_APP_BAIDU_MAP_KEY || null;
+          if (baiduMapKey) {
+            console.log('从环境变量获取百度地图API Key');
+          }
         }
         
         if (!baiduMapKey) {
           console.error('未配置百度地图API Key');
-          setMapError('未配置百度地图API Key。请在 Supabase Dashboard 的 Edge Functions 设置中添加 BAIDU_MAP_KEY 环境变量');
+          setMapError('未配置百度地图API Key。请按以下步骤配置：\n1. 在 Supabase Dashboard 的 Edge Functions 设置中添加 BAIDU_MAP_KEY 环境变量\n2. 部署 baidu-map-key Edge Function\n3. 刷新页面');
           setMapLoading(false);
           return;
         }
