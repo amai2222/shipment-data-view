@@ -48,9 +48,8 @@ interface VehicleInfo {
 
 interface MileageRecord {
   id: string;
-  record_date: string;
+  month_period: string;
   mileage: number;
-  notes: string | null;
   created_at: string;
 }
 
@@ -125,27 +124,39 @@ export default function MobileVehicleProfile() {
     }
   }, [toast]);
 
-  // 加载里程维护记录
+  // 加载里程维护记录（从月度汇总表获取）
   const loadMileageRecords = useCallback(async () => {
     if (!vehicleInfo?.id) return;
     
     try {
-      // 从车辆月度汇总表或专门的里程记录表获取
-      // 这里假设有 internal_vehicle_mileage_records 表，如果没有需要创建
+      // 从车辆月度汇总表获取里程记录
       const { data, error } = await supabase
-        .from('internal_vehicle_mileage_records')
-        .select('*')
+        .from('internal_vehicle_monthly_summary')
+        .select('id, month_period, mileage, created_at')
         .eq('vehicle_id', vehicleInfo.id)
-        .order('record_date', { ascending: false })
-        .limit(20);
+        .not('mileage', 'is', null)
+        .order('month_period', { ascending: false })
+        .limit(12); // 显示最近12个月的记录
       
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 表示表不存在，可以忽略
-        console.warn('加载里程记录失败（表可能不存在）:', error);
-      } else if (data) {
-        setMileageRecords(data);
+      if (error) {
+        // 静默处理错误，避免控制台噪音
+        if (error.code !== 'PGRST116' && error.code !== '42P01') {
+          // PGRST116 和 42P01 表示表不存在或权限问题，可以忽略
+          console.warn('加载里程记录失败:', error);
+        }
+        return;
+      }
+      
+      if (data) {
+        setMileageRecords(data.map(record => ({
+          id: record.id,
+          month_period: record.month_period,
+          mileage: record.mileage || 0,
+          created_at: record.created_at
+        })));
       }
     } catch (error) {
+      // 静默处理错误
       console.warn('加载里程记录失败:', error);
     }
   }, [vehicleInfo?.id]);
@@ -160,7 +171,7 @@ export default function MobileVehicleProfile() {
     }
   }, [vehicleInfo, loadMileageRecords]);
 
-  // 提交里程维护记录
+  // 提交里程维护记录（直接更新车辆当前里程）
   const handleSubmitMileage = async () => {
     if (!vehicleInfo?.id) return;
     
@@ -175,33 +186,8 @@ export default function MobileVehicleProfile() {
 
     setLoading(true);
     try {
-      // 检查表是否存在，如果不存在则先创建
-      // 这里先尝试插入，如果失败则提示需要创建表
+      // 直接更新车辆当前里程
       const { error } = await supabase
-        .from('internal_vehicle_mileage_records')
-        .insert({
-          vehicle_id: vehicleInfo.id,
-          record_date: mileageForm.record_date,
-          mileage: parseFloat(mileageForm.mileage),
-          notes: mileageForm.notes || null,
-          driver_id: (await supabase.auth.getUser()).data.user?.id || null
-        });
-      
-      if (error) {
-        if (error.code === '42P01') {
-          // 表不存在，需要创建
-          toast({
-            title: '功能暂未启用',
-            description: '里程记录表尚未创建，请联系管理员',
-            variant: 'destructive'
-          });
-          return;
-        }
-        throw error;
-      }
-      
-      // 更新车辆当前里程
-      await supabase
         .from('internal_vehicles')
         .update({ 
           current_mileage: parseFloat(mileageForm.mileage),
@@ -209,9 +195,11 @@ export default function MobileVehicleProfile() {
         })
         .eq('id', vehicleInfo.id);
       
+      if (error) throw error;
+      
       toast({
         title: '提交成功',
-        description: '里程记录已保存'
+        description: '里程已更新'
       });
       
       setShowMileageDialog(false);
@@ -222,6 +210,7 @@ export default function MobileVehicleProfile() {
       });
       
       loadVehicleInfo();
+      // 重新加载月度汇总记录（可能包含新的里程数据）
       loadMileageRecords();
     } catch (error) {
       console.error('提交失败:', error);
@@ -418,15 +407,12 @@ export default function MobileVehicleProfile() {
                     <div className="flex items-center gap-2 mb-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="font-semibold text-base">
-                        {format(new Date(record.record_date), 'yyyy-MM-dd', { locale: zhCN })}
+                        {record.month_period} 月
                       </span>
                     </div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">
-                      {record.mileage.toLocaleString()} 公里
+                    <p className="text-sm font-medium text-gray-700">
+                      当月行驶：{record.mileage.toLocaleString()} 公里
                     </p>
-                    {record.notes && (
-                      <p className="text-xs text-muted-foreground">{record.notes}</p>
-                    )}
                   </div>
                 </div>
               ))}
@@ -475,7 +461,7 @@ export default function MobileVehicleProfile() {
                 <Label className="text-sm font-medium">备注（可选）</Label>
                 <Textarea
                   className="text-base min-h-[100px]"
-                  placeholder="如：保养后、维修后等"
+                  placeholder="如：保养后、维修后等（备注仅用于记录，不会保存到数据库）"
                   value={mileageForm.notes}
                   onChange={e => setMileageForm({ ...mileageForm, notes: e.target.value })}
                   rows={4}

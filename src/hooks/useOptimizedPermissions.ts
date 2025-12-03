@@ -1,14 +1,52 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from "@/hooks/use-toast";
+import { UserRole } from '@/types/permission';
+
+// 角色模板类型
+interface RoleTemplate {
+  role: string;
+  menu_permissions: string[];
+  function_permissions: string[];
+  project_permissions: string[];
+  data_permissions: string[];
+  name?: string;
+  description?: string;
+}
+
+// 用户类型
+interface User {
+  id: string;
+  full_name: string;
+  email: string;
+  username?: string;
+  role: UserRole;
+  is_active: boolean;
+  work_wechat_userid?: string;
+  work_wechat_name?: string;
+  phone?: string;
+  created_at?: string;
+}
+
+// 用户权限类型
+interface UserPermission {
+  id: string;
+  user_id: string;
+  project_id?: string;
+  menu_permissions: string[];
+  function_permissions: string[];
+  project_permissions: string[];
+  data_permissions: string[];
+  created_at?: string;
+}
 
 // 优化的权限管理 Hook
 export function useOptimizedPermissions() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [roleTemplates, setRoleTemplates] = useState<Record<string, any>>({});
-  const [users, setUsers] = useState<any[]>([]);
-  const [userPermissions, setUserPermissions] = useState<Record<string, any>>({});
+  const [roleTemplates, setRoleTemplates] = useState<Record<string, RoleTemplate>>({});
+  const [users, setUsers] = useState<User[]>([]);
+  const [userPermissions, setUserPermissions] = useState<Record<string, UserPermission[]>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
   // 使用 useMemo 优化计算
@@ -17,10 +55,14 @@ export function useOptimizedPermissions() {
     const permissionsArray = Object.values(userPermissions).flat();
     
     // 去重逻辑：每个用户每个项目只保留最新的权限记录
-    const uniquePermissions = new Map();
+    const uniquePermissions = new Map<string, UserPermission>();
     
     permissionsArray
-      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      .sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      })
       .forEach(perm => {
         const key = `${perm.user_id}_${perm.project_id || 'global'}`;
         if (!uniquePermissions.has(key)) {
@@ -32,13 +74,13 @@ export function useOptimizedPermissions() {
   }, [userPermissions]);
 
   // 批量加载数据
-  const loadAllData = async (forceRefresh = false) => {
+  const loadAllData = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     try {
       // 并行加载所有必需的数据
       const [templatesRes, usersRes, permissionsRes] = await Promise.all([
         supabase.from('role_permission_templates').select('role, menu_permissions, function_permissions, project_permissions, data_permissions, name, description').order('role', { ascending: true }),
-        supabase.from('profiles').select('id, full_name, email, username, role, is_active, work_wechat_userid, work_wechat_name, phone'),
+        supabase.from('profiles').select('id, full_name, email, username, role, is_active, work_wechat_userid, work_wechat_name, phone, created_at').order('created_at', { ascending: false }), // cSpell:ignore work_wechat
         supabase.from('user_permissions').select('id, user_id, project_id, menu_permissions, function_permissions, project_permissions, data_permissions, created_at').order('created_at', { ascending: false })
       ]);
 
@@ -60,9 +102,9 @@ export function useOptimizedPermissions() {
           if (!acc[perm.user_id]) {
             acc[perm.user_id] = [];
           }
-          acc[perm.user_id].push(perm);
+          acc[perm.user_id].push(perm as UserPermission);
           return acc;
-        }, {} as Record<string, any[]>);
+        }, {} as Record<string, UserPermission[]>);
         
         setUserPermissions(permissionsByUser);
       }
@@ -77,10 +119,10 @@ export function useOptimizedPermissions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   // 优化的保存逻辑 - 避免不必要的重新加载
-  const savePermissions = async (templates: Record<string, any>, permissions: any[]) => {
+  const savePermissions = async (templates: Record<string, RoleTemplate>, permissions: UserPermission[]) => {
     try {
       setLoading(true);
 
@@ -120,7 +162,15 @@ export function useOptimizedPermissions() {
 
       // 3. 更新本地状态而不是重新加载所有数据
       setRoleTemplates(templates);
-      setUserPermissions(validPermissions);
+      // 将权限数组转换为按用户ID分组的对象
+      const permissionsByUser = validPermissions.reduce((acc, perm) => {
+        if (!acc[perm.user_id]) {
+          acc[perm.user_id] = [];
+        }
+        acc[perm.user_id].push(perm);
+        return acc;
+      }, {} as Record<string, UserPermission[]>);
+      setUserPermissions(permissionsByUser);
 
       toast({
         title: "保存成功",
@@ -152,8 +202,8 @@ export function useOptimizedPermissions() {
       if (!allPermissions || allPermissions.length === 0) return;
 
       // 找出重复记录
-      const seen = new Set();
-      const duplicates = [];
+      const seen = new Set<string>();
+      const duplicates: string[] = [];
       
       for (const perm of allPermissions) {
         const key = `${perm.user_id}_${perm.project_id || 'global'}`;
@@ -186,7 +236,7 @@ export function useOptimizedPermissions() {
 
   useEffect(() => {
     loadAllData();
-  }, []);
+  }, [loadAllData]);
 
   return {
     loading,

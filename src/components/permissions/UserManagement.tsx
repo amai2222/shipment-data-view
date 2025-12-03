@@ -23,7 +23,10 @@ import {
   Copy,
   Key,
   Shield,
-  Building2
+  Building2,
+  Search,
+  Filter,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { UserWithPermissions } from '@/types/index';
@@ -64,6 +67,22 @@ export function UserManagement({
     fleet_manager: '车队长',
     driver: '司机'
   };
+
+  // 角色颜色配置
+  const roleColorMap: Record<string, { bg: string; text: string; border: string }> = {
+    admin: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },
+    finance: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
+    business: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
+    operator: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
+    partner: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' },
+    viewer: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
+    fleet_manager: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-300' },
+    driver: { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-300' }
+  };
+
+  // 筛选和排序状态
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [nameFilter, setNameFilter] = useState('');
   
   // 状态管理
   const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
@@ -472,6 +491,35 @@ export function UserManagement({
     return basePermissions;
   };
 
+  // 筛选和排序后的用户列表
+  const filteredAndSortedUsers = useMemo(() => {
+    let filtered = [...users];
+
+    // 按角色筛选
+    if (roleFilter) {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    // 按姓名筛选
+    if (nameFilter.trim()) {
+      const searchTerm = nameFilter.trim().toLowerCase();
+      filtered = filtered.filter(user => 
+        user.full_name?.toLowerCase().includes(searchTerm) ||
+        user.email?.toLowerCase().includes(searchTerm) ||
+        (user as any).username?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // 按创建时间降序排序
+    filtered.sort((a, b) => {
+      const aTime = (a as any).created_at ? new Date((a as any).created_at).getTime() : 0;
+      const bTime = (b as any).created_at ? new Date((b as any).created_at).getTime() : 0;
+      return bTime - aTime; // 降序
+    });
+
+    return filtered;
+  }, [users, roleFilter, nameFilter]);
+
   if (loading) {
     return (
       <Card>
@@ -624,10 +672,65 @@ export function UserManagement({
           </div>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
+          {/* 筛选器 */}
+          <div className="mb-4 space-y-3">
+            {/* 姓名筛选 */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索姓名、邮箱或用户名..."
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  className="pl-9"
+                />
+                {nameFilter && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                    onClick={() => setNameFilter('')}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* 角色筛选快捷按钮 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Filter className="h-4 w-4" />
+                角色筛选：
+              </span>
+              <Button
+                variant={roleFilter === null ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRoleFilter(null)}
+              >
+                全部
+              </Button>
+              {Object.entries(roleNameMap).map(([roleKey, roleLabel]) => {
+                const colors = roleColorMap[roleKey] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' };
+                return (
+                  <Button
+                    key={roleKey}
+                    variant={roleFilter === roleKey ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setRoleFilter(roleFilter === roleKey ? null : roleKey)}
+                    className={roleFilter === roleKey ? `${colors.bg} ${colors.text} ${colors.border} border-2` : ''}
+                  >
+                    {roleLabel}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filteredAndSortedUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>暂无用户数据</p>
+              <p>{users.length === 0 ? '暂无用户数据' : '没有找到匹配的用户'}</p>
             </div>
           ) : (
             <Table>
@@ -635,10 +738,10 @@ export function UserManagement({
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedUsers.length === users.length}
+                      checked={selectedUsers.length === filteredAndSortedUsers.length && filteredAndSortedUsers.length > 0}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          onSelectionChange(users.map(u => u.id));
+                          onSelectionChange(filteredAndSortedUsers.map(u => u.id));
                         } else {
                           onSelectionChange([]);
                         }
@@ -657,7 +760,9 @@ export function UserManagement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {filteredAndSortedUsers.map((user) => {
+                  const roleColors = roleColorMap[user.role] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' };
+                  return (
                   <TableRow key={user.id}>
                     <TableCell>
                       <Checkbox
@@ -681,7 +786,12 @@ export function UserManagement({
                       <span className="text-sm font-mono">{(user as any).username || '-'}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{roleNameMap[user.role] || user.role}</Badge>
+                      <Badge 
+                        variant="outline" 
+                        className={`${roleColors.bg} ${roleColors.text} ${roleColors.border} border font-medium`}
+                      >
+                        {roleNameMap[user.role] || user.role}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {user.is_active ? (
@@ -770,7 +880,8 @@ export function UserManagement({
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
