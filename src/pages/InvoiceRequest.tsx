@@ -307,6 +307,20 @@ export default function InvoiceRequest() {
   const [isSaving, setIsSaving] = useState(false);
   const [processableCount, setProcessableCount] = useState<number>(0); // 可处理的运单数量
   const [missingWaybillNumbers, setMissingWaybillNumbers] = useState<string[]>([]); // 未找到的运单编号列表
+  const [missingInfo, setMissingInfo] = useState<{
+    waybillNumbers: string[];
+    driverNames: string[];
+    licensePlates: string[];
+    driverPhones: string[];
+    driverReceivables: string[];
+  }>({
+    waybillNumbers: [],
+    driverNames: [],
+    licensePlates: [],
+    driverPhones: [],
+    driverReceivables: []
+  }); // 所有未匹配的信息
+  const [showMissingInfoDialog, setShowMissingInfoDialog] = useState(false); // 显示未匹配信息对话框
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
@@ -333,7 +347,15 @@ export default function InvoiceRequest() {
 
   const fetchReportData = useCallback(async () => {
     setLoading(true);
-    setMissingWaybillNumbers([]); // 重置未找到的运单编号列表
+    // 重置所有未匹配信息
+    setMissingWaybillNumbers([]);
+    setMissingInfo({
+      waybillNumbers: [],
+      driverNames: [],
+      licensePlates: [],
+      driverPhones: [],
+      driverReceivables: []
+    });
     try {
       // 状态映射：前端中文状态 -> 后端英文状态
       let statusArray: string[] | null = null;
@@ -358,12 +380,40 @@ export default function InvoiceRequest() {
         return (value && value.trim() !== '' && value !== 'all') ? value.trim() : null;
       };
       
-      // ✅ 提取用户输入的运单编号列表（用于后续对比）
+      // ✅ 提取用户输入的所有查询条件（用于后续对比）
       const inputWaybillNumbers: string[] = activeFilters.waybillNumbers
         ? activeFilters.waybillNumbers
             .split(/[,\s，]+/)
             .map(num => num.trim())
             .filter(num => num.length > 0)
+        : [];
+      
+      const inputDriverNames: string[] = activeFilters.driverName
+        ? activeFilters.driverName
+            .split(/[,\s，]+/)
+            .map(name => name.trim())
+            .filter(name => name.length > 0)
+        : [];
+      
+      const inputLicensePlates: string[] = activeFilters.licensePlate
+        ? activeFilters.licensePlate
+            .split(/[,\s，]+/)
+            .map(plate => plate.trim())
+            .filter(plate => plate.length > 0)
+        : [];
+      
+      const inputDriverPhones: string[] = activeFilters.driverPhone
+        ? activeFilters.driverPhone
+            .split(/[,\s，]+/)
+            .map(phone => phone.trim())
+            .filter(phone => phone.length > 0)
+        : [];
+      
+      const inputDriverReceivables: string[] = activeFilters.driverReceivable
+        ? activeFilters.driverReceivable
+            .split(/[,\s，]+/)
+            .map(amount => amount.trim())
+            .filter(amount => amount.length > 0)
         : [];
       
       const { data, error } = await supabase.rpc('get_invoice_request_data_1120', {
@@ -390,45 +440,106 @@ export default function InvoiceRequest() {
         totalCount: totalCount
       }));
       
-      // ✅ 如果有输入运单编号，检查哪些没有找到
-      if (inputWaybillNumbers.length > 0 && data) {
+      // ✅ 检查所有查询条件的未匹配项
+      if (data) {
         const responseData = data as InvoiceRequestResponse;
         const foundWaybillNumbers = new Set<string>();
+        const foundDriverNames = new Set<string>();
+        const foundLicensePlates = new Set<string>();
+        const foundDriverPhones = new Set<string>();
+        const foundDriverReceivables = new Set<string>();
         
-        // 收集返回结果中的所有运单编号
+        // 收集返回结果中的所有匹配值
         if (responseData.records && Array.isArray(responseData.records)) {
           responseData.records.forEach((record: LogisticsRecordWithPartners) => {
             if (record.auto_number) {
               foundWaybillNumbers.add(record.auto_number.trim());
             }
+            if (record.driver_name) {
+              foundDriverNames.add(record.driver_name.trim());
+            }
+            if (record.license_plate) {
+              foundLicensePlates.add(record.license_plate.trim());
+            }
+            if (record.driver_phone) {
+              foundDriverPhones.add(record.driver_phone.trim());
+            }
+            if (record.payable_cost) {
+              // 司机应收金额，保留2位小数进行比较
+              foundDriverReceivables.add(parseFloat(record.payable_cost.toString()).toFixed(2));
+            }
           });
         }
         
-        // 找出未匹配的运单编号
-        const missing = inputWaybillNumbers.filter(num => !foundWaybillNumbers.has(num.trim()));
+        // 找出所有未匹配的项
+        const missingWaybills = inputWaybillNumbers.filter(num => !foundWaybillNumbers.has(num.trim()));
+        const missingDrivers = inputDriverNames.filter(name => !foundDriverNames.has(name.trim()));
+        const missingPlates = inputLicensePlates.filter(plate => !foundLicensePlates.has(plate.trim()));
+        const missingPhones = inputDriverPhones.filter(phone => !foundDriverPhones.has(phone.trim()));
+        const missingReceivables = inputDriverReceivables.filter(amount => {
+          const normalizedAmount = parseFloat(amount).toFixed(2);
+          return !foundDriverReceivables.has(normalizedAmount);
+        });
         
-        if (missing.length > 0) {
-          setMissingWaybillNumbers(missing);
-          // 显示提示信息
-          const missingPreview = missing.length <= 10 
-            ? missing.join('、') 
-            : `${missing.slice(0, 10).join('、')} 等 ${missing.length} 个`;
+        // 更新未匹配信息状态
+        const newMissingInfo = {
+          waybillNumbers: missingWaybills,
+          driverNames: missingDrivers,
+          licensePlates: missingPlates,
+          driverPhones: missingPhones,
+          driverReceivables: missingReceivables
+        };
+        setMissingInfo(newMissingInfo);
+        setMissingWaybillNumbers(missingWaybills);
+        
+        // 计算总未匹配数量
+        const totalMissing = missingWaybills.length + missingDrivers.length + missingPlates.length + missingPhones.length + missingReceivables.length;
+        const totalInput = inputWaybillNumbers.length + inputDriverNames.length + inputLicensePlates.length + inputDriverPhones.length + inputDriverReceivables.length;
+        
+        // 如果有未匹配的项，显示提示
+        if (totalMissing > 0) {
+          const foundCount = foundWaybillNumbers.size;
+          const missingDetails: string[] = [];
+          if (missingWaybills.length > 0) {
+            missingDetails.push(`${missingWaybills.length} 个运单编号`);
+          }
+          if (missingDrivers.length > 0) {
+            missingDetails.push(`${missingDrivers.length} 个司机姓名`);
+          }
+          if (missingPlates.length > 0) {
+            missingDetails.push(`${missingPlates.length} 个车牌号`);
+          }
+          if (missingPhones.length > 0) {
+            missingDetails.push(`${missingPhones.length} 个司机电话`);
+          }
+          if (missingReceivables.length > 0) {
+            missingDetails.push(`${missingReceivables.length} 个司机应收金额`);
+          }
+          
           toast({
             title: "查询完成",
-            description: `已找到 ${foundWaybillNumbers.size} 条运单，有 ${missing.length} 个运单编号未找到。未找到的运单编号：${missingPreview}`,
+            description: `已找到 ${foundCount} 条运单，有 ${totalMissing} 项查询条件未匹配（${missingDetails.join('、')}）。点击查看详情`,
             variant: "default",
-            duration: 10000, // 延长显示时间到10秒
+            duration: 10000,
+            action: (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMissingInfoDialog(true)}
+                className="ml-2"
+              >
+                查看详情
+              </Button>
+            ),
           });
-        } else {
-          // 所有运单编号都找到了
-          if (inputWaybillNumbers.length > 0) {
-            toast({
-              title: "查询完成",
-              description: `已找到所有 ${foundWaybillNumbers.size} 条运单`,
-              variant: "default",
-              duration: 3000,
-            });
-          }
+        } else if (totalInput > 0) {
+          // 所有查询条件都匹配到了
+          toast({
+            title: "查询完成",
+            description: `已找到所有 ${foundWaybillNumbers.size} 条运单，所有查询条件都已匹配`,
+            variant: "default",
+            duration: 3000,
+          });
         }
       }
     } catch (error) {
@@ -1526,6 +1637,130 @@ export default function InvoiceRequest() {
       </Dialog>
 
       {/* 详情对话框 */}
+      {/* ✅ 未匹配信息详情对话框 */}
+      <Dialog open={showMissingInfoDialog} onOpenChange={setShowMissingInfoDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>未匹配的查询条件详情</DialogTitle>
+            <DialogDescription>
+              以下查询条件在结果中未找到匹配项，可能原因：数据不存在、已被删除、或不符合其他筛选条件
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            {/* 运单编号 */}
+            {missingInfo.waybillNumbers.length > 0 && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-yellow-800 mb-2">
+                  运单编号 ({missingInfo.waybillNumbers.length} 个)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {missingInfo.waybillNumbers.map((num, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300"
+                    >
+                      {num}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 司机姓名 */}
+            {missingInfo.driverNames.length > 0 && (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-orange-800 mb-2">
+                  司机姓名 ({missingInfo.driverNames.length} 个)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {missingInfo.driverNames.map((name, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-orange-100 text-orange-800 border border-orange-300"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 车牌号 */}
+            {missingInfo.licensePlates.length > 0 && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-blue-800 mb-2">
+                  车牌号 ({missingInfo.licensePlates.length} 个)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {missingInfo.licensePlates.map((plate, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300"
+                    >
+                      {plate}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 司机电话 */}
+            {missingInfo.driverPhones.length > 0 && (
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-purple-800 mb-2">
+                  司机电话 ({missingInfo.driverPhones.length} 个)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {missingInfo.driverPhones.map((phone, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800 border border-purple-300"
+                    >
+                      {phone}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 司机应收金额 */}
+            {missingInfo.driverReceivables.length > 0 && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-green-800 mb-2">
+                  司机应收金额 ({missingInfo.driverReceivables.length} 个)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {missingInfo.driverReceivables.map((amount, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800 border border-green-300"
+                    >
+                      ¥{parseFloat(amount).toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 如果所有项都为空 */}
+            {missingInfo.waybillNumbers.length === 0 &&
+             missingInfo.driverNames.length === 0 &&
+             missingInfo.licensePlates.length === 0 &&
+             missingInfo.driverPhones.length === 0 &&
+             missingInfo.driverReceivables.length === 0 && (
+              <div className="p-4 text-center text-muted-foreground">
+                所有查询条件都已匹配
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowMissingInfoDialog(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ✅ 使用公共运单详情组件 */}
       {viewingRecord && (
         <WaybillDetailDialog 
