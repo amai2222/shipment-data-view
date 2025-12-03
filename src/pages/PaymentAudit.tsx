@@ -1631,6 +1631,38 @@ export default function PaymentAudit() {
         driverInfo = driverData || {};
       }
 
+      // 处理外部运单号数据格式转换
+      let externalTrackingNumbers: PlatformTracking[] | undefined = undefined;
+      if (logisticsData.external_tracking_numbers) {
+        const trackingData = logisticsData.external_tracking_numbers;
+        const platformNames = logisticsData.other_platform_names || [];
+        
+        // 如果已经是 PlatformTracking[] 格式，直接使用
+        if (Array.isArray(trackingData) && trackingData.length > 0 && typeof trackingData[0] === 'object' && 'platform' in trackingData[0]) {
+          externalTrackingNumbers = trackingData as PlatformTracking[];
+        } 
+        // 如果是 string[][] 格式（数组的数组），需要转换为 PlatformTracking[]
+        else if (Array.isArray(trackingData) && trackingData.length > 0) {
+          externalTrackingNumbers = trackingData.map((trackingItem: unknown, index: number) => {
+            const platformName = platformNames[index] || `平台${index + 1}`;
+            let trackingNumbers: string[] = [];
+            
+            if (typeof trackingItem === 'string') {
+              trackingNumbers = trackingItem.split('|').filter(Boolean);
+            } else if (Array.isArray(trackingItem)) {
+              trackingNumbers = trackingItem.map(String).filter(Boolean);
+            } else if (trackingItem) {
+              trackingNumbers = [String(trackingItem)];
+            }
+            
+            return {
+              platform: platformName,
+              trackingNumbers: trackingNumbers
+            };
+          }).filter((item: PlatformTracking) => item.trackingNumbers.length > 0);
+        }
+      }
+
       const formattedRecord: LogisticsRecord = {
         id: logisticsData.id,
         auto_number: logisticsData.auto_number,
@@ -1659,7 +1691,7 @@ export default function PaymentAudit() {
         cargo_type: logisticsData.cargo_type || undefined,
         loading_location_ids: logisticsData.loading_location_ids || undefined,
         unloading_location_ids: logisticsData.unloading_location_ids || undefined,
-        external_tracking_numbers: (logisticsData.external_tracking_numbers as PlatformTracking[] | undefined) || undefined,
+        external_tracking_numbers: externalTrackingNumbers,
         other_platform_names: logisticsData.other_platform_names || undefined,
       };
       

@@ -531,40 +531,22 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
                   <div className="bg-white p-3 rounded-lg border border-purple-100">
                     <Label className="text-xs text-purple-600 font-medium">外部运单号</Label>
                     <div className="space-y-2 mt-2">
-                      {(() => {
-                        // 解析平台名称和运单号的对应关系
-                        const platformNames = record.other_platform_names || [];
-                        const trackingNumbers = (record.external_tracking_numbers || []) as unknown[];
-                        
-                        return platformNames.map((platformName, index) => {
-                          const trackingItem = trackingNumbers?.[index];
-                          let platformTrackingNumbers: string[] = [];
-                          if (typeof trackingItem === 'string') {
-                            platformTrackingNumbers = trackingItem.split('|');
-                          } else if (Array.isArray(trackingItem)) {
-                            platformTrackingNumbers = trackingItem.map(String);
-                          } else if (trackingItem) {
-                            platformTrackingNumbers = [String(trackingItem)];
-                          }
-                          
-                          return (
-                            <div key={index} className="space-y-1">
-                              <div className="text-xs font-medium text-purple-700">
-                                {platformName}
-                              </div>
-                              {platformTrackingNumbers.length > 0 && (
-                                <div className="space-y-1">
-                                  {platformTrackingNumbers.map((trackingNumber, tnIndex) => (
-                                    <div key={tnIndex} className="text-sm font-mono text-gray-700 bg-gray-50 px-2 py-1 rounded">
-                                      {trackingNumber}
-                                    </div>
-                                  ))}
+                      {record.external_tracking_numbers.map((platformTracking, index) => (
+                        <div key={index} className="space-y-1">
+                          <div className="text-xs font-medium text-purple-700">
+                            {platformTracking.platform || `平台${index + 1}`}
+                          </div>
+                          {platformTracking.trackingNumbers && platformTracking.trackingNumbers.length > 0 && (
+                            <div className="space-y-1">
+                              {platformTracking.trackingNumbers.map((trackingNumber, tnIndex) => (
+                                <div key={tnIndex} className="text-sm font-mono text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                                  {trackingNumber}
                                 </div>
-                              )}
+                              ))}
                             </div>
-                          );
-                        });
-                      })()}
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
