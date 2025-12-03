@@ -448,6 +448,7 @@ export default function InvoiceRequest() {
                    inputDriverPhones.length > 0 || 
                    inputDriverReceivables.length > 0)) {
         // 查询所有匹配的数据（不分页），用于准确对比
+        // 注意：保持所有筛选条件一致，这样才能准确对比
         const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data_1120', {
           p_project_id: toNullIfEmpty(activeFilters.projectId),
           p_start_date: toNullIfEmpty(activeFilters.startDate),
@@ -464,7 +465,11 @@ export default function InvoiceRequest() {
           p_driver_receivable: toNullIfEmpty(activeFilters.driverReceivable),
         });
         
-        // 如果查询失败，使用当前页数据（降级处理）
+        if (allError) {
+          console.error('查询所有数据失败:', allError);
+        }
+        
+        // 使用查询到的所有数据（如果失败则使用当前页数据作为降级）
         const allResponseData = allError ? (data as InvoiceRequestResponse) : (allData as InvoiceRequestResponse);
         const foundWaybillNumbers = new Set<string>();
         const foundDriverNames = new Set<string>();
@@ -473,36 +478,90 @@ export default function InvoiceRequest() {
         const foundDriverReceivables = new Set<string>();
         
         // 收集所有匹配值（从所有数据中，不仅仅是当前页）
-        if (allResponseData?.records && Array.isArray(allResponseData.records)) {
-          allResponseData.records.forEach((record: LogisticsRecordWithPartners) => {
-            if (record.auto_number) {
-              foundWaybillNumbers.add(record.auto_number.trim());
+        // 注意：返回的数据可能是 jsonb，需要正确解析
+        let recordsToCheck: LogisticsRecordWithPartners[] = [];
+        
+        if (allResponseData) {
+          // 处理不同的返回格式
+          if (Array.isArray(allResponseData.records)) {
+            recordsToCheck = allResponseData.records;
+          } else if (allResponseData.records && typeof allResponseData.records === 'object') {
+            // 可能是 jsonb 格式，尝试解析
+            try {
+              const parsed = typeof allResponseData.records === 'string' 
+                ? JSON.parse(allResponseData.records) 
+                : allResponseData.records;
+              recordsToCheck = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              console.error('解析 records 失败:', e);
+              recordsToCheck = [];
             }
-            if (record.driver_name) {
-              foundDriverNames.add(record.driver_name.trim());
-            }
-            if (record.license_plate) {
-              foundLicensePlates.add(record.license_plate.trim());
-            }
-            if (record.driver_phone) {
-              foundDriverPhones.add(record.driver_phone.trim());
-            }
-            if (record.payable_cost) {
-              // 司机应收金额，保留2位小数进行比较
-              foundDriverReceivables.add(parseFloat(record.payable_cost.toString()).toFixed(2));
-            }
-          });
+          }
         }
         
-        // 找出所有未匹配的项
-        const missingWaybills = inputWaybillNumbers.filter(num => !foundWaybillNumbers.has(num.trim()));
-        const missingDrivers = inputDriverNames.filter(name => !foundDriverNames.has(name.trim()));
-        const missingPlates = inputLicensePlates.filter(plate => !foundLicensePlates.has(plate.trim()));
-        const missingPhones = inputDriverPhones.filter(phone => !foundDriverPhones.has(phone.trim()));
+        recordsToCheck.forEach((record: LogisticsRecordWithPartners) => {
+          if (record.auto_number) {
+            // 确保运单编号格式一致（去除空格，转为字符串）
+            const waybillNum = String(record.auto_number).trim();
+            foundWaybillNumbers.add(waybillNum);
+          }
+          if (record.driver_name) {
+            foundDriverNames.add(String(record.driver_name).trim());
+          }
+          if (record.license_plate) {
+            foundLicensePlates.add(String(record.license_plate).trim());
+          }
+          if (record.driver_phone) {
+            foundDriverPhones.add(String(record.driver_phone).trim());
+          }
+          if (record.payable_cost !== null && record.payable_cost !== undefined) {
+            // 司机应收金额，保留2位小数进行比较
+            foundDriverReceivables.add(parseFloat(String(record.payable_cost)).toFixed(2));
+          }
+        });
+        
+        // ✅ 调试日志
+        console.log('=== 未匹配项检查调试信息 ===');
+        console.log('输入的运单编号数量:', inputWaybillNumbers.length);
+        console.log('输入的运单编号（前5个）:', inputWaybillNumbers.slice(0, 5));
+        console.log('查询到的总记录数:', recordsToCheck.length);
+        console.log('找到的运单编号数量:', foundWaybillNumbers.size);
+        console.log('找到的运单编号（前10个）:', Array.from(foundWaybillNumbers).slice(0, 10));
+        console.log('allError:', allError);
+        console.log('allData 类型:', typeof allData);
+        console.log('allResponseData 类型:', typeof allResponseData);
+        console.log('allResponseData.records 类型:', typeof allResponseData?.records);
+        console.log('recordsToCheck 长度:', recordsToCheck.length);
+        if (recordsToCheck.length > 0) {
+          console.log('第一条记录的 auto_number:', recordsToCheck[0]?.auto_number);
+        }
+        console.log('==========================');
+        
+        // 找出所有未匹配的项（确保格式一致）
+        const missingWaybills = inputWaybillNumbers.filter(num => {
+          const normalizedNum = String(num).trim();
+          return !foundWaybillNumbers.has(normalizedNum);
+        });
+        const missingDrivers = inputDriverNames.filter(name => {
+          const normalizedName = String(name).trim();
+          return !foundDriverNames.has(normalizedName);
+        });
+        const missingPlates = inputLicensePlates.filter(plate => {
+          const normalizedPlate = String(plate).trim();
+          return !foundLicensePlates.has(normalizedPlate);
+        });
+        const missingPhones = inputDriverPhones.filter(phone => {
+          const normalizedPhone = String(phone).trim();
+          return !foundDriverPhones.has(normalizedPhone);
+        });
         const missingReceivables = inputDriverReceivables.filter(amount => {
-          const normalizedAmount = parseFloat(amount).toFixed(2);
+          const normalizedAmount = parseFloat(String(amount)).toFixed(2);
           return !foundDriverReceivables.has(normalizedAmount);
         });
+        
+        // ✅ 调试日志
+        console.log('未匹配的运单编号数量:', missingWaybills.length);
+        console.log('未匹配的运单编号:', missingWaybills);
         
         // 更新未匹配信息状态
         const newMissingInfo = {
