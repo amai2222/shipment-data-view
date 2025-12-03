@@ -55,6 +55,7 @@ import {
   FinancialOverview,
   ReceiptReport,
   ContractManagement,
+  VehicleTracking,
   WaybillMaintenance,
   UserManagement,
   PermissionConfig,
@@ -518,6 +519,12 @@ const App = () => (
             <Route path="/contracts" element={
               <ProtectedRoute requiredPermission="contracts.list">
                 <AppLayout><ContractManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/contracts/vehicle-tracking" element={
+              <ProtectedRoute requiredPermission="contracts.vehicle_tracking">
+                <AppLayout><VehicleTracking /></AppLayout>
               </ProtectedRoute>
             } />
             

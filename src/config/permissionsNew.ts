@@ -84,7 +84,8 @@ export const MENU_PERMISSIONS_NEW: PermissionGroupNew[] = [
     label: '合同管理',
     icon: 'FileText',
     children: [
-      { key: 'contracts.list', label: '合同列表', icon: 'FileText' }
+      { key: 'contracts.list', label: '合同列表', icon: 'FileText' },
+      { key: 'contracts.vehicle_tracking', label: '车辆轨迹查询', icon: 'Route' }
     ]
   },
   {

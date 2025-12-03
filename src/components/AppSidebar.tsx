@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   CreditCard,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Route
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -56,6 +57,7 @@ export const menuItems = [
     icon: FileText,
     items: [
       { title: "合同列表", url: "/contracts", icon: FileText },
+      { title: "车辆轨迹查询", url: "/contracts/vehicle-tracking", icon: Route },
     ]
   },
   {

@@ -116,6 +116,7 @@ export const FinancialReports = conditionalLazy(() => import('./pages/internal/F
 
 // 合同管理
 export const ContractManagement = conditionalLazy(() => import('./pages/ContractManagement'));
+export const VehicleTracking = conditionalLazy(() => import('./pages/VehicleTracking'));
 
 // 数据维护
 export const WaybillMaintenance = conditionalLazy(() => import('./pages/DataMaintenance/WaybillMaintenance'));
