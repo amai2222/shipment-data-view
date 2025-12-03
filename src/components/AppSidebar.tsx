@@ -41,6 +41,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useSimplePermissions } from "@/hooks/useSimplePermissions";
 
 // 菜单配置
+// eslint-disable-next-line react-refresh/only-export-components
 export const menuItems = [
   {
     title: "数据看板",
@@ -191,19 +192,29 @@ export function AppSidebar() {
     return menuItems.map(group => ({
       ...group,
       items: group.items.filter(item => {
+        // 管理员拥有所有菜单权限（优先检查）
+        if (isAdmin) {
+          return true;
+        }
+        
         const menuKey = getMenuKey(item.url);
         // 对于审核管理菜单，检查主权限
         if (group.title === "审核管理") {
           return hasMenuAccess('audit');
         }
-        return menuKey && hasMenuAccess(menuKey);
+        // 如果有权限键，检查权限
+        if (menuKey) {
+          return hasMenuAccess(menuKey);
+        }
+        // 如果没有配置权限键，默认不可见（除非是管理员）
+        return false;
       })
     })).filter(group => {
       // 如果组内没有可访问的菜单项，隐藏整个组
       // 已移除硬编码的 isAdmin 判断，统一使用权限过滤
       return group.items.length > 0;
     });
-  }, [hasMenuAccess, getMenuKey]);
+  }, [hasMenuAccess, getMenuKey, isAdmin]);
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     // 初始化时展开包含当前路由的分组
@@ -231,6 +242,7 @@ export function AppSidebar() {
       {/* Enhanced Header Section */}
       <SidebarHeader className="bg-gradient-primary text-white p-4 shadow-lg relative overflow-hidden">
         {/* Background Pattern */}
+        {/* cSpell:disable-next-line */}
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.05%22%3E%3Cpath%20d%3D%22M36%2034v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6%2034v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6%204V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
         
         <div className="relative flex items-center space-x-3">

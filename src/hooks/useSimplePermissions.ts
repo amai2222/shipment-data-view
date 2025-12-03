@@ -24,7 +24,7 @@ export function useSimplePermissions() {
     // 使用安全的debug调用
     safeLogger.debug('当前用户角色:', role, '用户信息:', profile);
     return role;
-  }, [profile?.role]);
+  }, [profile]);
 
   // 从数据库加载权限
   useEffect(() => {
@@ -44,7 +44,7 @@ export function useSimplePermissions() {
           if (userRole === 'admin') {
             safeLogger.info('Admin角色使用默认全权限');
             setDbPermissions({
-              menu_permissions: ['projects', 'business-entry', 'drivers', 'partners', 'locations', 'reports', 'finance-management', 'user-management', 'role-management', 'system-settings', 'all'],
+              menu_permissions: ['projects', 'business-entry', 'drivers', 'partners', 'locations', 'reports', 'finance-management', 'user-management', 'role-management', 'system-settings', 'contracts.vehicle_tracking', 'all'],
               function_permissions: ['create', 'edit', 'delete', 'view', 'export', 'import', 'approve', 'reject', 'assign', 'unassign', 'all'],
               project_permissions: ['all', 'create', 'edit', 'delete', 'view', 'assign', 'approve'],
               data_permissions: ['all', 'own', 'team', 'department', 'company']
@@ -97,26 +97,31 @@ export function useSimplePermissions() {
   }, [userRole, dbPermissions]);
 
   // 检查菜单权限
-  const hasMenuAccess = (menuKey: string): boolean => {
-    try {
-      if (!menuKey) return false;
-      
-      // 管理员拥有所有权限
-      if (userRole === 'admin') return true;
-      
-      if (!rolePermissions || !rolePermissions.menu_permissions) {
-        safeLogger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey);
+  const hasMenuAccess = useMemo(() => {
+    return (menuKey: string): boolean => {
+      try {
+        if (!menuKey) return false;
+        
+        // 管理员拥有所有权限（优先检查，不依赖权限加载状态）
+        if (userRole === 'admin') {
+          safeLogger.debug('管理员权限检查通过:', menuKey);
+          return true;
+        }
+        
+        if (!rolePermissions || !rolePermissions.menu_permissions) {
+          safeLogger.debug('菜单权限检查失败 - 角色权限未加载:', menuKey, '角色:', userRole);
+          return false;
+        }
+        const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
+                         rolePermissions.menu_permissions.includes('all');
+        safeLogger.permission('menu', menuKey, hasAccess);
+        return hasAccess;
+      } catch (error) {
+        safeLogger.error('菜单权限检查失败:', error);
         return false;
       }
-      const hasAccess = rolePermissions.menu_permissions.includes(menuKey) || 
-                       rolePermissions.menu_permissions.includes('all');
-      safeLogger.permission('menu', menuKey, hasAccess);
-      return hasAccess;
-    } catch (error) {
-      safeLogger.error('菜单权限检查失败:', error);
-      return false;
-    }
-  };
+    };
+  }, [userRole, rolePermissions]);
 
   // 检查功能权限
   const hasFunctionAccess = (functionKey: string): boolean => {
