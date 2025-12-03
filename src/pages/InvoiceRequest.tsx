@@ -442,11 +442,20 @@ export default function InvoiceRequest() {
       
       // ✅ 检查所有查询条件的未匹配项
       // 注意：需要查询所有匹配的数据（不分页），而不仅仅是当前页，才能准确找出未匹配的项
-      if (data && (inputWaybillNumbers.length > 0 || 
-                   inputDriverNames.length > 0 || 
-                   inputLicensePlates.length > 0 || 
-                   inputDriverPhones.length > 0 || 
-                   inputDriverReceivables.length > 0)) {
+      if (data) {
+        console.log('开始检查未匹配项，输入条件:', {
+          waybillNumbers: inputWaybillNumbers.length,
+          driverNames: inputDriverNames.length,
+          licensePlates: inputLicensePlates.length,
+          driverPhones: inputDriverPhones.length,
+          driverReceivables: inputDriverReceivables.length
+        });
+        
+        if (inputWaybillNumbers.length > 0 || 
+            inputDriverNames.length > 0 || 
+            inputLicensePlates.length > 0 || 
+            inputDriverPhones.length > 0 || 
+            inputDriverReceivables.length > 0) {
         // 查询所有匹配的数据（不分页），用于准确对比
         // 注意：保持所有筛选条件一致，这样才能准确对比
         const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data_1120', {
@@ -623,6 +632,11 @@ export default function InvoiceRequest() {
             duration: 3000,
           });
         }
+        } else {
+          console.log('没有输入查询条件，跳过未匹配项检查');
+        }
+      } else {
+        console.log('data 为空，跳过未匹配项检查');
       }
     } catch (error) {
       console.error("加载开票申请数据失败:", error);
