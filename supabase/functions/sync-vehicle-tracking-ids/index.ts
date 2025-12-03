@@ -15,10 +15,22 @@ serve(async (req) => {
   }
 
   try {
-    // 初始化 Supabase 客户端（参考 Gemini 代码，使用服务角色密钥）
+    // 从请求头获取用户的 JWT token（用于权限检查）
+    const authHeader = req.headers.get('Authorization');
+    const userToken = authHeader?.replace('Bearer ', '') || '';
+    
+    // 初始化 Supabase 客户端
+    // 优先使用用户 token，如果没有则使用服务角色密钥（用于绕过 RLS 的数据库操作）
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // 创建两个客户端：
+    // 1. 使用用户 token 的客户端（用于权限检查）
+    // 2. 使用服务角色密钥的客户端（用于实际数据库操作，绕过 RLS）
+    const supabaseUser = userToken 
+      ? createClient(supabaseUrl, userToken)
+      : createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // 准备第三方平台参数（参考 Gemini 代码，支持环境变量）
     const SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION') || '#13:206-dde3b628224190a02a6908b5-cladmin-ZKZY'; // ⚠️ 注意：此Token会过期
@@ -108,7 +120,8 @@ serve(async (req) => {
 
     // 调用数据库函数同步映射关系到 vehicle_tracking_id_mappings 表
     // 注意：与 Gemini 代码不同，我们使用独立的映射表，而不是直接更新 internal_vehicles
-    const { data: syncResult, error: syncError } = await supabase.rpc(
+    // 使用用户 token 的客户端，这样 auth.uid() 可以正确识别用户，权限检查才能正常工作
+    const { data: syncResult, error: syncError } = await supabaseUser.rpc(
       'sync_vehicle_tracking_ids',
       { 
         p_vehicle_mappings: vehicleMappings,

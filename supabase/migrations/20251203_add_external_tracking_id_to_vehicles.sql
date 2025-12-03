@@ -67,9 +67,9 @@ DECLARE
     v_errors TEXT[] := ARRAY[]::TEXT[];
     v_result JSONB;
 BEGIN
-    -- 检查权限
-    IF NOT public.has_function_permission('contracts.vehicle_tracking') THEN
-        RAISE EXCEPTION '权限不足：您没有同步车辆ID的权限';
+    -- 检查权限（使用菜单权限，因为同步车辆ID是车辆轨迹查询功能的一部分）
+    IF NOT public.has_menu_permission('contracts.vehicle_tracking') THEN
+        RAISE EXCEPTION '权限不足：您没有同步车辆ID的权限。请联系管理员在权限管理中分配 "contracts.vehicle_tracking" 菜单权限。';
     END IF;
 
     -- 遍历传入的映射数据
@@ -151,6 +151,10 @@ COMMENT ON FUNCTION sync_vehicle_tracking_ids IS '同步外部轨迹系统的车
 
 ALTER TABLE public.vehicle_tracking_id_mappings ENABLE ROW LEVEL SECURITY;
 
+-- 删除已存在的策略（如果存在），避免重复创建错误
+DROP POLICY IF EXISTS "允许已认证用户读取车辆轨迹ID映射" ON public.vehicle_tracking_id_mappings;
+DROP POLICY IF EXISTS "允许有权限用户管理车辆轨迹ID映射" ON public.vehicle_tracking_id_mappings;
+
 -- 创建RLS策略：所有已认证用户都可以读取
 CREATE POLICY "允许已认证用户读取车辆轨迹ID映射"
 ON public.vehicle_tracking_id_mappings
@@ -164,6 +168,6 @@ ON public.vehicle_tracking_id_mappings
 FOR ALL
 TO authenticated
 USING (
-    public.has_function_permission('contracts.vehicle_tracking')
+    public.has_menu_permission('contracts.vehicle_tracking')
 );
 
