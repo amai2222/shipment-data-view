@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw } from 'lucide-react';
+import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 
 interface TrackingPoint {
@@ -35,6 +36,12 @@ export default function VehicleTracking() {
   const [syncing, setSyncing] = useState(false);
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [useVehicleId, setUseVehicleId] = useState(false);
+  const [activeTab, setActiveTab] = useState('tracking'); // 标签页状态
+  
+  // 车辆同步相关状态
+  const [syncLicensePlate, setSyncLicensePlate] = useState('');
+  const [syncLoadWeight, setSyncLoadWeight] = useState('0');
+  const [syncLoading, setSyncLoading] = useState(false);
 
   // 根据车牌号查询车辆ID（如果有映射）
   const getVehicleIdByLicensePlate = async (plate: string): Promise<string | null> => {
@@ -339,8 +346,76 @@ export default function VehicleTracking() {
     }
   };
 
+  // 同步车辆到轨迹查询库
+  const handleSyncVehicle = async () => {
+    if (!syncLicensePlate.trim()) {
+      toast({
+        title: "输入错误",
+        description: "请输入车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSyncLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-vehicle', {
+        body: {
+          licensePlate: syncLicensePlate.trim(),
+          loadWeight: syncLoadWeight.trim() || '0'
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.success) {
+        // 根据状态显示不同的提示信息
+        const statusMessage = data.status === 'existed' 
+          ? `车辆 ${syncLicensePlate} 已存在于轨迹查询库`
+          : `车辆 ${syncLicensePlate} 已成功添加到轨迹查询库`;
+        
+        toast({
+          title: data.status === 'existed' ? "车辆已存在" : "同步成功",
+          description: statusMessage,
+          variant: data.status === 'existed' ? 'default' : 'default'
+        });
+        // 清空表单
+        setSyncLicensePlate('');
+        setSyncLoadWeight('0');
+      } else {
+        throw new Error(data?.message || '同步失败');
+      }
+    } catch (error) {
+      console.error('同步车辆失败:', error);
+      toast({
+        title: "同步失败",
+        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
+        variant: "destructive"
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="container mx-auto p-6 space-y-6">
+      {/* 标签页 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="tracking">
+            <Route className="h-4 w-4 mr-2" />
+            轨迹查询
+          </TabsTrigger>
+          <TabsTrigger value="sync">
+            <Plus className="h-4 w-4 mr-2" />
+            车辆进轨迹查询库
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 轨迹查询标签页 */}
+        <TabsContent value="tracking" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">车辆轨迹查询</h1>
@@ -541,6 +616,172 @@ export default function VehicleTracking() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* 车辆进轨迹查询库标签页 */}
+        <TabsContent value="sync" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                添加车辆到轨迹查询库
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>说明：</strong>将车辆信息同步到 ZKZY 平台，使其可以在轨迹查询中使用。
+                  车辆将被添加到轨迹查询库，包括车牌号和核定载质量等信息。
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="syncLicensePlate" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    车牌号 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="syncLicensePlate"
+                    placeholder="请输入车牌号（例如：冀EX9795）"
+                    value={syncLicensePlate}
+                    onChange={(e) => setSyncLicensePlate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSyncVehicle();
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    格式示例：冀EX9795、京A12345
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="syncLoadWeight" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    核定载质量（吨）
+                  </Label>
+                  <Input
+                    id="syncLoadWeight"
+                    type="number"
+                    placeholder="请输入核定载质量（默认：0）"
+                    value={syncLoadWeight}
+                    onChange={(e) => setSyncLoadWeight(e.target.value)}
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    可选，默认为 0
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  onClick={handleSyncVehicle}
+                  disabled={syncLoading || !syncLicensePlate.trim()}
+                  className="min-w-[120px]"
+                >
+                  {syncLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      同步中...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      添加车辆
+                    </>
+                  )}
+                </Button>
+              </div>
+        </CardContent>
+      </Card>
+        </TabsContent>
+
+        {/* 车辆进轨迹查询库标签页 */}
+        <TabsContent value="sync" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                添加车辆到轨迹查询库
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>说明：</strong>将车辆信息同步到 ZKZY 平台，使其可以在轨迹查询中使用。
+                  车辆将被添加到轨迹查询库，包括车牌号和核定载质量等信息。
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="syncLicensePlate" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    车牌号 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="syncLicensePlate"
+                    placeholder="请输入车牌号（例如：冀EX9795）"
+                    value={syncLicensePlate}
+                    onChange={(e) => setSyncLicensePlate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSyncVehicle();
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    格式示例：冀EX9795、京A12345
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="syncLoadWeight" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    核定载质量（吨）
+                  </Label>
+                  <Input
+                    id="syncLoadWeight"
+                    type="number"
+                    placeholder="请输入核定载质量（默认：0）"
+                    value={syncLoadWeight}
+                    onChange={(e) => setSyncLoadWeight(e.target.value)}
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    可选，默认为 0
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  onClick={handleSyncVehicle}
+                  disabled={syncLoading || !syncLicensePlate.trim()}
+                  className="min-w-[120px]"
+                >
+                  {syncLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      同步中...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      添加车辆
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
