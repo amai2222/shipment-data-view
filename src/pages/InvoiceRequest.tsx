@@ -306,6 +306,7 @@ export default function InvoiceRequest() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [processableCount, setProcessableCount] = useState<number>(0); // 可处理的运单数量
+  const [missingWaybillNumbers, setMissingWaybillNumbers] = useState<string[]>([]); // 未找到的运单编号列表
 
   // --- 数据获取 ---
   const fetchInitialOptions = useCallback(async () => {
@@ -332,6 +333,7 @@ export default function InvoiceRequest() {
 
   const fetchReportData = useCallback(async () => {
     setLoading(true);
+    setMissingWaybillNumbers([]); // 重置未找到的运单编号列表
     try {
       // 状态映射：前端中文状态 -> 后端英文状态
       let statusArray: string[] | null = null;
@@ -356,6 +358,14 @@ export default function InvoiceRequest() {
         return (value && value.trim() !== '' && value !== 'all') ? value.trim() : null;
       };
       
+      // ✅ 提取用户输入的运单编号列表（用于后续对比）
+      const inputWaybillNumbers: string[] = activeFilters.waybillNumbers
+        ? activeFilters.waybillNumbers
+            .split(/[,\s，]+/)
+            .map(num => num.trim())
+            .filter(num => num.length > 0)
+        : [];
+      
       const { data, error } = await supabase.rpc('get_invoice_request_data_1120', {
         p_project_id: toNullIfEmpty(activeFilters.projectId),
         p_start_date: toNullIfEmpty(activeFilters.startDate),
@@ -379,6 +389,48 @@ export default function InvoiceRequest() {
         totalPages: Math.ceil(totalCount / prev.pageSize) || 1,
         totalCount: totalCount
       }));
+      
+      // ✅ 如果有输入运单编号，检查哪些没有找到
+      if (inputWaybillNumbers.length > 0 && data) {
+        const responseData = data as InvoiceRequestResponse;
+        const foundWaybillNumbers = new Set<string>();
+        
+        // 收集返回结果中的所有运单编号
+        if (responseData.records && Array.isArray(responseData.records)) {
+          responseData.records.forEach((record: LogisticsRecordWithPartners) => {
+            if (record.auto_number) {
+              foundWaybillNumbers.add(record.auto_number.trim());
+            }
+          });
+        }
+        
+        // 找出未匹配的运单编号
+        const missing = inputWaybillNumbers.filter(num => !foundWaybillNumbers.has(num.trim()));
+        
+        if (missing.length > 0) {
+          setMissingWaybillNumbers(missing);
+          // 显示提示信息
+          const missingPreview = missing.length <= 10 
+            ? missing.join('、') 
+            : `${missing.slice(0, 10).join('、')} 等 ${missing.length} 个`;
+          toast({
+            title: "查询完成",
+            description: `已找到 ${foundWaybillNumbers.size} 条运单，有 ${missing.length} 个运单编号未找到。未找到的运单编号：${missingPreview}`,
+            variant: "default",
+            duration: 10000, // 延长显示时间到10秒
+          });
+        } else {
+          // 所有运单编号都找到了
+          if (inputWaybillNumbers.length > 0) {
+            toast({
+              title: "查询完成",
+              description: `已找到所有 ${foundWaybillNumbers.size} 条运单`,
+              variant: "default",
+              duration: 3000,
+            });
+          }
+        }
+      }
     } catch (error) {
       console.error("加载开票申请数据失败:", error);
       toast({ 
@@ -1166,6 +1218,37 @@ export default function InvoiceRequest() {
                 <TableSkeleton rowCount={10} colCount={12} showCheckbox={true} />
               ) : (
                 <>
+                  {/* ✅ 未找到的运单编号提示 */}
+                  {!loading && missingWaybillNumbers.length > 0 && (
+                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <svg className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-yellow-800 mb-1">
+                            有 {missingWaybillNumbers.length} 个运单编号未找到
+                          </h4>
+                          <p className="text-sm text-yellow-700 mb-2">
+                            以下运单编号在查询结果中未找到，可能原因：运单不存在、已被删除、或不符合当前筛选条件
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {missingWaybillNumbers.map((num, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300"
+                              >
+                                {num}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* ✅ 合计卡片 */}
                   {!loading && sortedRecords && sortedRecords.length > 0 && (
                     <div className="mb-4">
