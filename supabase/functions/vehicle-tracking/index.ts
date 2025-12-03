@@ -397,7 +397,7 @@ serve(async (req) => {
       // 类型断言
       const tracePoint = point as TracePoint;
       // 转换坐标：lat/lon 可能是字符串格式，需要转换为数字
-      // 注意：如果 lat/lon 是字符串格式（如 "12525696"），需要除以600000得到实际坐标
+      // 注意：如果 lat/lon 是字符串格式（如 "22153458"），可能需要除以某个倍数（如 600000）得到实际坐标
       let latitude: number = 0;
       let longitude: number = 0;
       

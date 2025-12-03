@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { wgs84ToBd09 } from '@/utils/coordinateConverter';
+// Edge Function 已经处理了坐标转换，前端不需要再次转换
 
 interface TrackingPoint {
   lat: number;
@@ -285,28 +285,14 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
       return [];
     };
 
-    let points = parseTrackingData(trackingData);
+    const points = parseTrackingData(trackingData);
 
     console.log('解析后的轨迹点数量:', points.length);
     if (points.length > 0) {
       console.log('第一个轨迹点（解析后，WGS-84坐标）:', points[0]);
       
-      // 🔴 坐标系统转换：将 WGS-84 坐标系转换为 BD-09 坐标系（百度地图坐标系）
-      // 注意：虽然 Edge Function 可能已经进行了坐标转换，但为了确保兼容性，
-      // 前端也需要进行转换（如果 Edge Function 没有转换或转换失败）
-      console.log('🔄 开始坐标转换：WGS-84 -> BD-09');
-      // 手动转换每个点的坐标，保持其他属性不变
-      points = points.map(point => {
-        const converted = wgs84ToBd09(point.lat, point.lng);
-        return {
-          ...point,
-          lat: converted.lat,
-          lng: converted.lng
-        };
-      });
-      console.log('✅ 坐标转换完成');
-      
-      console.log('第一个轨迹点（转换后，BD-09坐标）:', points[0]);
+      // Edge Function 已经进行了坐标转换（WGS-84 -> BD-09），直接使用
+      console.log('第一个轨迹点（Edge Function已转换，BD-09坐标）:', points[0]);
       console.log('最后一个轨迹点:', points[points.length - 1]);
       console.log('轨迹点坐标范围（BD-09）:', {
         minLat: Math.min(...points.map(p => p.lat)),
