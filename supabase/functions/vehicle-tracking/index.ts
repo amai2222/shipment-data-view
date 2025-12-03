@@ -8,6 +8,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
  * 将 WGS-84 坐标转换为 BD-09 坐标（百度地图坐标系）
  */
 
+// 坐标转换算法中使用的常数
+// eslint-disable-next-line no-loss-of-precision
+const EE = 0.00669342162296594323; // 偏心率平方
+const EARTH_RADIUS = 6378245.0; // 地球半径（米）
+
 // WGS-84 转 GCJ-02（火星坐标系）
 function wgs84ToGcj02(wgsLat: number, wgsLng: number): { lat: number; lng: number } {
   if (outOfChina(wgsLat, wgsLng)) {
@@ -18,10 +23,11 @@ function wgs84ToGcj02(wgsLat: number, wgsLng: number): { lat: number; lng: numbe
   let dLng = transformLng(wgsLng - 105.0, wgsLat - 35.0);
   const radLat = (wgsLat / 180.0) * Math.PI;
   let magic = Math.sin(radLat);
-  magic = 1 - 0.00669342162296594323 * magic * magic;
+  magic = 1 - EE * magic * magic;
   const sqrtMagic = Math.sqrt(magic);
-  dLat = (dLat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtMagic) * Math.PI);
-  dLng = (dLng * 180.0) / (6378245.0 / sqrtMagic * Math.cos(radLat) * Math.PI);
+  const oneMinusEE = 1 - EE;
+  dLat = (dLat * 180.0) / ((EARTH_RADIUS * oneMinusEE) / (magic * sqrtMagic) * Math.PI);
+  dLng = (dLng * 180.0) / (EARTH_RADIUS / sqrtMagic * Math.cos(radLat) * Math.PI);
   const mgLat = wgsLat + dLat;
   const mgLng = wgsLng + dLng;
 
@@ -95,6 +101,7 @@ serve(async (req) => {
     }
     
     // 如果使用默认值，记录警告
+    // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
     if (!Deno.env.get('TRACKING_AUTH_SESSION')) {
       console.warn('⚠️ 警告: 使用默认的 TRACKING_AUTH_SESSION。建议在 Supabase Dashboard 中配置环境变量以避免 Token 过期问题。');
     }

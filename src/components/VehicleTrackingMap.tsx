@@ -300,10 +300,29 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
     // 加载百度地图API
     const loadMap = async () => {
+      // 如果百度地图API已经加载，直接初始化地图
       if (window.BMap) {
+        console.log('百度地图API已加载，直接初始化地图');
         initMap(points);
         return;
       }
+
+      // 设置超时机制，防止无限加载
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      
+      const clearTimeoutIfNeeded = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      };
+
+      timeoutId = setTimeout(() => {
+        console.error('地图加载超时（30秒）');
+        setMapError('地图加载超时，请检查网络连接或刷新页面重试');
+        setMapLoading(false);
+        timeoutId = null;
+      }, 30000); // 30秒超时
 
       try {
         // 从 Supabase Edge Function 获取百度地图API Key
@@ -348,6 +367,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         
         if (!baiduMapKey) {
           console.error('未配置百度地图API Key');
+          clearTimeoutIfNeeded();
           setMapError('未配置百度地图API Key。请按以下步骤配置：\n1. 在 Supabase Dashboard 的 Edge Functions 设置中添加 BAIDU_MAP_KEY 环境变量\n2. 部署 baidu-map-key Edge Function\n3. 刷新页面');
           setMapLoading(false);
           return;
@@ -359,16 +379,23 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         
         // 设置全局回调函数
         (window as unknown as Record<string, () => void>)[callbackName] = () => {
-          if (window.BMap) {
-            console.log('百度地图API加载成功');
-            // 清理回调函数
-            delete (window as unknown as Record<string, () => void>)[callbackName];
-            initMap(points);
-          } else {
-            console.error('百度地图API加载失败：BMap未定义');
-            setMapError('地图API加载失败');
-            setMapLoading(false);
-          }
+          console.log('百度地图API回调函数被调用');
+          clearTimeoutIfNeeded(); // 清除超时定时器
+          
+          // 清理回调函数
+          delete (window as unknown as Record<string, () => void>)[callbackName];
+          
+          // 延迟一下确保 BMap 完全初始化
+          setTimeout(() => {
+            if (window.BMap) {
+              console.log('百度地图API加载成功，BMap已定义');
+              initMap(points);
+            } else {
+              console.error('百度地图API加载失败：BMap未定义');
+              setMapError('地图API加载失败：BMap未定义。请检查API Key配置和网络连接');
+              setMapLoading(false);
+            }
+          }, 100);
         };
         
         const script = document.createElement('script');
@@ -377,6 +404,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         
         script.onerror = () => {
           console.error('百度地图API脚本加载失败');
+          clearTimeoutIfNeeded();
           setMapError('地图API加载失败，请检查网络连接和API Key配置');
           setMapLoading(false);
           // 清理回调函数
@@ -386,7 +414,8 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         document.head.appendChild(script);
       } catch (error) {
         console.error('加载地图API失败:', error);
-        setMapError('加载地图API失败');
+        clearTimeoutIfNeeded();
+        setMapError(`加载地图API失败: ${error instanceof Error ? error.message : String(error)}`);
         setMapLoading(false);
       }
     };
@@ -394,8 +423,17 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
     loadMap();
 
     function initMap(trackingPoints: TrackingPoint[]) {
-      if (!mapContainerRef.current || !window.BMap) {
-        console.error('地图容器或BMap未初始化');
+      if (!mapContainerRef.current) {
+        console.error('地图容器未初始化');
+        setMapError('地图容器未初始化');
+        setMapLoading(false);
+        return;
+      }
+      
+      if (!window.BMap) {
+        console.error('百度地图API未加载，BMap未定义');
+        setMapError('百度地图API加载失败，请刷新页面重试');
+        setMapLoading(false);
         return;
       }
 
