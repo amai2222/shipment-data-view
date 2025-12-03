@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { convertPointsWgs84ToBd09 } from '@/utils/coordinateConverter';
 
 interface TrackingPoint {
   lat: number;
@@ -60,7 +61,16 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!trackingData || !mapContainerRef.current) {
+    console.log('VehicleTrackingMap useEffect 触发，trackingData:', trackingData);
+    console.log('mapContainerRef.current:', mapContainerRef.current);
+    
+    if (!trackingData) {
+      console.log('trackingData 为空，等待数据...');
+      return;
+    }
+    
+    if (!mapContainerRef.current) {
+      console.log('地图容器未准备好，等待DOM元素...');
       return;
     }
 
@@ -90,20 +100,53 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           return [];
         }
         
-        // 转换数据格式：支持 latitude/longitude 和 lat/lng 两种格式
+        // Edge Function 已经转换过数据格式，直接使用（lat/lng 已经是转换后的坐标）
         const points = (data as unknown[]).map((item: unknown, index: number) => {
           const point = item as Record<string, unknown>;
-          console.log(`处理第 ${index} 个点:`, point);
           
-          // 优先使用 lat/lng，如果没有则使用 latitude/longitude
-          const lat = (point.lat as number) ?? (point.latitude as number) ?? 0;
-          const lng = (point.lng as number) ?? (point.longitude as number) ?? 0;
+          // Edge Function 已经返回转换后的格式，直接使用 lat/lng
+          // 支持多种可能的字段名
+          let lat: number = 0;
+          let lng: number = 0;
+          
+          // 🔴 提取坐标值：支持字符串和数字格式
+          if (point.lat !== undefined) {
+            const latValue = typeof point.lat === 'string' ? parseFloat(point.lat) : (point.lat as number);
+            // 如果坐标值很大（> 90 或 > 1000），说明可能是未转换的格式，需要除以1000000
+            // 例如：20876161 / 1000000 = 20.876161（合理的纬度值）
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+          } else if (point.latitude !== undefined) {
+            const latValue = typeof point.latitude === 'string' ? parseFloat(point.latitude) : (point.latitude as number);
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+          }
+          
+          if (point.lng !== undefined) {
+            const lngValue = typeof point.lng === 'string' ? parseFloat(point.lng) : (point.lng as number);
+            // 如果坐标值很大（> 180 或 > 1000），说明可能是未转换的格式
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+          } else if (point.longitude !== undefined) {
+            const lngValue = typeof point.longitude === 'string' ? parseFloat(point.longitude) : (point.longitude as number);
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+          }
+          
+          // 记录前几个点的坐标转换情况（用于调试）
+          if (index < 3) {
+            console.log(`点 ${index} 坐标解析:`, {
+              rawLat: point.lat,
+              rawLng: point.lng || point.lon,
+              convertedLat: lat,
+              convertedLng: lng
+            });
+          }
+          
           const time = (point.time as number) ?? Date.now();
           const speed = point.speed as number | undefined;
           const direction = point.direction as number | undefined;
           const address = point.address as string | undefined;
           
-          console.log(`点 ${index} 坐标: lat=${lat}, lng=${lng}, time=${time}`);
+          if (index === 0 || index === data.length - 1) {
+            console.log(`点 ${index} 坐标: lat=${lat}, lng=${lng}, time=${time}`);
+          }
           
           return {
             lat,
@@ -113,7 +156,16 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
             direction,
             address
           };
-        }).filter(p => p.lat !== 0 && p.lng !== 0); // 过滤掉无效坐标
+        }).filter(p => {
+          // 过滤掉无效坐标：坐标必须在有效范围内
+          const isValid = p.lat !== 0 && p.lng !== 0 && 
+                         p.lat >= -90 && p.lat <= 90 && 
+                         p.lng >= -180 && p.lng <= 180;
+          if (!isValid && (p.lat !== 0 || p.lng !== 0)) {
+            console.warn(`过滤无效坐标: lat=${p.lat}, lng=${p.lng}`);
+          }
+          return isValid;
+        });
         
         console.log(`过滤后的有效点数: ${points.length}`);
         return points;
@@ -137,12 +189,45 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
       
       if (Array.isArray(dataObj.result)) {
         console.log(`从 result 字段提取数据，长度: ${dataObj.result.length}`);
-        // result 字段可能是原始格式，需要转换
-        return (dataObj.result as unknown[]).map((item: unknown) => {
+        // result 字段可能是原始格式，需要转换（Edge Function可能已经转换过了）
+        return (dataObj.result as unknown[]).map((item: unknown, index: number) => {
           const point = item as Record<string, unknown>;
-          const lat = (point.lat as number) ?? (point.latitude as number) ?? 0;
-          const lng = (point.lng as number) ?? (point.longitude as number) ?? 0;
+          
+          // 提取坐标，支持字符串和数字格式
+          let lat: number = 0;
+          let lng: number = 0;
+          
+          if (point.lat !== undefined) {
+            const latValue = typeof point.lat === 'string' ? parseFloat(point.lat) : (point.lat as number);
+            // 如果坐标值很大（> 90），说明可能是未转换的格式
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+          } else if (point.latitude !== undefined) {
+            const latValue = typeof point.latitude === 'string' ? parseFloat(point.latitude) : (point.latitude as number);
+            lat = Math.abs(latValue) > 90 ? (Math.abs(latValue) > 1000000 ? latValue / 1000000 : latValue) : latValue;
+          }
+          
+          if (point.lng !== undefined) {
+            const lngValue = typeof point.lng === 'string' ? parseFloat(point.lng) : (point.lng as number);
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+          } else if (point.lon !== undefined) {
+            const lngValue = typeof point.lon === 'string' ? parseFloat(point.lon) : (point.lon as number);
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+          } else if (point.longitude !== undefined) {
+            const lngValue = typeof point.longitude === 'string' ? parseFloat(point.longitude) : (point.longitude as number);
+            lng = Math.abs(lngValue) > 180 ? (Math.abs(lngValue) > 1000000 ? lngValue / 1000000 : lngValue) : lngValue;
+          }
+          
           const time = (point.time as number) ?? Date.now();
+          
+          if (index < 3) {
+            console.log(`result字段点 ${index} 坐标解析:`, {
+              rawLat: point.lat || point.latitude,
+              rawLng: point.lng || point.lon || point.longitude,
+              convertedLat: lat,
+              convertedLng: lng
+            });
+          }
+          
           return {
             lat,
             lng,
@@ -151,7 +236,13 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
             direction: point.direction as number | undefined,
             address: point.address as string | undefined
           };
-        }).filter(p => p.lat !== 0 && p.lng !== 0);
+        }).filter(p => {
+          // 过滤掉无效坐标
+          const isValid = p.lat !== 0 && p.lng !== 0 && 
+                         p.lat >= -90 && p.lat <= 90 && 
+                         p.lng >= -180 && p.lng <= 180;
+          return isValid;
+        });
       }
 
       // 尝试从location字段解析
@@ -172,17 +263,37 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
       return [];
     };
 
-    const points = parseTrackingData(trackingData);
+    let points = parseTrackingData(trackingData);
 
     console.log('解析后的轨迹点数量:', points.length);
     if (points.length > 0) {
-      console.log('第一个轨迹点:', points[0]);
+      console.log('第一个轨迹点（Edge Function处理后）:', points[0]);
+      
+      // 🔴 坐标系统转换：将 WGS-84 坐标系转换为 BD-09 坐标系（百度地图坐标系）
+      // 注意：Edge Function 已经进行了坐标转换（WGS-84 -> BD-09）
+      // 如果 Edge Function 没有转换或需要前端再次转换，可以取消下面的注释
+      // console.log('开始坐标转换：WGS-84 -> BD-09');
+      // points = convertPointsWgs84ToBd09(points);
+      // console.log('坐标转换完成');
+      
+      console.log('第一个轨迹点（最终坐标，应该是 BD-09）:', points[0]);
       console.log('最后一个轨迹点:', points[points.length - 1]);
+      console.log('轨迹点坐标范围（BD-09）:', {
+        minLat: Math.min(...points.map(p => p.lat)),
+        maxLat: Math.max(...points.map(p => p.lat)),
+        minLng: Math.min(...points.map(p => p.lng)),
+        maxLng: Math.max(...points.map(p => p.lng))
+      });
     }
 
     if (points.length === 0) {
-      console.error('未找到有效的轨迹数据，原始数据:', trackingData);
-      setMapError('未找到有效的轨迹数据。可能原因：1) 该时间段内车辆没有行驶轨迹；2) API返回数据为空；3) 数据格式不匹配。请尝试调整查询日期范围。');
+      console.error('未找到有效的轨迹数据');
+      console.error('原始数据类型:', typeof trackingData, '是否为数组:', Array.isArray(trackingData));
+      if (trackingData && typeof trackingData === 'object') {
+        console.error('数据对象的键:', Object.keys(trackingData));
+      }
+      console.error('原始数据内容（前1000字符）:', JSON.stringify(trackingData).substring(0, 1000));
+      setMapError('未找到有效的轨迹数据。可能原因：1) 该时间段内车辆没有行驶轨迹；2) API返回数据为空；3) 数据格式不匹配。请尝试调整查询日期范围，并查看浏览器控制台获取详细信息。');
       setMapLoading(false);
       return;
     }

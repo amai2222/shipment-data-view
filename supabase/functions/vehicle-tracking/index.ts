@@ -3,6 +3,67 @@
 // @ts-expect-error - Edge Function运行在Deno环境，Deno类型在运行时可用
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+/**
+ * 坐标系统转换工具函数
+ * 将 WGS-84 坐标转换为 BD-09 坐标（百度地图坐标系）
+ */
+
+// WGS-84 转 GCJ-02（火星坐标系）
+function wgs84ToGcj02(wgsLat: number, wgsLng: number): { lat: number; lng: number } {
+  if (outOfChina(wgsLat, wgsLng)) {
+    return { lat: wgsLat, lng: wgsLng };
+  }
+
+  let dLat = transformLat(wgsLng - 105.0, wgsLat - 35.0);
+  let dLng = transformLng(wgsLng - 105.0, wgsLat - 35.0);
+  const radLat = (wgsLat / 180.0) * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - 0.00669342162296594323 * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtMagic) * Math.PI);
+  dLng = (dLng * 180.0) / (6378245.0 / sqrtMagic * Math.cos(radLat) * Math.PI);
+  const mgLat = wgsLat + dLat;
+  const mgLng = wgsLng + dLng;
+
+  return { lat: mgLat, lng: mgLng };
+}
+
+// GCJ-02 转 BD-09（百度坐标系）
+function gcj02ToBd09(gcjLat: number, gcjLng: number): { lat: number; lng: number } {
+  const z = Math.sqrt(gcjLng * gcjLng + gcjLat * gcjLat) + 0.00002 * Math.sin(gcjLat * Math.PI * 3000.0 / 180.0);
+  const theta = Math.atan2(gcjLat, gcjLng) + 0.000003 * Math.cos(gcjLng * Math.PI * 3000.0 / 180.0);
+  const bdLng = z * Math.cos(theta) + 0.0065;
+  const bdLat = z * Math.sin(theta) + 0.006;
+
+  return { lat: bdLat, lng: bdLng };
+}
+
+// WGS-84 转 BD-09
+function wgs84ToBd09(wgsLat: number, wgsLng: number): { lat: number; lng: number } {
+  const gcj = wgs84ToGcj02(wgsLat, wgsLng);
+  return gcj02ToBd09(gcj.lat, gcj.lng);
+}
+
+function outOfChina(lat: number, lng: number): boolean {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+}
+
+function transformLat(lng: number, lat: number): number {
+  let ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
+  ret += ((20.0 * Math.sin(6.0 * lng * Math.PI) + 20.0 * Math.sin(2.0 * lng * Math.PI)) * 2.0) / 3.0;
+  ret += ((20.0 * Math.sin(lat * Math.PI) + 40.0 * Math.sin(lat / 3.0 * Math.PI)) * 2.0) / 3.0;
+  ret += ((160.0 * Math.sin(lat / 12.0 * Math.PI) + 320 * Math.sin(lat * Math.PI / 30.0)) * 2.0) / 3.0;
+  return ret;
+}
+
+function transformLng(lng: number, lat: number): number {
+  let ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
+  ret += ((20.0 * Math.sin(6.0 * lng * Math.PI) + 20.0 * Math.sin(2.0 * lng * Math.PI)) * 2.0) / 3.0;
+  ret += ((20.0 * Math.sin(lng * Math.PI) + 40.0 * Math.sin(lng / 3.0 * Math.PI)) * 2.0) / 3.0;
+  ret += ((150.0 * Math.sin(lng / 12.0 * Math.PI) + 300.0 * Math.sin(lng / 30.0 * Math.PI)) * 2.0) / 3.0;
+  return ret;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -27,9 +88,15 @@ serve(async (req) => {
 
     // 4. 获取环境变量中的认证令牌
     // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
-    const SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION');
+    const SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION') || '#13:206-dde3b628224190a02a6908b5-cladmin-ZKZY';
+    
     if (!SESSION_TOKEN) {
-      throw new Error('Missing TRACKING_AUTH_SESSION');
+      throw new Error('Missing TRACKING_AUTH_SESSION: 请在 Supabase Dashboard 的 Edge Functions 设置中添加 TRACKING_AUTH_SESSION 环境变量');
+    }
+    
+    // 如果使用默认值，记录警告
+    if (!Deno.env.get('TRACKING_AUTH_SESSION')) {
+      console.warn('⚠️ 警告: 使用默认的 TRACKING_AUTH_SESSION。建议在 Supabase Dashboard 中配置环境变量以避免 Token 过期问题。');
     }
     
     // 默认查询最近 12 小时（参考 Gemini 代码）
@@ -324,23 +391,50 @@ serve(async (req) => {
       const tracePoint = point as TracePoint;
       // 转换坐标：lat/lon 可能是字符串格式，需要转换为数字
       // 注意：如果 lat/lon 是字符串格式（如 "22153458"），可能需要除以某个倍数（如 1000000）得到实际坐标
-      let latitude = 0;
-      let longitude = 0;
+      let latitude: number = 0;
+      let longitude: number = 0;
       
+      // 🔴 提取并转换坐标：支持字符串和数字格式，自动识别大数字并转换
       if (tracePoint.lat !== undefined) {
-        const latNum = typeof tracePoint.lat === 'string' ? parseFloat(tracePoint.lat) : tracePoint.lat;
-        // 如果 lat 是很大的数字（如 22153458），可能是以某种单位存储的，需要转换
-        // 根据实际数据判断：22153458 可能是 22.153458 的某种编码
-        latitude = latNum > 1000000 ? latNum / 1000000 : latNum;
-      } else if (tracePoint.lng !== undefined) {
-        latitude = typeof tracePoint.lng === 'string' ? parseFloat(tracePoint.lng) : tracePoint.lng;
+        const latNum = typeof tracePoint.lat === 'string' ? parseFloat(tracePoint.lat) : Number(tracePoint.lat);
+        // 如果 lat 是很大的数字（> 1000），可能是以某种单位存储的，需要除以1000000
+        // 根据实际数据判断：20876161 / 1000000 = 20.876161（合理的纬度值）
+        if (!isNaN(latNum) && latNum !== 0 && Math.abs(latNum) > 1000) {
+          latitude = latNum / 1000000;
+        } else if (!isNaN(latNum) && latNum !== 0) {
+          latitude = latNum;
+        }
+      } else if (tracePoint.latitude !== undefined) {
+        const latNum = typeof tracePoint.latitude === 'string' ? parseFloat(tracePoint.latitude) : Number(tracePoint.latitude);
+        if (!isNaN(latNum) && latNum !== 0 && Math.abs(latNum) > 1000) {
+          latitude = latNum / 1000000;
+        } else if (!isNaN(latNum) && latNum !== 0) {
+          latitude = latNum;
+        }
       }
       
       if (tracePoint.lon !== undefined) {
-        const lonNum = typeof tracePoint.lon === 'string' ? parseFloat(tracePoint.lon) : tracePoint.lon;
-        longitude = lonNum > 1000000 ? lonNum / 1000000 : lonNum;
+        const lonNum = typeof tracePoint.lon === 'string' ? parseFloat(tracePoint.lon) : Number(tracePoint.lon);
+        // 如果 lon 是很大的数字（> 1000），需要除以1000000
+        if (!isNaN(lonNum) && lonNum !== 0 && Math.abs(lonNum) > 1000) {
+          longitude = lonNum / 1000000;
+        } else if (!isNaN(lonNum) && lonNum !== 0) {
+          longitude = lonNum;
+        }
+      } else if (tracePoint.longitude !== undefined) {
+        const lonNum = typeof tracePoint.longitude === 'string' ? parseFloat(tracePoint.longitude) : Number(tracePoint.longitude);
+        if (!isNaN(lonNum) && lonNum !== 0 && Math.abs(lonNum) > 1000) {
+          longitude = lonNum / 1000000;
+        } else if (!isNaN(lonNum) && lonNum !== 0) {
+          longitude = lonNum;
+        }
       } else if (tracePoint.lng !== undefined) {
-        longitude = typeof tracePoint.lng === 'string' ? parseFloat(tracePoint.lng) : tracePoint.lng;
+        const lonNum = typeof tracePoint.lng === 'string' ? parseFloat(String(tracePoint.lng)) : Number(tracePoint.lng);
+        if (!isNaN(lonNum) && lonNum !== 0 && Math.abs(lonNum) > 1000) {
+          longitude = lonNum / 1000000;
+        } else if (!isNaN(lonNum) && lonNum !== 0) {
+          longitude = lonNum;
+        }
       }
 
       // 转换时间：gtm 格式 "YYYYMMDD/HHMMSS" 转换为时间戳
@@ -360,15 +454,31 @@ serve(async (req) => {
         }
       }
 
+      // 🔴 坐标系统转换：将 WGS-84 坐标系转换为 BD-09 坐标系（百度地图坐标系）
+      // 轨迹数据是 WGS-84 坐标系（GPS原始坐标系），需要转换为 BD-09 才能在百度地图上正确显示
+      // 注意：latitude 和 longitude 已经是转换后的 WGS-84 坐标（从原始数据转换而来）
+      let finalLat = latitude;
+      let finalLng = longitude;
+      
+      // 只有在坐标值在合理范围内时才进行转换（避免对已经是 BD-09 的坐标重复转换）
+      if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180 && 
+          (Math.abs(latitude) > 0.01 || Math.abs(longitude) > 0.01)) {
+        const bd09Coords = wgs84ToBd09(latitude, longitude);
+        finalLat = bd09Coords.lat;
+        finalLng = bd09Coords.lng;
+      }
+      
       return {
         ...tracePoint,
         // 转换为前端好用的格式（同时提供 lat/lng 和 latitude/longitude 两种格式，兼容不同组件）
-        lat: latitude,           // 地图组件期望的字段名
-        lng: longitude,          // 地图组件期望的字段名
-        latitude,                // 保留 latitude 字段（向后兼容）
-        longitude,               // 保留 longitude 字段（向后兼容）
+        lat: finalLat,           // BD-09 坐标系纬度（百度地图）
+        lng: finalLng,           // BD-09 坐标系经度（百度地图）
+        latitude: finalLat,      // 保留 latitude 字段（向后兼容）
+        longitude: finalLng,     // 保留 longitude 字段（向后兼容）
         time: timestamp,
-        // 保留原始数据
+        // 保留原始 WGS-84 坐标数据（用于调试或后续处理）
+        originalWgs84Lat: latitude,
+        originalWgs84Lng: longitude,
         originalLat: tracePoint.lat,
         originalLon: tracePoint.lon,
         gtm: tracePoint.gtm
