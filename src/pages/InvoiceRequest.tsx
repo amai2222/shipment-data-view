@@ -441,17 +441,40 @@ export default function InvoiceRequest() {
       }));
       
       // ✅ 检查所有查询条件的未匹配项
-      if (data) {
-        const responseData = data as InvoiceRequestResponse;
+      // 注意：需要查询所有匹配的数据（不分页），而不仅仅是当前页，才能准确找出未匹配的项
+      if (data && (inputWaybillNumbers.length > 0 || 
+                   inputDriverNames.length > 0 || 
+                   inputLicensePlates.length > 0 || 
+                   inputDriverPhones.length > 0 || 
+                   inputDriverReceivables.length > 0)) {
+        // 查询所有匹配的数据（不分页），用于准确对比
+        const { data: allData, error: allError } = await supabase.rpc('get_invoice_request_data_1120', {
+          p_project_id: toNullIfEmpty(activeFilters.projectId),
+          p_start_date: toNullIfEmpty(activeFilters.startDate),
+          p_end_date: toNullIfEmpty(activeFilters.endDate),
+          p_partner_id: toNullIfEmpty(activeFilters.partnerId),
+          p_invoice_status_array: statusArray,
+          p_page_size: 10000, // 设置一个很大的值，获取所有匹配的数据
+          p_page_number: 1,
+          // 新增高级筛选参数（保持相同的筛选条件）
+          p_waybill_numbers: toNullIfEmpty(activeFilters.waybillNumbers),
+          p_driver_name: toNullIfEmpty(activeFilters.driverName),
+          p_license_plate: toNullIfEmpty(activeFilters.licensePlate),
+          p_driver_phone: toNullIfEmpty(activeFilters.driverPhone),
+          p_driver_receivable: toNullIfEmpty(activeFilters.driverReceivable),
+        });
+        
+        // 如果查询失败，使用当前页数据（降级处理）
+        const allResponseData = allError ? (data as InvoiceRequestResponse) : (allData as InvoiceRequestResponse);
         const foundWaybillNumbers = new Set<string>();
         const foundDriverNames = new Set<string>();
         const foundLicensePlates = new Set<string>();
         const foundDriverPhones = new Set<string>();
         const foundDriverReceivables = new Set<string>();
         
-        // 收集返回结果中的所有匹配值
-        if (responseData.records && Array.isArray(responseData.records)) {
-          responseData.records.forEach((record: LogisticsRecordWithPartners) => {
+        // 收集所有匹配值（从所有数据中，不仅仅是当前页）
+        if (allResponseData?.records && Array.isArray(allResponseData.records)) {
+          allResponseData.records.forEach((record: LogisticsRecordWithPartners) => {
             if (record.auto_number) {
               foundWaybillNumbers.add(record.auto_number.trim());
             }
