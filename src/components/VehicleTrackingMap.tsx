@@ -555,14 +555,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
             console.warn('⚠️ 地图容器尺寸为0，可能导致地图不显示');
           }
         }
-        
-        // 🔴 延迟一下，确保地图完全加载
-        setTimeout(() => {
-          // @ts-expect-error - 百度地图API方法在运行时可用
-          map.setViewport(path.length > 0 ? path : [centerPoint]);
-          console.log('✅ 百度地图视图已调整');
-        }, 100);
-        
+
         console.log('✅ 百度地图初始化完成，已添加所有控件');
 
         mapInstanceRef.current = map;
@@ -571,10 +564,31 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         const path = trackingPoints
           .filter(p => p.lat != null && p.lng != null && p.lat !== 0 && p.lng !== 0)
           .map(p => new window.BMap.Point(p.lng, p.lat));
-
+        
         console.log('轨迹路径点数:', path.length);
+        console.log('轨迹路径前3个点:', path.slice(0, 3));
+        
+        // 🔴 延迟一下，确保地图完全加载后再设置视图
+        setTimeout(() => {
+          if (path.length > 0) {
+            console.log('🔄 调整地图视图以包含所有轨迹点，轨迹点数量:', path.length);
+            try {
+              // @ts-expect-error - 百度地图API方法在运行时可用
+              map.setViewport(path);
+              console.log('✅ 百度地图视图已调整到轨迹范围');
+            } catch (err) {
+              console.warn('⚠️ setViewport 失败，尝试使用 centerAndZoom:', err);
+              // 如果 setViewport 失败，使用计算的中心点和合适的缩放级别
+              map.centerAndZoom(centerPoint, 13);
+            }
+          } else {
+            console.warn('⚠️ 没有有效的轨迹点，使用默认中心点');
+            map.centerAndZoom(centerPoint, 13);
+          }
+        }, 100);
 
         if (path.length > 0) {
+          console.log('开始绘制轨迹路线，点数:', path.length);
           const polyline = new window.BMap.Polyline(path, {
             strokeColor: '#2563eb',
             strokeWeight: 4,
@@ -583,6 +597,9 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           });
 
           map.addOverlay(polyline);
+          console.log('✅ 轨迹路线已添加到地图');
+        } else {
+          console.warn('⚠️ 没有有效的轨迹点可以绘制');
         }
 
         // 添加起点标记
@@ -614,19 +631,13 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
               title: `终点: ${endTime}`
             });
             map.addOverlay(endMarker);
+            console.log('✅ 终点标记已添加');
           }
         }
-
-        // 调整地图视野以包含所有轨迹点
-        if (path.length > 0) {
-          const viewport = map.getViewport(path);
-          map.centerAndZoom(viewport.center, viewport.zoom);
-        }
-
-        console.log('✅ 百度地图初始化成功！');
-        console.log('✅ 设置 mapLoading = false');
+        
+        // 🔴 地图初始化完成，设置为非加载状态
+        console.log('✅ 地图和轨迹初始化完成');
         setMapLoading(false);
-        console.log('✅ mapLoading 已设置为 false');
       } catch (error) {
         console.error('❌ 地图初始化失败:', error);
         setMapError(`地图初始化失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -652,47 +663,39 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   console.log('🎨 mapError:', mapError);
   console.log('🎨 mapContainerRef.current:', mapContainerRef.current);
 
-  if (loading || mapLoading) {
-    console.log('⏳ 显示加载状态');
-    return (
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-blue-500" />
-              <p className="text-muted-foreground">正在加载地图...</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (mapError) {
-    console.log('❌ 显示错误状态:', mapError);
-    return (
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center text-muted-foreground">
-              <p className="text-lg mb-2">⚠️</p>
-              <p>{mapError}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  console.log('✅ 显示地图容器');
+  // 🔴 关键修复：地图容器必须始终渲染，否则 useEffect 中无法访问
+  // 使用遮罩层显示加载状态和错误状态，而不是隐藏容器
   return (
     <Card>
       <CardContent className="p-0">
-        <div 
-          ref={mapContainerRef} 
-          className="w-full h-96 rounded-lg overflow-hidden"
-          style={{ minHeight: '400px' }}
-        />
+        <div className="relative w-full h-96 rounded-lg overflow-hidden" style={{ minHeight: '400px' }}>
+          {/* 地图容器 - 始终渲染 */}
+          <div 
+            ref={mapContainerRef} 
+            className="w-full h-full"
+            style={{ minHeight: '400px' }}
+          />
+          
+          {/* 加载遮罩层 */}
+          {(loading || mapLoading) && (
+            <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-blue-500" />
+                <p className="text-muted-foreground">正在加载地图...</p>
+              </div>
+            </div>
+          )}
+          
+          {/* 错误遮罩层 */}
+          {mapError && !loading && !mapLoading && (
+            <div className="absolute inset-0 bg-white bg-opacity-95 flex items-center justify-center z-10">
+              <div className="text-center text-muted-foreground p-4">
+                <p className="text-lg mb-2">⚠️</p>
+                <p className="whitespace-pre-line">{mapError}</p>
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
