@@ -17,19 +17,24 @@ serve(async (req) => {
   try {
     // 从请求头获取用户的 JWT token（用于权限检查）
     const authHeader = req.headers.get('Authorization');
-    const userToken = authHeader?.replace('Bearer ', '') || '';
     
     // 初始化 Supabase 客户端
-    // 优先使用用户 token，如果没有则使用服务角色密钥（用于绕过 RLS 的数据库操作）
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     // 创建两个客户端：
-    // 1. 使用用户 token 的客户端（用于权限检查）
-    // 2. 使用服务角色密钥的客户端（用于实际数据库操作，绕过 RLS）
-    const supabaseUser = userToken 
-      ? createClient(supabaseUrl, userToken)
-      : createClient(supabaseUrl, supabaseServiceKey);
+    // 1. 使用 anon key + Authorization header 的客户端（用于权限检查，auth.uid() 可以正确识别用户）
+    // 2. 使用服务角色密钥的客户端（用于需要绕过 RLS 的操作）
+    const supabaseUser = createClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        global: {
+          headers: authHeader ? { Authorization: authHeader } : {}
+        }
+      }
+    );
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // 准备第三方平台参数（参考 Gemini 代码，支持环境变量）
