@@ -21,96 +21,60 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
     throw new Error('Missing TRACKING_AUTH_SESSION: 请在 Supabase Dashboard 的 Edge Functions 设置中添加 TRACKING_AUTH_SESSION 环境变量');
   }
 
-  // 3. 生成动态 UID (模拟格式: 100 + 年月日时分秒 + 随机数)
+  // 3. 生成动态 UID (确保是纯字符串)
   // 必须生成新的，否则会报 "主键冲突" 错误
   const now = new Date();
   const timeStr = now.toISOString().replace(/[-T:.Z]/g, "").slice(0, 14); // 结果如 20251203123000
-  const randomStr = Math.floor(Math.random() * 10000000000).toString();
-  const uid = `100${timeStr}${randomStr}`;
+  const uid = `100${timeStr}${Math.floor(Math.random() * 10000000000)}`;
 
-  // 4. 构造请求体（确保所有字段都是有效的 JSON 值）
-  const payload: Record<string, unknown> = {
-    uid: String(uid),
-    serialno: String(licensePlate),
-    desc: String(licensePlate),
-    // 以下 ID 根据您的账号环境固定
-    deptId: "#16:5043",      
-    lastDeptId: "#16:171",
-    equipModelId: "#20:81",  // 对应车型 WO_YS_TR
-    backup: false,
-    relations: []
+  // 4. 构造 Payload (强制转换类型，防止 undefined)
+  // ⚠️ 注意：后端要求 value 必须是字符串，例如 "30" 而不是 30
+  const safeLoadWeight = String(loadWeight || "0");
+
+  const payload = {
+    uid: uid,
+    serialno: licensePlate,
+    desc: licensePlate,
+    deptId: "#16:5043",     // 确保这是 "#16:5043" 这样的字符串
+    lastDeptId: "#16:171",     // 建议写死，与抓包一致
+    equipModelId: "#20:81",    // 对应 WO_YS_TR
+    backup: false,             // Boolean 类型
+    relations: [],             // 空数组
+    exFields: [
+      {
+        exFieldId: "#157:277",
+        field: "核定载质量",
+        value: safeLoadWeight, // 🔴 关键修复：这里必须是 String
+        format: "json"
+      }
+    ]
   };
 
-  // 🔴 确保 exFields 数组格式正确
-  if (loadWeight && loadWeight.trim() !== '') {
-    payload.exFields = [
-      {
-        exFieldId: "#157:277",
-        field: "核定载质量",
-        value: String(loadWeight).trim(),
-        format: "json"
-      }
-    ];
-  } else {
-    // 如果没有载质量，也添加一个默认值
-    payload.exFields = [
-      {
-        exFieldId: "#157:277",
-        field: "核定载质量",
-        value: "0",
-        format: "json"
-      }
-    ];
-  }
-
-  // 🔴 验证 payload 是否可以正确序列化
-  try {
-    const testJson = JSON.stringify(payload);
-    if (!testJson || testJson === '{}') {
-      throw new Error('Payload 序列化失败：结果为空');
-    }
-    console.log('✅ Payload 验证通过，长度:', testJson.length);
-  } catch (error) {
-    console.error('❌ Payload 序列化验证失败:', error);
-    throw new Error(`请求体构造失败: ${error instanceof Error ? error.message : '未知错误'}`);
-  }
+  // 🔴 调试：打印即将发送的最终 JSON，检查是否有格式错误
+  const bodyString = JSON.stringify(payload);
+  console.log(`📤 正在发送 Payload (车辆: ${licensePlate}):`, bodyString);
 
   try {
     console.log(`正在同步车辆 ${licensePlate} 到第三方平台...`);
-    console.log(`请求体:`, JSON.stringify(payload, null, 2));
 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json;charset=UTF-8",
-        // 🔴 关键修改：使用自定义鉴权头
-        "Auth-Session": authToken, 
-        // 伪装来源，防止被拦截
+        // 🔴 修复：去掉 charset，部分严格后端只认这个
+        "Content-Type": "application/json",
+        "Auth-Session": authToken,
         "Referer": "https://zkzy.zkzy1688.com/console/",
-        "Origin": "https://zkzy.zkzy1688.com",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "x-requested-with": "XMLHttpRequest"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36"
       },
-      body: JSON.stringify(payload)
+      body: bodyString
     });
 
     // 获取返回的文本内容
     const responseText = await response.text();
-    let result;
-
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      // 如果不是JSON，可能是其他错误
-      result = { message: responseText };
-    }
-
-    // 🔴 处理 HTTP 错误（包括 409）
+    
     if (!response.ok) {
+      // 🔴 处理 HTTP 错误（包括 409）
       console.error(`❌ 同步失败 [HTTP ${response.status}]:`, responseText);
-      console.error(`错误详情:`, result);
       
       if (response.status === 401 || response.status === 403) {
         return { 
@@ -121,45 +85,39 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
       
       // 🔴 特殊处理 409 错误（可能是"已存在"或"Invalid JSON"）
       if (response.status === 409) {
-        // 检查是否是"已存在"的错误
-        if (result && (
-          result.code === "ConflictError" || 
-          (result.message && (
-            result.message.includes("已存在") || 
-            result.message.includes("already exists") ||
-            result.message.includes("duplicate")
-          ))
-        )) {
+        // 如果是 409 且报错是 Invalid JSON，说明可能不是重复，而是格式真的错了
+        // 但如果是 ConflictError，则是重复
+        if (responseText.includes("Invalid JSON")) {
+          console.error('❌ 第三方API返回 Invalid JSON 错误 (409)');
+          console.error('请求URL:', url);
+          console.error('请求体:', bodyString);
+          return { 
+            success: false, 
+            message: `格式错误 (409 Invalid JSON): 请检查 console 中的 Payload 格式。服务端返回: ${responseText}` 
+          };
+        }
+        
+        // 依然处理"已存在"的逻辑，防止误报
+        if (responseText.includes("已存在") || responseText.includes("Conflict") || responseText.includes("duplicate")) {
           console.log(`⚠️ 车辆 ${licensePlate} 已存在（409），视为成功`);
           return { 
             success: true, 
             status: "existed", 
-            message: `车辆 ${licensePlate} 已存在于轨迹查询库`,
-            data: result 
-          };
-        }
-        
-        // 如果是 "Invalid JSON" 错误，提供更详细的错误信息
-        if (result && result.message && result.message.includes('Invalid JSON')) {
-          console.error('❌ 第三方API返回 Invalid JSON 错误');
-          console.error('请求URL:', url);
-          console.error('请求体:', JSON.stringify(payload, null, 2));
-          console.error('请求体类型:', typeof payload, Array.isArray(payload));
-          return { 
-            success: false, 
-            message: `第三方平台返回错误：Invalid JSON。可能是请求体格式不正确。请检查：1) 请求体是否为有效JSON 2) 字段名是否正确 3) 字段值是否符合要求。原始错误: ${responseText}` 
+            message: `车辆 ${licensePlate} 已存在于轨迹查询库`
           };
         }
       }
       
+      // 其他 HTTP 错误
       return { 
         success: false, 
-        message: result.message || responseText || `HTTP ${response.status} 错误`,
+        message: `添加失败 [${response.status}]: ${responseText}`,
         status: response.status 
       };
     }
 
     // 成功添加新车辆
+    const result = responseText ? JSON.parse(responseText) : null;
     console.log("✅ 车辆添加成功:", result);
     return { 
       success: true, 

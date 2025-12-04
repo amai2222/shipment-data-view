@@ -377,8 +377,31 @@ export default function VehicleTracking() {
         }
       });
 
+      // 🔴 改进错误处理：从 error 对象中提取响应体信息
       if (error) {
-        throw error;
+        console.error('调用 Edge Function 失败:', error);
+        console.error('错误详情:', error.context);
+        
+        // 尝试从 error.context 中提取响应体（当返回 400 等错误状态码时）
+        let errorMessage = error.message || '同步失败';
+        if (error.context?.body) {
+          try {
+            const errorBody = typeof error.context.body === 'string' 
+              ? JSON.parse(error.context.body) 
+              : error.context.body;
+            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
+          } catch (e) {
+            console.error('解析错误响应失败:', e);
+          }
+        } else if (error.context && typeof error.context.json === 'function') {
+          try {
+            const errorBody = await error.context.json();
+            errorMessage = errorBody.message || errorBody.error || errorMessage;
+          } catch (e) {
+            // 如果无法解析响应体，使用默认错误信息
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       if (data?.success) {
@@ -431,8 +454,30 @@ export default function VehicleTracking() {
         }
       });
 
+      // 🔴 改进错误处理：从 error 对象中提取响应体信息
       if (error) {
-        throw error;
+        console.error('调用 Edge Function 失败:', error);
+        console.error('错误详情:', error.context);
+        
+        let errorMessage = error.message || '同步失败';
+        if (error.context?.body) {
+          try {
+            const errorBody = typeof error.context.body === 'string' 
+              ? JSON.parse(error.context.body) 
+              : error.context.body;
+            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
+          } catch (e) {
+            console.error('解析错误响应失败:', e);
+          }
+        } else if (error.context && typeof error.context.json === 'function') {
+          try {
+            const errorBody = await error.context.json();
+            errorMessage = errorBody.message || errorBody.error || errorMessage;
+          } catch (e) {
+            // 如果无法解析响应体，使用默认错误信息
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       if (data?.success) {
@@ -484,8 +529,30 @@ export default function VehicleTracking() {
         }
       });
 
+      // 🔴 改进错误处理：从 error 对象中提取响应体信息
       if (resultError) {
-        throw new Error(`处理失败: ${resultError.message}`);
+        console.error('调用 Edge Function 失败:', resultError);
+        console.error('错误详情:', resultError.context);
+        
+        let errorMessage = resultError.message || '处理失败';
+        if (resultError.context?.body) {
+          try {
+            const errorBody = typeof resultError.context.body === 'string' 
+              ? JSON.parse(resultError.context.body) 
+              : resultError.context.body;
+            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
+          } catch (e) {
+            console.error('解析错误响应失败:', e);
+          }
+        } else if (resultError.context && typeof resultError.context.json === 'function') {
+          try {
+            const errorBody = await resultError.context.json();
+            errorMessage = errorBody.message || errorBody.error || errorMessage;
+          } catch (e) {
+            // 如果无法解析响应体，使用默认错误信息
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       if (!result?.success) {
