@@ -190,7 +190,7 @@ serve(async (req) => {
       apiUrl.searchParams.append('endTime', endTime.toString());
 
       const maxRetries = 2; // 最多重试2次
-      const timeout = 30000; // 30秒超时
+      const timeout = 60000; // 60秒超时（处理大量轨迹点需要更长时间）
 
       try {
         // 使用 AbortController 实现超时控制
@@ -221,11 +221,15 @@ serve(async (req) => {
         return response;
       } catch (error) {
         // 如果是超时或连接错误，且还有重试次数，则重试
-        if ((error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout') || error.message.includes('Connection timed out'))) && retryCount < maxRetries) {
+        if ((error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout') || error.message.includes('Connection timed out') || error.message.includes('signal has been aborted'))) && retryCount < maxRetries) {
           console.warn(`请求超时或连接失败，${2}秒后重试 (${retryCount + 1}/${maxRetries})...`);
           // 等待2秒后重试
           await new Promise(resolve => setTimeout(resolve, 2000));
           return makeApiRequest(startTime, endTime, retryCount + 1);
+        }
+        // 如果重试次数用完，提供更友好的错误信息
+        if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('signal has been aborted'))) {
+          throw new Error(`请求超时（${timeout / 1000}秒）。可能原因：1) 数据量过大 2) 网络连接慢 3) 第三方服务器响应慢。建议缩小查询时间范围后重试。`);
         }
         // 如果重试次数用完或不是超时错误，则抛出
         throw error;

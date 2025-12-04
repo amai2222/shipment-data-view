@@ -1,5 +1,5 @@
 // 车辆轨迹查询页面
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database } from 'lucide-react';
+import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
@@ -58,6 +58,12 @@ export default function VehicleTracking() {
   const [refreshingToken, setRefreshingToken] = useState(false);
   const [tokenType, setTokenType] = useState<'add' | 'query'>('query');
   const [refreshingAllTokens, setRefreshingAllTokens] = useState(false);
+
+  // 🔴 取消操作相关状态
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const syncVehicleAbortControllerRef = useRef<AbortController | null>(null);
+  const syncVehicleIdAbortControllerRef = useRef<AbortController | null>(null);
+  const addAndSyncAbortControllerRef = useRef<AbortController | null>(null);
 
   // 根据车牌号查询车辆ID（如果有映射）
   const getVehicleIdByLicensePlate = async (plate: string): Promise<string | null> => {
@@ -267,45 +273,60 @@ export default function VehicleTracking() {
         timeRangeDays: Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24))
       });
 
+      // 🔴 创建 AbortController 用于取消请求
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       // 调用Supabase Edge Function代理API
-      // Edge Function 会根据 vehicleId 格式自动判断使用 'id' 还是 'serialno'
-      const { data, error } = await supabase.functions.invoke('vehicle-tracking', {
-        body: {
+      // 使用原生 fetch 以支持 AbortController
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('缺少 Supabase 配置');
+      }
+
+      // 获取当前用户的 session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || '';
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/vehicle-tracking`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
           vehicleId: finalVehicleId,
-          // 可选：明确指定 field，如果不指定，Edge Function 会根据 vehicleId 格式自动判断
           field: useVehicleId ? 'id' : 'serialno',
           startTime: startTime,
           endTime: endTime
-        }
+        }),
+        signal: abortController.signal
       });
 
-      if (error) {
-        console.error('Edge Function 调用错误详情:', {
-          error,
-          message: error.message,
-          context: error.context,
-          status: error.status
-        });
-        
-        // 尝试从 context 中获取更详细的错误信息
-        let errorDetails = error.message || 'Edge Function returned a non-2xx status code';
-        
-        // 如果 context 是 Response 对象，尝试读取错误响应体
-        if (error.context && error.context instanceof Response) {
-          try {
-            const errorBody = await error.context.clone().json();
-            if (errorBody && errorBody.error) {
-              errorDetails = errorBody.error;
-              if (errorBody.details) {
-                console.error('Edge Function 错误详情:', errorBody.details);
-              }
-            }
-          } catch (e) {
-            console.error('无法解析错误响应体:', e);
-          }
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.error || errorBody.message || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用默认错误信息
         }
-        
-        throw new Error(`API调用失败: ${errorDetails}`);
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
       }
 
       // 检查响应数据（参考 Gemini 代码，直接返回 API 数据，不包装 success）
@@ -351,6 +372,16 @@ export default function VehicleTracking() {
         description: `已获取车辆轨迹数据`
       });
     } catch (error) {
+      // 如果是取消操作，不显示错误提示
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('查询已取消');
+        toast({
+          title: "查询已取消",
+          description: "已取消轨迹查询",
+        });
+        return;
+      }
+      
       console.error('查询车辆轨迹失败:', error);
       toast({
         title: "查询失败",
@@ -359,7 +390,32 @@ export default function VehicleTracking() {
       });
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  // 🔴 取消查询函数
+  const handleCancelSearch = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+    }
+  };
+
+  // 🔴 辅助函数：获取 Supabase 配置和认证信息
+  const getSupabaseConfig = async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('缺少 Supabase 配置');
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const authToken = session?.access_token || '';
+
+    return { supabaseUrl, supabaseAnonKey, authToken };
   };
 
   // 同步车辆到轨迹查询库
@@ -375,90 +431,114 @@ export default function VehicleTracking() {
 
     setSyncLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('add-vehicle', {
-        body: {
+      console.log('开始同步车辆:', { licensePlate: syncLicensePlate.trim(), loadWeight: syncLoadWeight.trim() || '0' });
+      
+      // 🔴 创建 AbortController 用于取消请求
+      const abortController = new AbortController();
+      syncVehicleAbortControllerRef.current = abortController;
+
+      // 使用原生 fetch 以支持 AbortController
+      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/add-vehicle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
           licensePlate: syncLicensePlate.trim(),
           loadWeight: syncLoadWeight.trim() || '0'
-        }
+        }),
+        signal: abortController.signal
       });
 
-      // 🔴 改进错误处理：从 error 对象中提取响应体信息
-      if (error) {
-        console.error('调用 Edge Function 失败:', error);
-        console.error('错误类型:', error.constructor.name);
-        console.error('错误消息:', error.message);
-        console.error('错误状态码:', (error as { status?: number }).status);
-        console.error('错误详情 (context):', error.context);
-        
-        // 尝试从 error 对象中提取详细信息
-        let errorMessage = error.message || '同步失败';
-        
-        // 方法1：尝试从 error.context.body 提取（字符串或对象）
-        if (error.context?.body) {
-          try {
-            const errorBody = typeof error.context.body === 'string' 
-              ? JSON.parse(error.context.body) 
-              : error.context.body;
-            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
-            console.error('从 error.context.body 提取的错误信息:', errorMessage);
-          } catch (e) {
-            console.error('解析 error.context.body 失败:', e);
-          }
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.message || errorBody.error || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用默认错误信息
         }
-        
-        // 方法2：如果 error.context 是 Response 对象，尝试读取
-        if (error.context && typeof (error.context as Response).json === 'function') {
-          try {
-            const response = error.context as Response;
-            const errorBody = await response.clone().json();
-            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
-            console.error('从 Response.json() 提取的错误信息:', errorMessage);
-            console.error('完整错误响应体:', errorBody);
-          } catch (e) {
-            console.error('解析 Response.json() 失败:', e);
-            // 如果 JSON 解析失败，尝试读取文本
-            try {
-              const response = error.context as Response;
-              const text = await response.clone().text();
-              console.error('错误响应文本:', text);
-              if (text) {
-                errorMessage = text;
-              }
-            } catch (textError) {
-              console.error('读取错误响应文本失败:', textError);
-            }
-          }
-        }
-        
-        // 方法3：检查 error 对象本身是否有额外的错误信息
-        const errorAny = error as { message?: string; error?: string; details?: string };
-        if (errorAny.error) {
-          errorMessage = errorAny.error;
-        } else if (errorAny.details) {
-          errorMessage = errorAny.details;
-        }
-        
         throw new Error(errorMessage);
       }
 
-      if (data?.success) {
-        // 根据状态显示不同的提示信息
-        const statusMessage = data.status === 'existed' 
-          ? `车辆 ${syncLicensePlate} 已存在于轨迹查询库`
-          : `车辆 ${syncLicensePlate} 已成功添加到轨迹查询库`;
-        
-        toast({
-          title: data.status === 'existed' ? "车辆已存在" : "同步成功",
-          description: statusMessage,
-          variant: data.status === 'existed' ? 'default' : 'default'
-        });
-        // 清空表单
-        setSyncLicensePlate('');
-        setSyncLoadWeight('0');
-      } else {
-        throw new Error(data?.message || '同步失败');
+      const data = await response.json();
+      console.log('Edge Function 响应:', data);
+
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
       }
+
+      // 检查响应数据
+      if (!data) {
+        throw new Error('Edge Function 返回空数据');
+      }
+
+      // 检查响应数据
+      console.log('同步车辆响应数据:', data);
+      
+      // 🔴 处理成功情况
+      if (data) {
+        // 检查 success 字段（支持布尔值和字符串）
+        // 🔴 重要：status === 'existed' 也表示成功（车辆已存在）
+        const isSuccess = data.success === true || data.success === 'true' || 
+                         data.status === 'existed' ||
+                         (data.success === undefined && !data.error && !data.message?.includes('失败'));
+        
+        if (isSuccess) {
+          // 根据状态显示不同的提示信息
+          const statusMessage = data.status === 'existed' 
+            ? (data.message || `车辆 ${syncLicensePlate} 已存在于轨迹查询库`)
+            : (data.message || `车辆 ${syncLicensePlate} 已成功添加到轨迹查询库`);
+          
+          toast({
+            title: data.status === 'existed' ? "车辆已存在" : "同步成功",
+            description: statusMessage,
+            variant: 'default'
+          });
+          // 清空表单
+          setSyncLicensePlate('');
+          setSyncLoadWeight('0');
+          return; // 🔴 重要：成功时直接返回，避免继续执行
+        }
+        
+        // 🔴 处理明确失败的情况
+        if (data.success === false || data.error) {
+          const errorMessage = data.message || data.error || '同步失败';
+          throw new Error(errorMessage);
+        }
+      }
+      
+      // 🔴 如果没有返回数据，但也没有错误，可能是成功但响应格式异常
+      // 这种情况应该很少见，但为了健壮性，我们假设成功
+      console.warn('响应数据格式异常，但可能已成功:', data);
+      toast({
+        title: "同步成功",
+        description: `车辆 ${syncLicensePlate} 已成功添加到轨迹查询库`,
+      });
+      // 清空表单
+      setSyncLicensePlate('');
+      setSyncLoadWeight('0');
     } catch (error) {
+      // 如果是取消操作，不显示错误提示
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('同步车辆已取消');
+        toast({
+          title: "操作已取消",
+          description: "已取消同步车辆",
+        });
+        return;
+      }
+      
       console.error('同步车辆失败:', error);
       toast({
         title: "同步失败",
@@ -466,6 +546,16 @@ export default function VehicleTracking() {
         variant: "destructive"
       });
     } finally {
+      setSyncLoading(false);
+      syncVehicleAbortControllerRef.current = null;
+    }
+  };
+
+  // 🔴 取消同步车辆函数
+  const handleCancelSyncVehicle = () => {
+    if (syncVehicleAbortControllerRef.current) {
+      syncVehicleAbortControllerRef.current.abort();
+      syncVehicleAbortControllerRef.current = null;
       setSyncLoading(false);
     }
   };
@@ -483,38 +573,48 @@ export default function VehicleTracking() {
 
     setSyncIdLoading(true);
     try {
-      // 🔴 使用合并后的 Edge Function，使用 onlySyncId 模式只查询ID（不添加车辆）
-      const { data, error } = await supabase.functions.invoke('sync-vehicle', {
-        body: {
+      // 🔴 创建 AbortController 用于取消请求
+      const abortController = new AbortController();
+      syncVehicleIdAbortControllerRef.current = abortController;
+
+      // 使用原生 fetch 以支持 AbortController
+      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/sync-vehicle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
           licensePlate: syncIdLicensePlate.trim(),
           onlySyncId: true // 只查询ID，不添加车辆
-        }
+        }),
+        signal: abortController.signal
       });
 
-      // 🔴 改进错误处理：从 error 对象中提取响应体信息
-      if (error) {
-        console.error('调用 Edge Function 失败:', error);
-        console.error('错误详情:', error.context);
-        
-        let errorMessage = error.message || '同步失败';
-        if (error.context?.body) {
-          try {
-            const errorBody = typeof error.context.body === 'string' 
-              ? JSON.parse(error.context.body) 
-              : error.context.body;
-            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
-          } catch (e) {
-            console.error('解析错误响应失败:', e);
-          }
-        } else if (error.context && typeof error.context.json === 'function') {
-          try {
-            const errorBody = await error.context.json();
-            errorMessage = errorBody.message || errorBody.error || errorMessage;
-          } catch (e) {
-            // 如果无法解析响应体，使用默认错误信息
-          }
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.message || errorBody.error || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用默认错误信息
         }
         throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
       }
 
       if (data?.success) {
@@ -528,6 +628,16 @@ export default function VehicleTracking() {
         throw new Error(data?.message || '同步失败');
       }
     } catch (error) {
+      // 如果是取消操作，不显示错误提示
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('查询ID并同步已取消');
+        toast({
+          title: "操作已取消",
+          description: "已取消查询ID并同步",
+        });
+        return;
+      }
+      
       console.error('查询ID并同步失败:', error);
       toast({
         title: "同步失败",
@@ -535,6 +645,16 @@ export default function VehicleTracking() {
         variant: "destructive"
       });
     } finally {
+      setSyncIdLoading(false);
+      syncVehicleIdAbortControllerRef.current = null;
+    }
+  };
+
+  // 🔴 取消查询ID并同步函数
+  const handleCancelSyncVehicleId = () => {
+    if (syncVehicleIdAbortControllerRef.current) {
+      syncVehicleIdAbortControllerRef.current.abort();
+      syncVehicleIdAbortControllerRef.current = null;
       setSyncIdLoading(false);
     }
   };
@@ -552,44 +672,60 @@ export default function VehicleTracking() {
 
     setAddAndSyncLoading(true);
     try {
+      // 🔴 创建 AbortController 用于取消请求
+      const abortController = new AbortController();
+      addAndSyncAbortControllerRef.current = abortController;
+
       // 🔴 合并后的单次调用：添加车辆并同步ID
       toast({
         title: "正在处理",
         description: `正在将车辆 ${addAndSyncLicensePlate} 添加到第三方平台并同步ID...`,
       });
 
-      const { data: result, error: resultError } = await supabase.functions.invoke('sync-vehicle', {
-        body: {
+      // 使用原生 fetch 以支持 AbortController
+      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/sync-vehicle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
           licensePlate: addAndSyncLicensePlate.trim(),
           loadWeight: addAndSyncLoadWeight.trim() || '0',
           syncId: true // 🔴 关键：启用ID同步
-        }
+        }),
+        signal: abortController.signal
       });
 
-      // 🔴 改进错误处理：从 error 对象中提取响应体信息
-      if (resultError) {
-        console.error('调用 Edge Function 失败:', resultError);
-        console.error('错误详情:', resultError.context);
-        
-        let errorMessage = resultError.message || '处理失败';
-        if (resultError.context?.body) {
-          try {
-            const errorBody = typeof resultError.context.body === 'string' 
-              ? JSON.parse(resultError.context.body) 
-              : resultError.context.body;
-            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
-          } catch (e) {
-            console.error('解析错误响应失败:', e);
-          }
-        } else if (resultError.context && typeof resultError.context.json === 'function') {
-          try {
-            const errorBody = await resultError.context.json();
-            errorMessage = errorBody.message || errorBody.error || errorMessage;
-          } catch (e) {
-            // 如果无法解析响应体，使用默认错误信息
-          }
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.message || errorBody.error || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用默认错误信息
         }
         throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      // 检查是否被取消
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      // 检查响应数据
+      if (!result) {
+        throw new Error('Edge Function 返回空数据');
       }
 
       if (!result?.success) {
@@ -617,6 +753,16 @@ export default function VehicleTracking() {
       setAddAndSyncDialogOpen(false);
 
     } catch (error) {
+      // 如果是取消操作，不显示错误提示
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('新增查询入库已取消');
+        toast({
+          title: "操作已取消",
+          description: "已取消添加车辆并同步ID",
+        });
+        return;
+      }
+      
       console.error('新增查询入库失败:', error);
       toast({
         title: "操作失败",
@@ -624,6 +770,16 @@ export default function VehicleTracking() {
         variant: "destructive"
       });
     } finally {
+      setAddAndSyncLoading(false);
+      addAndSyncAbortControllerRef.current = null;
+    }
+  };
+
+  // 🔴 取消添加并同步函数
+  const handleCancelAddAndSync = () => {
+    if (addAndSyncAbortControllerRef.current) {
+      addAndSyncAbortControllerRef.current.abort();
+      addAndSyncAbortControllerRef.current = null;
       setAddAndSyncLoading(false);
     }
   };
@@ -981,23 +1137,24 @@ export default function VehicleTracking() {
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button 
-              onClick={handleSearch} 
-              disabled={loading}
-              className="min-w-[120px]"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  查询中...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  查询
-                </>
-              )}
-            </Button>
+            {loading ? (
+              <Button 
+                onClick={handleCancelSearch} 
+                variant="destructive"
+                className="min-w-[120px]"
+              >
+                <X className="mr-2 h-4 w-4" />
+                取消查询
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleSearch} 
+                className="min-w-[120px]"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                查询
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1117,23 +1274,25 @@ export default function VehicleTracking() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button
-                  onClick={handleSyncVehicle}
-                  disabled={syncLoading || !syncLicensePlate.trim()}
-                  className="min-w-[120px]"
-                >
-                  {syncLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      同步中...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="mr-2 h-4 w-4" />
-                      添加车辆
-                    </>
-                  )}
-                </Button>
+                {syncLoading ? (
+                  <Button
+                    onClick={handleCancelSyncVehicle}
+                    variant="destructive"
+                    className="min-w-[120px]"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    取消同步
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSyncVehicle}
+                    disabled={!syncLicensePlate.trim()}
+                    className="min-w-[120px]"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    添加车辆
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1178,23 +1337,25 @@ export default function VehicleTracking() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button
-                  onClick={handleSyncVehicleId}
-                  disabled={syncIdLoading || !syncIdLicensePlate.trim()}
-                  className="min-w-[120px]"
-                >
-                  {syncIdLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      查询中...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      查询并同步
-                    </>
-                  )}
-                </Button>
+                {syncIdLoading ? (
+                  <Button
+                    onClick={handleCancelSyncVehicleId}
+                    variant="destructive"
+                    className="min-w-[120px]"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    取消查询
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSyncVehicleId}
+                    disabled={!syncIdLicensePlate.trim()}
+                    className="min-w-[120px]"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    查询并同步
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1281,33 +1442,36 @@ export default function VehicleTracking() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAddAndSyncDialogOpen(false);
-                setAddAndSyncLicensePlate('');
-                setAddAndSyncLoadWeight('0');
-              }}
-              disabled={addAndSyncLoading}
-            >
-              取消
-            </Button>
-            <Button
-              onClick={handleAddAndSync}
-              disabled={addAndSyncLoading || !addAndSyncLicensePlate.trim()}
-            >
-              {addAndSyncLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  处理中...
-                </>
-              ) : (
-                <>
+            {addAndSyncLoading ? (
+              <Button
+                variant="destructive"
+                onClick={handleCancelAddAndSync}
+                className="w-full"
+              >
+                <X className="mr-2 h-4 w-4" />
+                取消处理
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAddAndSyncDialogOpen(false);
+                    setAddAndSyncLicensePlate('');
+                    setAddAndSyncLoadWeight('0');
+                  }}
+                >
+                  关闭
+                </Button>
+                <Button
+                  onClick={handleAddAndSync}
+                  disabled={!addAndSyncLicensePlate.trim()}
+                >
                   <Database className="mr-2 h-4 w-4" />
                   开始处理
-                </>
-              )}
-            </Button>
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

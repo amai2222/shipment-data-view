@@ -112,41 +112,133 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
     });
 
     const text = await response.text();
+    console.log(`📥 [Add] 响应 [${response.status}]:`, text.substring(0, 500)); // 只记录前500字符
 
+    // 🔴 处理认证错误（401/403）- 自动重试
+    if (response.status === 401 || response.status === 403) {
+      console.warn("⚠️ Token 过期，重新获取 Token 并重试...");
+      try {
+        // 重新从共享模块获取 Token
+        const newToken = await getToken('add');
+        // 使用新 Token 重试
+        return addVehicleToThirdParty(licensePlate, loadWeight);
+      } catch (retryError) {
+        return { 
+          success: false, 
+          message: `认证失败：Token 已过期，重新获取 Token 也失败。错误: ${retryError instanceof Error ? retryError.message : String(retryError)}` 
+        };
+      }
+    }
+
+    // 🔴 处理各种响应状态码
     if (!response.ok) {
       console.error(`❌ [Add] 失败 [${response.status}]:`, text);
       
-      // 🔴 处理认证错误（401/403）- 自动重试
-      if (response.status === 401 || response.status === 403) {
-        console.warn("⚠️ Token 过期，重新获取 Token 并重试...");
-        try {
-          // 重新从共享模块获取 Token
-          const newToken = await getToken('add');
-          // 使用新 Token 重试
-          return addVehicleToThirdParty(licensePlate, loadWeight);
-        } catch (retryError) {
-          return { 
-            success: false, 
-            message: `认证失败：Token 已过期，重新获取 Token 也失败。错误: ${retryError instanceof Error ? retryError.message : String(retryError)}` 
-          };
-        }
-      }
-      
-      // 409 处理
+      // 409 处理（冲突 - 通常表示已存在）
+      // 🔴 重要：409 状态码的语义就是"冲突"，无论响应内容是什么，都视为资源已存在
       if (response.status === 409) {
-        if (text.includes("Invalid JSON")) {
-             return { success: false, message: `格式错误 (Invalid JSON): ${text}` };
+        // 🔴 先尝试解析 JSON，提取有用的错误信息
+        // 第三方 API 可能返回：
+        // 1. 数组格式: [{"code":"ConflictError", "message":"『货车:冀EX9795』已存在!"}]
+        // 2. 对象格式: {"code":"InvalidArgument","message":"Invalid JSON."}
+        // 3. 其他格式
+        let errorMessage = "车辆已存在";
+        let responseData: unknown = null;
+        
+        try {
+          responseData = text ? JSON.parse(text) : null;
+          
+          // 检查是否为数组格式
+          if (Array.isArray(responseData) && responseData.length > 0) {
+            const firstError = responseData[0];
+            if (firstError.message && typeof firstError.message === 'string') {
+              errorMessage = firstError.message;
+            }
+          } 
+          // 如果是单个对象
+          else if (responseData && typeof responseData === 'object' && 'message' in responseData) {
+            const errorObj = responseData as { message?: string };
+            if (errorObj.message && typeof errorObj.message === 'string') {
+              errorMessage = errorObj.message;
+            }
+          }
+        } catch (parseError) {
+          // JSON 解析失败，使用默认消息
+          console.warn("⚠️ 解析 409 响应失败，使用默认消息:", parseError);
         }
-        // 视为已存在
-        return { success: true, status: "existed", message: "车辆已存在" };
+        
+        // 🔴 关键：无论响应内容是什么，409 状态码都视为"已存在"，返回成功
+        console.log("✅ [Add] 409 响应，视为车辆已存在，消息:", errorMessage);
+        return { 
+          success: true, 
+          status: "existed", 
+          message: errorMessage,
+          data: responseData
+        };
       }
       
-      return { success: false, message: `添加失败 [${response.status}]: ${text}` };
+      // 400 处理（可能是格式错误或其他验证错误）
+      if (response.status === 400) {
+        // 尝试解析错误信息
+        let errorMessage = text;
+        try {
+          const errorData = text ? JSON.parse(text) : {};
+          errorMessage = errorData.message || errorData.error || errorData.details || text;
+        } catch (e) {
+          // 如果解析失败，使用原始文本
+        }
+        return { success: false, message: `请求错误: ${errorMessage}` };
+      }
+      
+      // 其他错误状态码
+      return { success: false, message: `添加失败 [${response.status}]: ${text.substring(0, 200)}` };
     }
 
-    const data = text ? JSON.parse(text) : {};
-    console.log("✅ [Add] 成功:", data);
-    return { success: true, status: "created", data };
+    // 🔴 处理成功响应（200/201/204等）
+    // 尝试解析响应体
+    let responseData: unknown = {};
+    let parseError: Error | null = null;
+    
+    if (text && text.trim()) {
+      try {
+        responseData = JSON.parse(text);
+      } catch (e) {
+        parseError = e instanceof Error ? e : new Error(String(e));
+        console.warn("⚠️ 响应体不是有效的 JSON，使用原始文本:", text.substring(0, 200));
+        // 如果响应体不是 JSON，但状态码是成功的，仍然视为成功
+        responseData = { raw: text };
+      }
+    }
+
+    // 🔴 检查响应数据中是否包含错误信息
+    if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+      const errorObj = responseData as { error?: string; message?: string };
+      console.error("❌ 响应中包含错误信息:", errorObj);
+      return { 
+        success: false, 
+        message: errorObj.message || errorObj.error || '添加失败' 
+      };
+    }
+
+    // 🔴 检查响应数据中是否包含成功标识
+    if (responseData && typeof responseData === 'object' && 'success' in responseData) {
+      const resultObj = responseData as { success?: boolean; message?: string; data?: unknown };
+      if (resultObj.success === false) {
+        return { 
+          success: false, 
+          message: resultObj.message || '添加失败' 
+        };
+      }
+    }
+
+    // ✅ 成功情况
+    console.log("✅ [Add] 成功:", responseData);
+    return { 
+      success: true, 
+      status: "created", 
+      data: responseData,
+      message: "车辆已成功添加到轨迹查询库"
+    };
 
   } catch (error) {
     console.error("❌ [Add] 异常:", error);
