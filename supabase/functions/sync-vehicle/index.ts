@@ -29,26 +29,57 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
 
   // 4. 构造 Payload (强制转换类型，防止 undefined)
   // ⚠️ 注意：后端要求 value 必须是字符串，例如 "30" 而不是 30
-  const safeLoadWeight = String(loadWeight || "0");
+  const safeLoadWeight = String(loadWeight || "0").trim();
 
+  // 🔴 确保所有字符串字段都不包含控制字符或特殊字符
+  const cleanLicensePlate = licensePlate.trim();
+
+  // 🔴 验证车牌号不为空
+  if (!cleanLicensePlate || cleanLicensePlate.length === 0) {
+    throw new Error('车牌号不能为空');
+  }
+
+  // 🔴 构造 payload，确保所有字段类型正确
   const payload = {
-    uid: uid,
-    serialno: licensePlate,
-    desc: licensePlate,
-    deptId: "#16:5043",     // 确保这是 "#16:5043" 这样的字符串
-    lastDeptId: "#16:171",     // 建议写死，与抓包一致
-    equipModelId: "#20:81",    // 对应 WO_YS_TR
-    backup: false,             // Boolean 类型
-    relations: [],             // 空数组
+    uid: String(uid),                    // 确保是字符串
+    serialno: String(cleanLicensePlate), // 确保是字符串
+    desc: String(cleanLicensePlate),     // 确保是字符串
+    deptId: "#16:5043",                  // 确保这是 "#16:5043" 这样的字符串
+    lastDeptId: "#16:171",               // 建议写死，与抓包一致
+    equipModelId: "#20:81",              // 对应 WO_YS_TR
+    backup: false,                       // Boolean 类型
+    relations: [],                       // 空数组
     exFields: [
       {
         exFieldId: "#157:277",
         field: "核定载质量",
-        value: safeLoadWeight, // 🔴 关键修复：这里必须是 String
+        value: String(safeLoadWeight),   // 🔴 关键修复：这里必须是 String
         format: "json"
       }
     ]
   };
+
+  // 🔴 验证 payload 的每个字段
+  if (!payload.uid || typeof payload.uid !== 'string') {
+    throw new Error('UID 生成失败');
+  }
+  if (!payload.serialno || typeof payload.serialno !== 'string') {
+    throw new Error('车牌号无效');
+  }
+  if (!Array.isArray(payload.exFields) || payload.exFields.length === 0) {
+    throw new Error('exFields 数组无效');
+  }
+  if (typeof payload.exFields[0].value !== 'string') {
+    throw new Error('exFields[0].value 必须是字符串');
+  }
+
+  // 🔴 验证 payload 的每个字段
+  if (!payload.uid || typeof payload.uid !== 'string') {
+    throw new Error('UID 生成失败');
+  }
+  if (!payload.serialno || typeof payload.serialno !== 'string') {
+    throw new Error('车牌号无效');
+  }
 
   // 🔴 调试：打印即将发送的最终 JSON，检查是否有格式错误
   const bodyString = JSON.stringify(payload);
@@ -63,7 +94,7 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
         // 🔴 修复：去掉 charset，部分严格后端只认这个
         "Content-Type": "application/json",
         "Auth-Session": authToken,
-        "Referer": "https://zkzy.zkzy1688.com/console/",
+        "Referer": `${url.replace('/rest/equip', '/console/')}`,
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36"
       },
       body: bodyString
@@ -85,20 +116,55 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
       
       // 🔴 特殊处理 409 错误（可能是"已存在"或"Invalid JSON"）
       if (response.status === 409) {
-        // 如果是 409 且报错是 Invalid JSON，说明可能不是重复，而是格式真的错了
-        // 但如果是 ConflictError，则是重复
-        if (responseText.includes("Invalid JSON")) {
+        // 尝试解析错误响应 JSON
+        let errorObj;
+        try {
+          errorObj = JSON.parse(responseText);
+        } catch (e) {
+          errorObj = { message: responseText };
+        }
+
+        // 检查是否是 Invalid JSON 错误（通过 code 或 message）
+        const isInvalidJson = 
+          responseText.includes("Invalid JSON") ||
+          (errorObj.code === "InvalidArgument" && errorObj.message && errorObj.message.includes("Invalid JSON"));
+
+        if (isInvalidJson) {
           console.error('❌ 第三方API返回 Invalid JSON 错误 (409)');
           console.error('请求URL:', url);
           console.error('请求体:', bodyString);
+          console.error('错误响应:', responseText);
+          
+          // 🔴 尝试诊断问题
+          try {
+            const parsedPayload = JSON.parse(bodyString);
+            console.error('Payload 解析测试: 成功');
+            console.error('Payload 结构:', {
+              uid: typeof parsedPayload.uid,
+              serialno: typeof parsedPayload.serialno,
+              desc: typeof parsedPayload.desc,
+              deptId: typeof parsedPayload.deptId,
+              backup: typeof parsedPayload.backup,
+              relations: Array.isArray(parsedPayload.relations),
+              exFields: Array.isArray(parsedPayload.exFields),
+              exFieldsValue: parsedPayload.exFields?.[0]?.value,
+              exFieldsValueType: typeof parsedPayload.exFields?.[0]?.value
+            });
+          } catch (parseError) {
+            console.error('Payload 解析测试: 失败', parseError);
+          }
+          
           return { 
             success: false, 
-            message: `格式错误 (409 Invalid JSON): 请检查 console 中的 Payload 格式。服务端返回: ${responseText}` 
+            message: `格式错误 (409 Invalid JSON): 服务端返回 "${errorObj.message || responseText}"。请检查：1) 字段类型是否正确 2) 字符串值是否包含特殊字符 3) 数值是否正确转换为字符串`
           };
         }
         
         // 依然处理"已存在"的逻辑，防止误报
-        if (responseText.includes("已存在") || responseText.includes("Conflict") || responseText.includes("duplicate")) {
+        if (responseText.includes("已存在") || 
+            responseText.includes("Conflict") || 
+            responseText.includes("duplicate") ||
+            (errorObj.code && errorObj.code.includes("Conflict"))) {
           console.log(`⚠️ 车辆 ${licensePlate} 已存在（409），视为成功`);
           return { 
             success: true, 

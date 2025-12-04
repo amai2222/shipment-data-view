@@ -380,27 +380,59 @@ export default function VehicleTracking() {
       // 🔴 改进错误处理：从 error 对象中提取响应体信息
       if (error) {
         console.error('调用 Edge Function 失败:', error);
-        console.error('错误详情:', error.context);
+        console.error('错误类型:', error.constructor.name);
+        console.error('错误消息:', error.message);
+        console.error('错误状态码:', (error as { status?: number }).status);
+        console.error('错误详情 (context):', error.context);
         
-        // 尝试从 error.context 中提取响应体（当返回 400 等错误状态码时）
+        // 尝试从 error 对象中提取详细信息
         let errorMessage = error.message || '同步失败';
+        
+        // 方法1：尝试从 error.context.body 提取（字符串或对象）
         if (error.context?.body) {
           try {
             const errorBody = typeof error.context.body === 'string' 
               ? JSON.parse(error.context.body) 
               : error.context.body;
             errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
+            console.error('从 error.context.body 提取的错误信息:', errorMessage);
           } catch (e) {
-            console.error('解析错误响应失败:', e);
-          }
-        } else if (error.context && typeof error.context.json === 'function') {
-          try {
-            const errorBody = await error.context.json();
-            errorMessage = errorBody.message || errorBody.error || errorMessage;
-          } catch (e) {
-            // 如果无法解析响应体，使用默认错误信息
+            console.error('解析 error.context.body 失败:', e);
           }
         }
+        
+        // 方法2：如果 error.context 是 Response 对象，尝试读取
+        if (error.context && typeof (error.context as Response).json === 'function') {
+          try {
+            const response = error.context as Response;
+            const errorBody = await response.clone().json();
+            errorMessage = errorBody.message || errorBody.error || errorBody.details || errorMessage;
+            console.error('从 Response.json() 提取的错误信息:', errorMessage);
+            console.error('完整错误响应体:', errorBody);
+          } catch (e) {
+            console.error('解析 Response.json() 失败:', e);
+            // 如果 JSON 解析失败，尝试读取文本
+            try {
+              const response = error.context as Response;
+              const text = await response.clone().text();
+              console.error('错误响应文本:', text);
+              if (text) {
+                errorMessage = text;
+              }
+            } catch (textError) {
+              console.error('读取错误响应文本失败:', textError);
+            }
+          }
+        }
+        
+        // 方法3：检查 error 对象本身是否有额外的错误信息
+        const errorAny = error as { message?: string; error?: string; details?: string };
+        if (errorAny.error) {
+          errorMessage = errorAny.error;
+        } else if (errorAny.details) {
+          errorMessage = errorAny.details;
+        }
+        
         throw new Error(errorMessage);
       }
 
@@ -1067,4 +1099,5 @@ export default function VehicleTracking() {
     </div>
   );
 }
+
 
