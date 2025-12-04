@@ -39,9 +39,12 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
   const timeStr = now.toISOString().replace(/[-T:.Z]/g, "").slice(0, 14);
   const uid = `100${timeStr}${Math.floor(Math.random() * 10000000000)}`;
 
-  // 🔴 构造 payload（严格按照第三方网站真实请求的字段顺序）
-  // ⚠️ 注意：exFields[1].value 必须是对象，不能是 JSON 字符串
-  // 因为 format: "json" 表示该字段的值应该是 JSON 对象，而不是字符串化的 JSON
+  // 🔴 构造 payload（严格按照第三方网站真实请求的字段顺序和格式）
+  // 参考实际请求：{lastDeptId, deptId, desc, serialno, backup, equipModelId, uid, exFields, relations}
+  // ⚠️ 注意：
+  // 1. exFields[0].value 必须是字符串（如 "0"），不是数字
+  // 2. exFields[1].value 必须是对象，不能是 JSON 字符串
+  // 3. 因为 format: "json" 表示该字段的值应该是 JSON 对象，而不是字符串化的 JSON
   const payload = {
     lastDeptId: "#16:171",
     deptId: "#16:5043",
@@ -50,43 +53,74 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
     backup: false,
     equipModelId: "#20:81",
     uid: String(uid),
-    exFields: [{
-      exFieldId: "#157:277",
-      field: "核定载质量",
-      value: String(loadWeight || "0").trim(),
-      format: "json"
-    }, {
-      exFieldId: "#157:590",
-      field: "车牌颜色",
-      // 🔴 修复：value 应该是对象，而不是 JSON 字符串
-      // 当整个 payload 被 JSON.stringify 序列化时，这个对象会被正确序列化
-      value: {
-        "rid": "#183:51",
-        "value": "黄色",
-        "display": "黄色",
-        "selector": "黄色",
-        "values": [
-          {
-            "key": "Name",
-            "name": "名称",
-            "value": "黄色"
-          },
-          {
-            "key": "Code",
-            "name": "代码",
-            "value": "2"
+    exFields: [
+      {
+        exFieldId: "#157:277",
+        field: "核定载质量",
+        // 🔴 确保 value 是有效的数字字符串，不能是 "e" 或其他无效值
+        value: (() => {
+          const weightStr = String(loadWeight || "0").trim();
+          // 验证是否是有效的数字字符串
+          if (weightStr && !isNaN(parseFloat(weightStr)) && isFinite(parseFloat(weightStr))) {
+            return weightStr;
           }
-        ]
+          // 如果无效，返回 "0"
+          console.warn(`⚠️ [Add] 无效的 loadWeight 值: "${weightStr}"，使用默认值 "0"`);
+          return "0";
+        })(),
+        format: "json"
       },
-      format: "json",
-      valueRefId: "#183:51",
-      codefId: "#182:14"
-    }],
+      {
+        exFieldId: "#157:590",
+        field: "车牌颜色",
+        value: {
+          "rid": "#183:51",
+          "value": "黄色",
+          "display": "黄色",
+          "selector": "黄色",
+          "values": [
+            {
+              "key": "Name",
+              "name": "名称",
+              "value": "黄色"
+            },
+            {
+              "key": "Code",
+              "name": "代码",
+              "value": "2"
+            }
+          ]
+        },
+        format: "json",
+        valueRefId: "#183:51",
+        codefId: "#182:14"
+      }
+    ],
     relations: []
   };
 
-  const bodyString = JSON.stringify(payload);
-  console.log(`📤 [Add] 发送 Payload (${licensePlate}):`, bodyString);
+  // 🔴 验证 payload 是否可以正确序列化
+  let bodyString: string;
+  try {
+    bodyString = JSON.stringify(payload);
+    // 🔴 验证序列化后的 JSON 是否可以正确解析
+    const parsedTest = JSON.parse(bodyString);
+    console.log(`📤 [Add] 发送 Payload (${licensePlate}):`, bodyString);
+    console.log(`📤 [Add] Payload 验证: 序列化成功，字段类型检查:`, {
+      uid: typeof parsedTest.uid,
+      serialno: typeof parsedTest.serialno,
+      desc: typeof parsedTest.desc,
+      backup: typeof parsedTest.backup,
+      exFields0Value: typeof parsedTest.exFields?.[0]?.value,
+      exFields0ValueValue: parsedTest.exFields?.[0]?.value,
+      exFields1Value: typeof parsedTest.exFields?.[1]?.value,
+      exFields1ValueIsObject: parsedTest.exFields?.[1]?.value && typeof parsedTest.exFields[1].value === 'object',
+      exFieldsLength: parsedTest.exFields?.length
+    });
+  } catch (stringifyError) {
+    console.error('❌ [Add] Payload 序列化失败:', stringifyError);
+    throw new Error(`Payload 序列化失败: ${stringifyError instanceof Error ? stringifyError.message : String(stringifyError)}`);
+  }
 
   try {
     const response = await fetch(url, {
@@ -340,10 +374,26 @@ serve(async (req) => {
       );
     }
 
+    // 🔴 验证和清理 loadWeight 参数
+    let safeLoadWeight = "0";
+    if (loadWeight !== undefined && loadWeight !== null) {
+      const weightStr = String(loadWeight).trim();
+      // 检查是否是有效的数字字符串
+      if (weightStr && !isNaN(parseFloat(weightStr)) && isFinite(parseFloat(weightStr))) {
+        safeLoadWeight = weightStr;
+      } else if (weightStr === "" || weightStr === "0") {
+        safeLoadWeight = "0";
+      } else {
+        // 如果传入的是无效值（如 "e"），使用默认值 "0"
+        console.warn(`⚠️ [Add] 无效的 loadWeight 值: "${weightStr}"，使用默认值 "0"`);
+        safeLoadWeight = "0";
+      }
+    }
+
     // 添加车辆到第三方平台
     const addResult = await addVehicleToThirdParty(
       licensePlate.trim(), 
-      loadWeight ? String(loadWeight).trim() : "0"
+      safeLoadWeight
     );
 
     // 返回结果

@@ -69,7 +69,8 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
       {
         exFieldId: "#157:277",
         field: "核定载质量",
-        value: String(safeLoadWeight),   // 🔴 关键修复：这里必须是 String
+        // 🔴 第三方API期望字符串类型（从实际请求中确认）
+        value: String(safeLoadWeight),
         format: "json"
       },
       {
@@ -125,9 +126,28 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
     throw new Error('车牌号无效');
   }
 
-  // 🔴 调试：打印即将发送的最终 JSON，检查是否有格式错误
-  const bodyString = JSON.stringify(payload);
-  console.log(`📤 正在发送 Payload (车辆: ${licensePlate}):`, bodyString);
+  // 🔴 验证 payload 是否可以正确序列化
+  let bodyString: string;
+  try {
+    bodyString = JSON.stringify(payload);
+    // 🔴 验证序列化后的 JSON 是否可以正确解析
+    const parsedTest = JSON.parse(bodyString);
+    console.log(`📤 正在发送 Payload (车辆: ${licensePlate}):`, bodyString);
+    console.log(`📤 Payload 验证: 序列化成功，字段类型检查:`, {
+      uid: typeof parsedTest.uid,
+      serialno: typeof parsedTest.serialno,
+      desc: typeof parsedTest.desc,
+      backup: typeof parsedTest.backup,
+      exFields0Value: typeof parsedTest.exFields?.[0]?.value,
+      exFields0ValueValue: parsedTest.exFields?.[0]?.value,
+      exFields1Value: typeof parsedTest.exFields?.[1]?.value,
+      exFields1ValueIsObject: parsedTest.exFields?.[1]?.value && typeof parsedTest.exFields[1].value === 'object',
+      exFieldsLength: parsedTest.exFields?.length
+    });
+  } catch (stringifyError) {
+    console.error('❌ Payload 序列化失败:', stringifyError);
+    throw new Error(`Payload 序列化失败: ${stringifyError instanceof Error ? stringifyError.message : String(stringifyError)}`);
+  }
 
   try {
     console.log(`正在同步车辆 ${licensePlate} 到第三方平台...`);
