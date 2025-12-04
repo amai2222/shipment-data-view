@@ -75,6 +75,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// 直接导入共享模块，避免 HTTP 调用开销
+import { getToken } from '../_shared/token-cache.ts';
+
 serve(async (req) => {
   // 1. 处理跨域请求
   if (req.method === 'OPTIONS') {
@@ -92,18 +95,19 @@ serve(async (req) => {
       throw new Error('缺少 vehicleId 参数 (例如 #26:xxxx)');
     }
 
-    // 4. 获取环境变量中的认证令牌
-    // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
-    const SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION') || '#13:206-dde3b628224190a02a6908b5-cladmin-ZKZY';
-    
-    if (!SESSION_TOKEN) {
-      throw new Error('Missing TRACKING_AUTH_SESSION: 请在 Supabase Dashboard 的 Edge Functions 设置中添加 TRACKING_AUTH_SESSION 环境变量');
-    }
-    
-    // 如果使用默认值，记录警告
-    // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
-    if (!Deno.env.get('TRACKING_AUTH_SESSION')) {
-      console.warn('⚠️ 警告: 使用默认的 TRACKING_AUTH_SESSION。建议在 Supabase Dashboard 中配置环境变量以避免 Token 过期问题。');
+    // 4. 从共享模块获取 Token（直接调用，无 HTTP 开销）
+    let SESSION_TOKEN: string;
+    try {
+      SESSION_TOKEN = await getToken('query');
+      console.log('✅ 从共享模块获取到 Token');
+    } catch (error) {
+      // 如果获取失败，尝试使用环境变量（降级方案）
+      // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
+      SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION') || "";
+      if (!SESSION_TOKEN) {
+        throw new Error(`无法获取 Token：共享模块调用失败且未配置环境变量。错误: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      console.warn('⚠️ 使用环境变量 Token（共享模块调用失败）');
     }
     
     // 默认查询最近 12 小时（参考 Gemini 代码）

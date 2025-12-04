@@ -53,6 +53,11 @@ export default function VehicleTracking() {
   const [addAndSyncLicensePlate, setAddAndSyncLicensePlate] = useState('');
   const [addAndSyncLoadWeight, setAddAndSyncLoadWeight] = useState('0');
   const [addAndSyncLoading, setAddAndSyncLoading] = useState(false);
+  
+  // Token 刷新相关状态
+  const [refreshingToken, setRefreshingToken] = useState(false);
+  const [tokenType, setTokenType] = useState<'add' | 'query'>('query');
+  const [refreshingAllTokens, setRefreshingAllTokens] = useState(false);
 
   // 根据车牌号查询车辆ID（如果有映射）
   const getVehicleIdByLicensePlate = async (plate: string): Promise<string | null> => {
@@ -623,6 +628,154 @@ export default function VehicleTracking() {
     }
   };
 
+  // 刷新 Token
+  const handleRefreshToken = async (type: 'add' | 'query') => {
+    setRefreshingToken(true);
+    setTokenType(type);
+    
+    try {
+      toast({
+        title: "正在刷新 Token",
+        description: `正在获取 ${type === 'add' ? '添加车辆' : '查询车辆'} Token...`,
+      });
+
+      const { data, error } = await supabase.functions.invoke('get-tracking-token', {
+        body: { type }
+      });
+
+      if (error) {
+        console.error('刷新 Token 失败:', error);
+        throw new Error(error.message || '刷新 Token 失败');
+      }
+
+      if (!data?.success || !data?.token) {
+        throw new Error(data?.error || data?.message || '获取 Token 失败');
+      }
+
+      toast({
+        title: "Token 刷新成功",
+        description: `已成功获取 ${type === 'add' ? '添加车辆' : '查询车辆'} Token 并保存到数据库缓存。Token 有效期：${data.expiresIn ? Math.floor(data.expiresIn / 60) : '未知'}分钟`,
+      });
+
+      // 将 Token 复制到剪贴板（如果浏览器支持）
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(data.token);
+          toast({
+            title: "Token 已复制",
+            description: "Token 已复制到剪贴板",
+          });
+        } catch (e) {
+          console.error('复制到剪贴板失败:', e);
+        }
+      }
+
+    } catch (error) {
+      console.error('刷新 Token 失败:', error);
+      toast({
+        title: "刷新 Token 失败",
+        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshingToken(false);
+    }
+  };
+
+  // 同时刷新所有 Token（添加和查询）
+  const handleRefreshAllTokens = async () => {
+    setRefreshingAllTokens(true);
+    
+    try {
+      toast({
+        title: "正在刷新所有 Token",
+        description: "正在获取添加车辆和查询车辆的 Token...",
+      });
+
+      // 并行获取两种 Token
+      const [addResult, queryResult] = await Promise.allSettled([
+        supabase.functions.invoke('get-tracking-token', {
+          body: { type: 'add' }
+        }),
+        supabase.functions.invoke('get-tracking-token', {
+          body: { type: 'query' }
+        })
+      ]);
+
+      const results: Array<{ type: string; success: boolean; message: string }> = [];
+
+      // 处理添加车辆 Token
+      if (addResult.status === 'fulfilled' && addResult.value.data?.success) {
+        results.push({
+          type: '添加车辆',
+          success: true,
+          message: `Token 已获取并保存到数据库（有效期：${addResult.value.data.expiresIn ? Math.floor(addResult.value.data.expiresIn / 60) : '未知'}分钟）`
+        });
+      } else {
+        const error = addResult.status === 'fulfilled' 
+          ? addResult.value.error?.message || addResult.value.data?.error || '获取失败'
+          : addResult.reason?.message || '请求失败';
+        results.push({
+          type: '添加车辆',
+          success: false,
+          message: error
+        });
+      }
+
+      // 处理查询车辆 Token
+      if (queryResult.status === 'fulfilled' && queryResult.value.data?.success) {
+        results.push({
+          type: '查询车辆',
+          success: true,
+          message: `Token 已获取并保存到数据库（有效期：${queryResult.value.data.expiresIn ? Math.floor(queryResult.value.data.expiresIn / 60) : '未知'}分钟）`
+        });
+      } else {
+        const error = queryResult.status === 'fulfilled'
+          ? queryResult.value.error?.message || queryResult.value.data?.error || '获取失败'
+          : queryResult.reason?.message || '请求失败';
+        results.push({
+          type: '查询车辆',
+          success: false,
+          message: error
+        });
+      }
+
+      // 显示结果
+      const successCount = results.filter(r => r.success).length;
+      const allSuccess = successCount === 2;
+
+      if (allSuccess) {
+        toast({
+          title: "所有 Token 刷新成功",
+          description: "添加车辆和查询车辆的 Token 已成功获取并保存到数据库缓存",
+        });
+      } else if (successCount === 1) {
+        const failed = results.find(r => !r.success);
+        toast({
+          title: "部分 Token 刷新成功",
+          description: `${failed?.type} Token 刷新失败：${failed?.message}`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Token 刷新失败",
+          description: `添加车辆：${results[0].message}；查询车辆：${results[1].message}`,
+          variant: "destructive"
+        });
+      }
+
+    } catch (error) {
+      console.error('刷新所有 Token 失败:', error);
+      toast({
+        title: "刷新 Token 失败",
+        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshingAllTokens(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* 标签页 */}
@@ -637,6 +790,68 @@ export default function VehicleTracking() {
             车辆进轨迹查询库
           </TabsTrigger>
         </TabsList>
+        
+        {/* Token 刷新按钮 */}
+        <div className="flex gap-2 mb-4 items-center">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleRefreshAllTokens}
+            disabled={refreshingToken || refreshingAllTokens}
+            className="text-xs"
+          >
+            {refreshingAllTokens ? (
+              <>
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                刷新中...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-3 w-3" />
+                刷新所有Token
+              </>
+            )}
+          </Button>
+          <span className="text-xs text-muted-foreground">|</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleRefreshToken('add')}
+            disabled={refreshingToken || refreshingAllTokens}
+            className="text-xs"
+          >
+            {refreshingToken && tokenType === 'add' ? (
+              <>
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                刷新中...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-3 w-3" />
+                刷新添加Token
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleRefreshToken('query')}
+            disabled={refreshingToken || refreshingAllTokens}
+            className="text-xs"
+          >
+            {refreshingToken && tokenType === 'query' ? (
+              <>
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                刷新中...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-3 w-3" />
+                刷新查询Token
+              </>
+            )}
+          </Button>
+        </div>
 
         {/* 轨迹查询标签页 */}
         <TabsContent value="tracking" className="space-y-6">

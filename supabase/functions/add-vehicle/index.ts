@@ -1,4 +1,4 @@
-// 添加车辆到轨迹查询库
+// 添加车辆到轨迹查询库（集成自动登录功能）
 // @ts-expect-error - Edge Function运行在Deno环境，Deno类型在运行时可用
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -8,6 +8,9 @@ const CONFIG = {
   userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36"
 };
 
+// 直接导入共享模块，避免 HTTP 调用开销
+import { getToken } from '../_shared/token-cache.ts';
+
 /**
  * 添加车辆到 ZKZY 平台
  * @param licensePlate 车牌号 (例如: "冀EX9795")
@@ -16,11 +19,20 @@ const CONFIG = {
 async function addVehicleToThirdParty(licensePlate: string, loadWeight: string = "0") {
   const url = `${CONFIG.baseUrl}/rest/equip`;
 
-  // 🔴 专门用于【添加车辆】的 Token
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
-  const authToken = Deno.env.get('TRACKING_ADD_TOKEN') || "#13:4972-7fa3403f25a8eabd9edba1b8-carquery-ZKZY"; 
-
-  if (!authToken) throw new Error('缺少 TRACKING_ADD_TOKEN 环境变量');
+  // 🔴 从共享模块获取 Token（直接调用，无 HTTP 开销）
+  let authToken: string;
+  try {
+    authToken = await getToken('add');
+    console.log('✅ 从共享模块获取到 Token');
+  } catch (error) {
+    // 如果获取失败，尝试使用环境变量（降级方案）
+    // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
+    authToken = Deno.env.get('TRACKING_ADD_TOKEN') || "";
+    if (!authToken) {
+      throw new Error(`无法获取 Token：共享模块调用失败且未配置环境变量。错误: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    console.warn('⚠️ 使用环境变量 Token（共享模块调用失败）');
+  }
 
   // 生成 UID
   const now = new Date();
@@ -103,6 +115,23 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
 
     if (!response.ok) {
       console.error(`❌ [Add] 失败 [${response.status}]:`, text);
+      
+      // 🔴 处理认证错误（401/403）- 自动重试
+      if (response.status === 401 || response.status === 403) {
+        console.warn("⚠️ Token 过期，重新获取 Token 并重试...");
+        try {
+          // 重新从共享模块获取 Token
+          const newToken = await getToken('add');
+          // 使用新 Token 重试
+          return addVehicleToThirdParty(licensePlate, loadWeight);
+        } catch (retryError) {
+          return { 
+            success: false, 
+            message: `认证失败：Token 已过期，重新获取 Token 也失败。错误: ${retryError instanceof Error ? retryError.message : String(retryError)}` 
+          };
+        }
+      }
+      
       // 409 处理
       if (response.status === 409) {
         if (text.includes("Invalid JSON")) {
@@ -111,6 +140,7 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
         // 视为已存在
         return { success: true, status: "existed", message: "车辆已存在" };
       }
+      
       return { success: false, message: `添加失败 [${response.status}]: ${text}` };
     }
 
