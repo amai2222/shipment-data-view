@@ -423,9 +423,11 @@ export default function VehicleTracking() {
 
     setSyncIdLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-vehicle-id', {
+      // 🔴 使用合并后的 Edge Function，使用 onlySyncId 模式只查询ID（不添加车辆）
+      const { data, error } = await supabase.functions.invoke('sync-vehicle', {
         body: {
-          licensePlate: syncIdLicensePlate.trim()
+          licensePlate: syncIdLicensePlate.trim(),
+          onlySyncId: true // 只查询ID，不添加车辆
         }
       });
 
@@ -468,67 +470,41 @@ export default function VehicleTracking() {
 
     setAddAndSyncLoading(true);
     try {
-      // 步骤1：添加车辆到第三方平台
+      // 🔴 合并后的单次调用：添加车辆并同步ID
       toast({
         title: "正在处理",
-        description: `正在添加车辆 ${addAndSyncLicensePlate} 到第三方平台...`,
+        description: `正在将车辆 ${addAndSyncLicensePlate} 添加到第三方平台并同步ID...`,
       });
 
-      const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-vehicle', {
+      const { data: result, error: resultError } = await supabase.functions.invoke('sync-vehicle', {
         body: {
           licensePlate: addAndSyncLicensePlate.trim(),
-          loadWeight: addAndSyncLoadWeight.trim() || '0'
+          loadWeight: addAndSyncLoadWeight.trim() || '0',
+          syncId: true // 🔴 关键：启用ID同步
         }
       });
 
-      if (syncError) {
-        throw new Error(`添加车辆到第三方平台失败: ${syncError.message}`);
+      if (resultError) {
+        throw new Error(`处理失败: ${resultError.message}`);
       }
 
-      if (!syncData?.success) {
-        // 如果车辆已存在，也继续执行查询ID
-        if (syncData?.status === 'existed') {
-          toast({
-            title: "车辆已存在",
-            description: `车辆 ${addAndSyncLicensePlate} 已存在于第三方平台，继续查询ID...`,
-          });
-        } else {
-          throw new Error(syncData?.message || '添加车辆到第三方平台失败');
-        }
-      } else {
-        toast({
-          title: "添加成功",
-          description: `车辆 ${addAndSyncLicensePlate} 已成功添加到第三方平台`,
-        });
+      if (!result?.success) {
+        throw new Error(result?.message || '处理失败');
       }
 
-      // 等待一小段时间，确保第三方平台数据已更新
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 显示合并后的结果
+      const addStatusMessage = result.addStatus === 'existed'
+        ? `车辆 ${addAndSyncLicensePlate} 已存在于第三方平台。`
+        : `车辆 ${addAndSyncLicensePlate} 已成功添加到第三方平台。`;
+      
+      const syncIdMessage = result.syncIdStatus === 'synced'
+        ? `ID已成功同步到数据库（${result.data?.syncId?.externalId || '未知'}）。`
+        : `但ID同步失败：${result.message?.split('；')[1] || '未知错误'}`;
 
-      // 步骤2：查询ID并同步到数据库
       toast({
-        title: "正在处理",
-        description: `正在查询车辆 ${addAndSyncLicensePlate} 的ID并同步到数据库...`,
-      });
-
-      const { data: idData, error: idError } = await supabase.functions.invoke('sync-vehicle-id', {
-        body: {
-          licensePlate: addAndSyncLicensePlate.trim()
-        }
-      });
-
-      if (idError) {
-        throw new Error(`查询ID失败: ${idError.message}`);
-      }
-
-      if (!idData?.success) {
-        throw new Error(idData?.message || '查询ID并同步失败');
-      }
-
-      // 成功
-      toast({
-        title: "操作完成",
-        description: `车辆 ${addAndSyncLicensePlate} 已成功添加到第三方平台，ID已同步到数据库（${idData.data?.externalId}）`,
+        title: result.success ? "操作完成" : "部分成功",
+        description: `${addStatusMessage}${result.syncIdStatus === 'synced' ? syncIdMessage : syncIdMessage}`,
+        variant: result.success ? 'default' : 'destructive'
       });
 
       // 清空表单并关闭对话框
