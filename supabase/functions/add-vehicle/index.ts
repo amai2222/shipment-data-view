@@ -73,7 +73,9 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
       {
         exFieldId: "#157:590",
         field: "车牌颜色",
-        value: {
+        // 🔴 关键修复：第三方API期望 value 是 JSON 字符串，而不是对象
+        // 从实际请求中确认：value 应该是字符串化的 JSON
+        value: JSON.stringify({
           "rid": "#183:51",
           "value": "黄色",
           "display": "黄色",
@@ -90,7 +92,7 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
               "value": "2"
             }
           ]
-        },
+        }),
         format: "json",
         valueRefId: "#183:51",
         codefId: "#182:14"
@@ -105,17 +107,24 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
     bodyString = JSON.stringify(payload);
     // 🔴 验证序列化后的 JSON 是否可以正确解析
     const parsedTest = JSON.parse(bodyString);
+    // 🔴 输出完整的 payload 用于调试
     console.log(`📤 [Add] 发送 Payload (${licensePlate}):`, bodyString);
+    console.log(`📤 [Add] Payload 完整内容:`, JSON.stringify(parsedTest, null, 2));
     console.log(`📤 [Add] Payload 验证: 序列化成功，字段类型检查:`, {
       uid: typeof parsedTest.uid,
+      uidValue: parsedTest.uid,
       serialno: typeof parsedTest.serialno,
+      serialnoValue: parsedTest.serialno,
       desc: typeof parsedTest.desc,
+      descValue: parsedTest.desc,
       backup: typeof parsedTest.backup,
+      equipModelId: parsedTest.equipModelId,
       exFields0Value: typeof parsedTest.exFields?.[0]?.value,
       exFields0ValueValue: parsedTest.exFields?.[0]?.value,
       exFields1Value: typeof parsedTest.exFields?.[1]?.value,
       exFields1ValueIsObject: parsedTest.exFields?.[1]?.value && typeof parsedTest.exFields[1].value === 'object',
-      exFieldsLength: parsedTest.exFields?.length
+      exFieldsLength: parsedTest.exFields?.length,
+      relationsLength: parsedTest.relations?.length
     });
   } catch (stringifyError) {
     console.error('❌ [Add] Payload 序列化失败:', stringifyError);
