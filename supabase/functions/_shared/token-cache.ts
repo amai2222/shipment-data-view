@@ -36,14 +36,13 @@ const MEMORY_CACHE: {
 
 /**
  * MD5 加密函数
+ * 使用第三方 MD5 库（因为 Deno Web Crypto API 不支持 MD5）
  */
 async function md5(message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hash = await crypto.subtle.digest("MD5", data);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  // 使用 esm.sh 提供的 MD5 库
+  // @ts-expect-error - Deno 环境支持动态导入
+  const { default: md5Hash } = await import('https://esm.sh/md5@2.3.0');
+  return md5Hash(message);
 }
 
 /**
