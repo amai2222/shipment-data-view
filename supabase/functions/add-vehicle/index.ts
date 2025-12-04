@@ -27,21 +27,50 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
   const timeStr = now.toISOString().replace(/[-T:.Z]/g, "").slice(0, 14);
   const uid = `100${timeStr}${Math.floor(Math.random() * 10000000000)}`;
 
+  // 🔴 构造 payload（严格按照第三方网站真实请求的字段顺序）
+  // ⚠️ 注意：exFields[1].value 必须是对象，不能是 JSON 字符串
+  // 因为 format: "json" 表示该字段的值应该是 JSON 对象，而不是字符串化的 JSON
   const payload = {
-    uid: uid,
-    serialno: licensePlate,
-    desc: licensePlate,
-    deptId: "#16:5043",
     lastDeptId: "#16:171",
-    equipModelId: "#20:81",
+    deptId: "#16:5043",
+    desc: String(licensePlate).trim(),
+    serialno: String(licensePlate).trim(),
     backup: false,
-    relations: [],
+    equipModelId: "#20:81",
+    uid: String(uid),
     exFields: [{
-        exFieldId: "#157:277",
-        field: "核定载质量",
-        value: String(loadWeight || "0").trim(),
-        format: "json"
-    }]
+      exFieldId: "#157:277",
+      field: "核定载质量",
+      value: String(loadWeight || "0").trim(),
+      format: "json"
+    }, {
+      exFieldId: "#157:590",
+      field: "车牌颜色",
+      // 🔴 修复：value 应该是对象，而不是 JSON 字符串
+      // 当整个 payload 被 JSON.stringify 序列化时，这个对象会被正确序列化
+      value: {
+        "rid": "#183:51",
+        "value": "黄色",
+        "display": "黄色",
+        "selector": "黄色",
+        "values": [
+          {
+            "key": "Name",
+            "name": "名称",
+            "value": "黄色"
+          },
+          {
+            "key": "Code",
+            "name": "代码",
+            "value": "2"
+          }
+        ]
+      },
+      format: "json",
+      valueRefId: "#183:51",
+      codefId: "#182:14"
+    }],
+    relations: []
   };
 
   const bodyString = JSON.stringify(payload);
@@ -51,12 +80,21 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json;charset=UTF-8",
-        "Auth-Session": authToken,
-        // 🔴 关键：使用 Add Token 对应的 Cookie
+        "accept": "application/json, text/plain, */*",
+        "auth-session": authToken,  // 🔴 小写 header（与真实请求一致）
+        "content-type": "application/json;charset=UTF-8",
         "Cookie": `Auth-Session=${encodeURIComponent(authToken)}`,
-        "Referer": `${CONFIG.baseUrl}/console/`,
-        "User-Agent": CONFIG.userAgent
+        "origin": "https://zkzy.zkzy1688.com",
+        "priority": "u=1, i",
+        "referer": `${CONFIG.baseUrl}/console/`,
+        "sec-ch-ua": '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "user-agent": CONFIG.userAgent,
+        "x-auth-session": authToken  // 🔴 额外添加（与真实请求一致）
       },
       body: bodyString
     });

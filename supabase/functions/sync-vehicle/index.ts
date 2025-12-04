@@ -40,23 +40,52 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
   }
 
   // 🔴 构造 payload，确保所有字段类型正确
+  // ⚠️ 注意：exFields[1].value 必须是对象，不能是 JSON 字符串
+  // 因为 format: "json" 表示该字段的值应该是 JSON 对象，而不是字符串化的 JSON
   const payload = {
-    uid: String(uid),                    // 确保是字符串
-    serialno: String(cleanLicensePlate), // 确保是字符串
+    lastDeptId: "#16:171",
+    deptId: "#16:5043",
     desc: String(cleanLicensePlate),     // 确保是字符串
-    deptId: "#16:5043",                  // 确保这是 "#16:5043" 这样的字符串
-    lastDeptId: "#16:171",               // 建议写死，与抓包一致
-    equipModelId: "#20:81",              // 对应 WO_YS_TR
+    serialno: String(cleanLicensePlate), // 确保是字符串
     backup: false,                       // Boolean 类型
-    relations: [],                       // 空数组
+    equipModelId: "#20:81",              // 对应 WO_YS_TR
+    uid: String(uid),                    // 确保是字符串
     exFields: [
       {
         exFieldId: "#157:277",
         field: "核定载质量",
         value: String(safeLoadWeight),   // 🔴 关键修复：这里必须是 String
         format: "json"
+      },
+      {
+        exFieldId: "#157:590",
+        field: "车牌颜色",
+        // 🔴 修复：value 应该是对象，而不是 JSON 字符串
+        // 当整个 payload 被 JSON.stringify 序列化时，这个对象会被正确序列化
+        value: {
+          "rid": "#183:51",
+          "value": "黄色",
+          "display": "黄色",
+          "selector": "黄色",
+          "values": [
+            {
+              "key": "Name",
+              "name": "名称",
+              "value": "黄色"
+            },
+            {
+              "key": "Code",
+              "name": "代码",
+              "value": "2"
+            }
+          ]
+        },
+        format: "json",
+        valueRefId: "#183:51",
+        codefId: "#182:14"
       }
-    ]
+    ],
+    relations: []                        // 空数组
   };
 
   // 🔴 验证 payload 的每个字段
@@ -73,7 +102,7 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
     throw new Error('exFields[0].value 必须是字符串');
   }
 
-  // 🔴 验证 payload 的每个字段
+  // 🔴 验证 payload 的每个字段（双重检查）
   if (!payload.uid || typeof payload.uid !== 'string') {
     throw new Error('UID 生成失败');
   }
@@ -91,11 +120,21 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        // 🔴 修复：去掉 charset，部分严格后端只认这个
-        "Content-Type": "application/json",
-        "Auth-Session": authToken,
-        "Referer": `${url.replace('/rest/equip', '/console/')}`,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36"
+        "accept": "application/json, text/plain, */*",
+        "auth-session": authToken,  // 🔴 小写 header（与真实请求一致）
+        "content-type": "application/json;charset=UTF-8",
+        "Cookie": `Auth-Session=${encodeURIComponent(authToken)}`,
+        "origin": "https://zkzy.zkzy1688.com",
+        "priority": "u=1, i",
+        "referer": "https://zkzy.zkzy1688.com/console/",
+        "sec-ch-ua": '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "x-auth-session": authToken  // 🔴 额外添加（与真实请求一致）
       },
       body: bodyString
     });
