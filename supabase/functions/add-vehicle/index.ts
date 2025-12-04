@@ -134,15 +134,14 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
     if (!response.ok) {
       console.error(`❌ [Add] 失败 [${response.status}]:`, text);
       
-      // 409 处理（冲突 - 通常表示已存在）
-      // 🔴 重要：409 状态码的语义就是"冲突"，无论响应内容是什么，都视为资源已存在
+      // 409 处理（冲突 - 需要区分"已存在"和"格式错误"）
       if (response.status === 409) {
-        // 🔴 先尝试解析 JSON，提取有用的错误信息
+        // 🔴 先尝试解析 JSON，判断错误类型
         // 第三方 API 可能返回：
         // 1. 数组格式: [{"code":"ConflictError", "message":"『货车:冀EX9795』已存在!"}]
         // 2. 对象格式: {"code":"InvalidArgument","message":"Invalid JSON."}
         // 3. 其他格式
-        let errorMessage = "车辆已存在";
+        let errorObj: { code?: string; message?: string } | null = null;
         let responseData: unknown = null;
         
         try {
@@ -150,30 +149,58 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
           
           // 检查是否为数组格式
           if (Array.isArray(responseData) && responseData.length > 0) {
-            const firstError = responseData[0];
-            if (firstError.message && typeof firstError.message === 'string') {
-              errorMessage = firstError.message;
-            }
+            errorObj = responseData[0];
           } 
           // 如果是单个对象
-          else if (responseData && typeof responseData === 'object' && 'message' in responseData) {
-            const errorObj = responseData as { message?: string };
-            if (errorObj.message && typeof errorObj.message === 'string') {
-              errorMessage = errorObj.message;
-            }
+          else if (responseData && typeof responseData === 'object' && 'code' in responseData) {
+            errorObj = responseData as { code?: string; message?: string };
           }
         } catch (parseError) {
-          // JSON 解析失败，使用默认消息
-          console.warn("⚠️ 解析 409 响应失败，使用默认消息:", parseError);
+          // JSON 解析失败，使用原始文本
+          console.warn("⚠️ 解析 409 响应失败:", parseError);
         }
-        
-        // 🔴 关键：无论响应内容是什么，409 状态码都视为"已存在"，返回成功
-        console.log("✅ [Add] 409 响应，视为车辆已存在，消息:", errorMessage);
+
+        // 🔴 判断是否是格式错误
+        const isFormatError = 
+          text.includes("Invalid JSON") ||
+          (errorObj?.code === "InvalidArgument" && errorObj?.message && errorObj.message.includes("Invalid JSON"));
+
+        if (isFormatError) {
+          // 格式错误，返回错误，不继续执行
+          console.error('❌ [Add] 第三方API返回格式错误 (409 Invalid JSON)');
+          console.error('请求URL:', url);
+          console.error('请求体:', bodyString);
+          console.error('错误响应:', text);
+          
+          return { 
+            success: false, 
+            message: `格式错误 (409 Invalid JSON): 服务端返回 "${errorObj?.message || text}"。请检查：1) 字段类型是否正确 2) 字符串值是否包含特殊字符 3) 数值是否正确转换为字符串`
+          };
+        }
+
+        // 🔴 判断是否是真正的"已存在"
+        const isReallyExisted = 
+          text.includes("已存在") ||
+          text.includes("ConflictError") ||
+          (errorObj?.code === "ConflictError") ||
+          (errorObj?.message && errorObj.message.includes("已存在"));
+
+        if (isReallyExisted) {
+          // 真的已存在，视为成功
+          const errorMessage = errorObj?.message || `车辆 ${licensePlate} 已存在于轨迹查询库`;
+          console.log("✅ [Add] 车辆已存在（409），视为成功:", errorMessage);
+          return { 
+            success: true, 
+            status: "existed", 
+            message: errorMessage,
+            data: responseData
+          };
+        }
+
+        // 其他409错误，返回错误
         return { 
-          success: true, 
-          status: "existed", 
-          message: errorMessage,
-          data: responseData
+          success: false, 
+          message: `添加失败 (409): ${errorObj?.message || text}` 
         };
       }
       
@@ -295,14 +322,16 @@ serve(async (req) => {
       );
     }
 
-    const { licensePlate, loadWeight } = requestBody;
+    // 🔴 支持大小写不敏感的字段名（兼容前端可能发送的不同格式）
+    const licensePlate = requestBody.licensePlate || requestBody.LicensePlate || requestBody.license_plate;
+    const loadWeight = requestBody.loadWeight || requestBody.LoadWeight || requestBody.load_weight;
 
     // 验证必要参数
     if (!licensePlate || typeof licensePlate !== 'string') {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: '缺少必要参数：licensePlate（车牌号）' 
+          message: '缺少必要参数：licensePlate（车牌号）。请检查请求体中的字段名是否正确（支持 licensePlate、LicensePlate、license_plate）' 
         }),
         { 
           status: 400, 

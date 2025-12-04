@@ -177,64 +177,66 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
         }
       }
       
-      // 🔴 特殊处理 409 错误（可能是"已存在"或"Invalid JSON"）
+      // 🔴 特殊处理 409 错误
+      // 409 可能表示"已存在"或"格式错误"，需要根据响应内容判断
       if (response.status === 409) {
         // 尝试解析错误响应 JSON
-        let errorObj;
+        let errorObj: { code?: string; message?: string } | null = null;
         try {
-          errorObj = JSON.parse(responseText);
+          const parsed = JSON.parse(responseText);
+          // 处理数组格式: [{"code":"ConflictError", "message":"..."}]
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            errorObj = parsed[0];
+          } 
+          // 处理对象格式: {"code":"InvalidArgument","message":"Invalid JSON."}
+          else if (parsed && typeof parsed === 'object') {
+            errorObj = parsed;
+          }
         } catch (e) {
-          errorObj = { message: responseText };
+          // JSON 解析失败，使用原始文本
         }
 
-        // 检查是否是 Invalid JSON 错误（通过 code 或 message）
-        const isInvalidJson = 
-          responseText.includes("Invalid JSON") ||
-          (errorObj.code === "InvalidArgument" && errorObj.message && errorObj.message.includes("Invalid JSON"));
+        // 🔴 判断是否是真正的"已存在"
+        const isReallyExisted = 
+          responseText.includes("已存在") ||
+          responseText.includes("ConflictError") ||
+          (errorObj?.code === "ConflictError") ||
+          (errorObj?.message && errorObj.message.includes("已存在"));
 
-        if (isInvalidJson) {
-          console.error('❌ 第三方API返回 Invalid JSON 错误 (409)');
+        // 🔴 判断是否是格式错误
+        const isFormatError = 
+          responseText.includes("Invalid JSON") ||
+          (errorObj?.code === "InvalidArgument" && errorObj?.message && errorObj.message.includes("Invalid JSON"));
+
+        if (isFormatError) {
+          // 格式错误，返回错误，不继续执行
+          console.error('❌ 第三方API返回格式错误 (409 Invalid JSON)');
           console.error('请求URL:', url);
           console.error('请求体:', bodyString);
           console.error('错误响应:', responseText);
           
-          // 🔴 尝试诊断问题
-          try {
-            const parsedPayload = JSON.parse(bodyString);
-            console.error('Payload 解析测试: 成功');
-            console.error('Payload 结构:', {
-              uid: typeof parsedPayload.uid,
-              serialno: typeof parsedPayload.serialno,
-              desc: typeof parsedPayload.desc,
-              deptId: typeof parsedPayload.deptId,
-              backup: typeof parsedPayload.backup,
-              relations: Array.isArray(parsedPayload.relations),
-              exFields: Array.isArray(parsedPayload.exFields),
-              exFieldsValue: parsedPayload.exFields?.[0]?.value,
-              exFieldsValueType: typeof parsedPayload.exFields?.[0]?.value
-            });
-          } catch (parseError) {
-            console.error('Payload 解析测试: 失败', parseError);
-          }
-          
           return { 
             success: false, 
-            message: `格式错误 (409 Invalid JSON): 服务端返回 "${errorObj.message || responseText}"。请检查：1) 字段类型是否正确 2) 字符串值是否包含特殊字符 3) 数值是否正确转换为字符串`
+            message: `格式错误 (409 Invalid JSON): 服务端返回 "${errorObj?.message || responseText}"。请检查：1) 字段类型是否正确 2) 字符串值是否包含特殊字符 3) 数值是否正确转换为字符串`
           };
         }
-        
-        // 依然处理"已存在"的逻辑，防止误报
-        if (responseText.includes("已存在") || 
-            responseText.includes("Conflict") || 
-            responseText.includes("duplicate") ||
-            (errorObj.code && errorObj.code.includes("Conflict"))) {
-          console.log(`⚠️ 车辆 ${licensePlate} 已存在（409），视为成功`);
+
+        if (isReallyExisted) {
+          // 真的已存在，视为成功，继续执行后续步骤
+          const errorMessage = errorObj?.message || `车辆 ${licensePlate} 已存在于轨迹查询库`;
+          console.log(`✅ 车辆 ${licensePlate} 已存在（409），视为成功`);
           return { 
             success: true, 
             status: "existed", 
-            message: `车辆 ${licensePlate} 已存在于轨迹查询库`
+            message: errorMessage
           };
         }
+
+        // 其他409错误，返回错误
+        return { 
+          success: false, 
+          message: `添加失败 (409): ${errorObj?.message || responseText}` 
+        };
       }
       
       // 其他 HTTP 错误
@@ -497,14 +499,18 @@ serve(async (req) => {
       );
     }
 
-    const { licensePlate, loadWeight, syncId, onlySyncId } = requestBody;
+    // 🔴 支持大小写不敏感的字段名（兼容前端可能发送的不同格式）
+    const licensePlate = requestBody.licensePlate || requestBody.LicensePlate || requestBody.license_plate;
+    const loadWeight = requestBody.loadWeight || requestBody.LoadWeight || requestBody.load_weight;
+    const syncId = requestBody.syncId || requestBody.SyncId;
+    const onlySyncId = requestBody.onlySyncId || requestBody.OnlySyncId;
 
     // 验证必要参数
     if (!licensePlate || typeof licensePlate !== 'string') {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: '缺少必要参数：licensePlate（车牌号）' 
+          message: '缺少必要参数：licensePlate（车牌号）。请检查请求体中的字段名是否正确（支持 licensePlate、LicensePlate、license_plate）' 
         }),
         { 
           status: 400, 
