@@ -643,9 +643,9 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
         mapInstanceRef.current = map;
 
         // 绘制轨迹路线
-        const path = trackingPoints
-          .filter(p => p.lat != null && p.lng != null && p.lat !== 0 && p.lng !== 0)
-          .map(p => new window.BMap.Point(p.lng, p.lat));
+        // 🔴 先过滤有效点，同时保留原始数据用于标记
+        const validPoints = trackingPoints.filter(p => p.lat != null && p.lng != null && p.lat !== 0 && p.lng !== 0);
+        const path = validPoints.map(p => new window.BMap.Point(p.lng, p.lat));
         
         console.log('轨迹路径点数:', path.length);
         console.log('轨迹路径前3个点:', path.slice(0, 3));
@@ -684,37 +684,34 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           console.warn('⚠️ 没有有效的轨迹点可以绘制');
         }
 
-        // 添加起点标记
-        if (trackingPoints.length > 0) {
-          const startPoint = trackingPoints[0];
-          if (startPoint.lat != null && startPoint.lng != null && startPoint.lat !== 0 && startPoint.lng !== 0) {
-            const startTime = startPoint.time 
-              ? new Date(startPoint.time).toLocaleString('zh-CN')
-              : '起点';
-            
-            const startPointObj = new window.BMap.Point(startPoint.lng, startPoint.lat);
-            const startMarker = new window.BMap.Marker(startPointObj, {
-              title: `起点: ${startTime}`
-            });
-            map.addOverlay(startMarker);
-          }
+        // 🔴 添加起点标记 - 使用过滤后的有效点的第一个点，确保与轨迹线一致
+        if (validPoints.length > 0) {
+          const startPoint = validPoints[0];
+          const startTime = startPoint.time 
+            ? new Date(startPoint.time).toLocaleString('zh-CN')
+            : '起点';
+          
+          // 使用轨迹线的第一个点（path[0]）来确保标记位置与轨迹线完全一致
+          const startMarker = new window.BMap.Marker(path[0], {
+            title: `起点: ${startTime}`
+          });
+          map.addOverlay(startMarker);
+          console.log('✅ 起点标记已添加，位置:', { lng: startPoint.lng, lat: startPoint.lat });
         }
 
-        // 添加终点标记
-        if (trackingPoints.length > 1) {
-          const endPoint = trackingPoints[trackingPoints.length - 1];
-          if (endPoint.lat != null && endPoint.lng != null && endPoint.lat !== 0 && endPoint.lng !== 0) {
-            const endTime = endPoint.time 
-              ? new Date(endPoint.time).toLocaleString('zh-CN')
-              : '终点';
-            
-            const endPointObj = new window.BMap.Point(endPoint.lng, endPoint.lat);
-            const endMarker = new window.BMap.Marker(endPointObj, {
-              title: `终点: ${endTime}`
-            });
-            map.addOverlay(endMarker);
-            console.log('✅ 终点标记已添加');
-          }
+        // 🔴 添加终点标记 - 使用过滤后的有效点的最后一个点，确保与轨迹线一致
+        if (validPoints.length > 1) {
+          const endPoint = validPoints[validPoints.length - 1];
+          const endTime = endPoint.time 
+            ? new Date(endPoint.time).toLocaleString('zh-CN')
+            : '终点';
+          
+          // 使用轨迹线的最后一个点（path[path.length - 1]）来确保标记位置与轨迹线完全一致
+          const endMarker = new window.BMap.Marker(path[path.length - 1], {
+            title: `终点: ${endTime}`
+          });
+          map.addOverlay(endMarker);
+          console.log('✅ 终点标记已添加，位置:', { lng: endPoint.lng, lat: endPoint.lat });
         }
         
         // 🔴 地图初始化完成，设置为非加载状态
