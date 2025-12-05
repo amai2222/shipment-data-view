@@ -1021,8 +1021,8 @@ export default function VehicleTracking() {
         console.log(`📋 [批量处理] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
 
         try {
-          // 调用 sync-vehicle Edge Function（添加车辆并同步ID）
-          const response = await fetch(`${supabaseUrl}/functions/v1/sync-vehicle`, {
+          // 调用 process-vehicles-batch Edge Function（添加车辆并同步ID，优化版）
+          const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1062,25 +1062,42 @@ export default function VehicleTracking() {
 
           const data = await response.json();
 
-          if (data?.success) {
-            console.log(`✅ [批量处理] [${currentIndex}/${total}] ${plate} - 处理成功`);
-            results.push({
-              licensePlate: plate.trim(),
-              success: true,
-              addStatus: data.addStatus || 'created',
-              syncIdStatus: data.syncIdStatus || 'synced',
-              message: data.message || '处理成功'
-            });
+          // 新函数返回的是批量结果格式，取第一个结果
+          if (data?.results && Array.isArray(data.results) && data.results.length > 0) {
+            const result = data.results[0];
+            if (result.success) {
+              console.log(`✅ [批量处理] [${currentIndex}/${total}] ${plate} - 处理成功`);
+              results.push({
+                licensePlate: plate.trim(),
+                success: true,
+                addStatus: result.addStatus || 'created',
+                syncIdStatus: result.syncIdStatus || 'synced',
+                message: result.message || '处理成功'
+              });
+            } else {
+              // 🔴 记录错误日志，但继续处理下一个
+              const errorMessage = result.message || '处理失败';
+              console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
+              
+              results.push({
+                licensePlate: plate.trim(),
+                success: false,
+                addStatus: result.addStatus || 'failed',
+                syncIdStatus: result.syncIdStatus || 'skipped',
+                message: errorMessage,
+                error: errorMessage
+              });
+            }
           } else {
             // 🔴 记录错误日志，但继续处理下一个
-            const errorMessage = data?.message || '处理失败';
+            const errorMessage = data?.message || '处理失败：返回格式异常';
             console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
             
             results.push({
               licensePlate: plate.trim(),
               success: false,
-              addStatus: data?.addStatus || 'failed',
-              syncIdStatus: data?.syncIdStatus || 'skipped',
+              addStatus: 'failed',
+              syncIdStatus: 'skipped',
               message: errorMessage,
               error: errorMessage
             });
