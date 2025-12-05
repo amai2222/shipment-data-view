@@ -1810,7 +1810,24 @@ export default function VehicleTracking() {
                   id="addAndSyncLicensePlate"
                   placeholder="请输入车牌号（例如：冀EX9795）"
                   value={addAndSyncLicensePlate}
-                  onChange={(e) => setAddAndSyncLicensePlate(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // 检测是否包含多个车牌号的分隔符（空格、逗号、换行等）
+                    const separators = /[\s,，\n\r]+/;
+                    if (separators.test(value)) {
+                      // 如果包含分隔符，只保留第一个车牌号
+                      const firstPlate = value.split(separators)[0].trim();
+                      setAddAndSyncLicensePlate(firstPlate);
+                      // 提示用户使用批量输入功能
+                      toast({
+                        title: "提示",
+                        description: "检测到多个车牌号，已自动保留第一个。如需批量输入，请点击右侧批量输入按钮。",
+                        duration: 3000,
+                      });
+                    } else {
+                      setAddAndSyncLicensePlate(value);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !addAndSyncLoading) {
                       handleAddAndSync();
@@ -1831,7 +1848,7 @@ export default function VehicleTracking() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                格式示例：冀EX9795、京A12345（支持批量输入，用空格、逗号或换行分隔）
+                格式示例：冀EX9795、京A12345（仅支持单个车牌号，批量输入请点击右侧按钮）
               </p>
             </div>
 
