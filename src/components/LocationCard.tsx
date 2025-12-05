@@ -57,6 +57,43 @@ export function LocationCard({ result }: LocationCardProps) {
   const largeMapInstanceRef = useRef<unknown>(null);
   const markerRef = useRef<unknown>(null);
 
+  // 注入样式以隐藏百度地图 Logo 和版权信息
+  useEffect(() => {
+    const styleId = 'baidu-map-hide-logo';
+    // 检查样式是否已存在
+    if (document.getElementById(styleId)) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      /* 隐藏百度地图 Logo */
+      .anchorBL {
+        display: none !important;
+      }
+
+      /* 隐藏版权文本信息 (© 2025 Baidu ...) */
+      .BMap_cpyCtrl {
+        display: none !important;
+      }
+
+      /* 如果上面的不生效，尝试隐藏该区域的所有 span */
+      .BMap_copy {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // 清理函数
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, []);
+
   // 加载百度地图API
   useEffect(() => {
     const loadBaiduMapAPI = async () => {
