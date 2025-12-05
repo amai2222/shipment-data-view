@@ -368,11 +368,17 @@ export async function getToken(type: 'add' | 'query'): Promise<string> {
       client: acc.clientId
     };
     
-    console.log(`📤 [${internalType}] 登录 Payload:`, JSON.stringify({ ...payload, password: passwordHash.substring(0, 8) + '...' }));
+    // 🔴 验证密码哈希值是否正确
+    console.log(`🔑 [${internalType}] 密码哈希值验证:`, {
+      expected: (acc as { passwordHash?: string }).passwordHash || 'N/A',
+      actual: passwordHash,
+      match: passwordHash === ((acc as { passwordHash?: string }).passwordHash || '')
+    });
+    console.log(`📤 [${internalType}] 登录 Payload:`, JSON.stringify(payload));
 
     // 发起登录请求（带超时和重试机制）
     const maxRetries = 3;
-    const timeout = 30000; // 30秒超时
+    const timeout = 60000; // 🔴 增加到60秒超时（第三方API可能响应较慢）
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -383,48 +389,123 @@ export async function getToken(type: 'add' | 'query'): Promise<string> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         
-        const res = await fetch(`${CONFIG.baseUrl}/rest/session`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            "Referer": acc.referer,
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36"
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
+        // 🔴 构造完整的请求头（与浏览器请求保持一致，参考其他成功请求）
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json;charset=UTF-8",
+          "Accept": "application/json, text/plain, */*",
+          "Accept-Language": "zh-CN,zh;q=0.9",
+          "Referer": acc.referer,
+          "Origin": CONFIG.baseUrl,
+          "X-Requested-With": "XMLHttpRequest", // 🔴 添加此请求头（其他成功请求都有）
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/137.0.0.0 Safari/537.36"
+        };
+
+        console.log(`📤 [${internalType}] 发送登录请求到: ${CONFIG.baseUrl}/rest/session`);
+        console.log(`📤 [${internalType}] 请求头:`, JSON.stringify(headers, null, 2));
+        console.log(`📤 [${internalType}] 请求体:`, JSON.stringify(payload));
+        console.log(`⏱️ [${internalType}] 开始发送请求，超时时间: ${timeout}ms`);
         
-        clearTimeout(timeoutId);
+        let res: Response;
+        try {
+          res = await fetch(`${CONFIG.baseUrl}/rest/session`, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          console.log(`✅ [${internalType}] 请求完成，收到响应`);
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          console.error(`❌ [${internalType}] fetch 请求失败:`, {
+            errorName: fetchError instanceof Error ? fetchError.name : 'Unknown',
+            errorMessage: fetchError instanceof Error ? fetchError.message : String(fetchError),
+            errorStack: fetchError instanceof Error ? fetchError.stack : undefined
+          });
+          throw fetchError; // 重新抛出，让外层 catch 处理
+        }
         
         console.log(`📥 [${internalType}] 登录响应状态: ${res.status} ${res.statusText}`);
+        console.log(`📥 [${internalType}] 响应头:`, JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2));
         
-        // 如果请求成功，跳出重试循环
-        if (res.ok || res.status !== 0) {
-          // 处理响应
-          if (!res.ok) {
-            const err = await res.text();
-            console.error(`❌ [${internalType}] 登录失败响应:`, err);
-            throw new Error(`登录失败 [${res.status}]: ${err}`);
+        // 🔴 先读取响应文本（用于调试）
+        let responseText: string;
+        try {
+          responseText = await res.text();
+          console.log(`📥 [${internalType}] 响应体（前500字符）:`, responseText.substring(0, 500));
+        } catch (textError) {
+          console.error(`❌ [${internalType}] 读取响应体失败:`, textError);
+          responseText = '';
+        }
+        
+        // 🔴 检查响应状态
+        if (!res.ok) {
+          // 尝试解析错误响应
+          let errorMessage = `登录失败 [${res.status}]: ${responseText}`;
+          try {
+            const errorBody = JSON.parse(responseText);
+            if (errorBody.message || errorBody.error) {
+              errorMessage = `登录失败 [${res.status}]: ${errorBody.message || errorBody.error}`;
+            }
+          } catch (e) {
+            // 响应不是JSON，使用原始文本
+          }
+          console.error(`❌ [${internalType}] 登录失败:`, errorMessage);
+          throw new Error(errorMessage);
+        }
+        
+        // 🔴 如果响应成功（200-299），继续处理
+        if (res.ok) {
+          
+          // 🔴 提取 Token（多种方式尝试）
+          let token: string | null = null;
+          
+          // 方式1：从响应头获取
+          token = res.headers.get("Auth-Session");
+          if (token) {
+            console.log(`✅ [${internalType}] 从响应头获取到 Token`);
           }
           
-          // 提取 Token
-          let token = res.headers.get("Auth-Session");
-          
+          // 方式2：从 Set-Cookie 头获取
           if (!token) {
-            // 尝试从 Body 或 Cookie 获取
-            const body = await res.json().catch(() => ({}));
-            token = (body as Record<string, unknown>)['Auth-Session'] as string || (body as Record<string, unknown>).token as string;
-            
-            if (!token) {
-              const setCookie = res.headers.get("set-cookie");
-              if (setCookie && setCookie.includes("Auth-Session=")) {
-                const match = setCookie.match(/Auth-Session=([^;]+)/);
-                token = match ? match[1] : null;
+            const setCookie = res.headers.get("set-cookie");
+            if (setCookie) {
+              console.log(`🔍 [${internalType}] Set-Cookie 头:`, setCookie);
+              const match = setCookie.match(/Auth-Session=([^;]+)/);
+              if (match) {
+                token = decodeURIComponent(match[1]);
+                console.log(`✅ [${internalType}] 从 Set-Cookie 获取到 Token`);
+              }
+            }
+          }
+          
+          // 方式3：从响应体获取
+          if (!token && responseText) {
+            try {
+              const body = JSON.parse(responseText);
+              token = (body as Record<string, unknown>)['Auth-Session'] as string || 
+                      (body as Record<string, unknown>).token as string ||
+                      (body as Record<string, unknown>).authSession as string;
+              if (token) {
+                console.log(`✅ [${internalType}] 从响应体获取到 Token`);
+              }
+            } catch (e) {
+              // 响应体不是JSON，尝试从文本中提取
+              const tokenMatch = responseText.match(/Auth-Session[=:]\s*([^\s;,"']+)/i);
+              if (tokenMatch) {
+                token = tokenMatch[1];
+                console.log(`✅ [${internalType}] 从响应文本中提取到 Token`);
               }
             }
           }
 
-          if (!token) throw new Error("登录成功但未获取到 Token");
+          if (!token) {
+            console.error(`❌ [${internalType}] 无法从响应中提取 Token`);
+            console.error(`   响应状态: ${res.status}`);
+            console.error(`   响应头:`, JSON.stringify(Object.fromEntries(res.headers.entries())));
+            console.error(`   响应体:`, responseText);
+            throw new Error("登录成功但未获取到 Token，请检查响应格式");
+          }
 
           console.log(`✅ [${internalType}] 登录成功! Token: ${token.substring(0, 10)}...`);
 
@@ -451,20 +532,40 @@ export async function getToken(type: 'add' | 'query'): Promise<string> {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         
+        // 🔴 详细记录错误信息
+        console.error(`❌ [${internalType}] 登录尝试 ${attempt} 失败:`, {
+          errorName: error instanceof Error ? error.name : 'Unknown',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined
+        });
+        
         // 检查是否是超时或连接错误
         const isTimeoutError = 
-          (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout') || error.message.includes('Connection timed out') || error.message.includes('tcp connect error'))) ||
-          (error && typeof error === 'object' && 'code' in error && (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED'));
+          (error instanceof Error && (
+            error.name === 'AbortError' || 
+            error.message.includes('timeout') || 
+            error.message.includes('Connection timed out') || 
+            error.message.includes('tcp connect error') ||
+            error.message.includes('network') ||
+            error.message.includes('fetch failed')
+          )) ||
+          (error && typeof error === 'object' && 'code' in error && (
+            error.code === 'ETIMEDOUT' || 
+            error.code === 'ECONNREFUSED' ||
+            error.code === 'ENOTFOUND'
+          ));
         
         if (isTimeoutError && attempt < maxRetries) {
           const waitTime = attempt * 2000; // 递增等待时间：2秒、4秒、6秒
-          console.warn(`⚠️ [${internalType}] 连接超时，${waitTime/1000}秒后重试 (${attempt}/${maxRetries})...`);
+          console.warn(`⚠️ [${internalType}] 连接超时或网络错误，${waitTime/1000}秒后重试 (${attempt}/${maxRetries})...`);
+          console.warn(`   错误详情: ${lastError.message}`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           continue; // 继续重试
         } else {
           // 最后一次尝试或非超时错误，直接抛出
           if (attempt === maxRetries) {
             console.error(`❌ [${internalType}] 登录失败：已重试 ${maxRetries} 次，仍然失败`);
+            console.error(`   最终错误: ${lastError.message}`);
           }
           throw lastError;
         }

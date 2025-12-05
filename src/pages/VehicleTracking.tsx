@@ -513,7 +513,17 @@ export default function VehicleTracking() {
         
         // 🔴 处理明确失败的情况
         if (data.success === false || data.error) {
-          const errorMessage = data.message || data.error || '同步失败';
+          // 处理错误对象（可能是 { code, message } 格式）
+          let errorMessage = data.message || '同步失败';
+          if (data.error) {
+            if (typeof data.error === 'string') {
+              errorMessage = data.error;
+            } else if (typeof data.error === 'object' && data.error.message) {
+              errorMessage = data.error.message;
+            } else if (typeof data.error === 'object' && data.error.code) {
+              errorMessage = `${data.error.code}: ${data.error.message || '未知错误'}`;
+            }
+          }
           throw new Error(errorMessage);
         }
       }
