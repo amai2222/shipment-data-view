@@ -320,10 +320,6 @@ serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
-      console.log('收到批量处理请求:', { 
-        licensePlatesCount: requestBody.licensePlates?.length || 0,
-        loadWeight: requestBody.loadWeight 
-      });
     } catch (parseError) {
       console.error('JSON 解析失败:', parseError);
       return new Response(JSON.stringify({ 
@@ -335,12 +331,30 @@ serve(async (req) => {
       });
     }
 
-    const { licensePlates, loadWeight } = requestBody;
+    // 🔴 支持两种参数格式：
+    // 1. 批量格式：{ licensePlates: [...], loadWeight: "..." }
+    // 2. 单个格式：{ licensePlate: "...", loadWeight: "...", syncId: true }
+    let licensePlates: string[] = [];
+    const { licensePlates: platesArray, licensePlate: singlePlate, loadWeight } = requestBody;
 
-    if (!licensePlates || !Array.isArray(licensePlates) || licensePlates.length === 0) {
+    if (platesArray && Array.isArray(platesArray) && platesArray.length > 0) {
+      // 批量格式
+      licensePlates = platesArray;
+      console.log('收到批量处理请求:', { 
+        licensePlatesCount: licensePlates.length,
+        loadWeight 
+      });
+    } else if (singlePlate && typeof singlePlate === 'string' && singlePlate.trim()) {
+      // 单个格式（兼容前端逐个调用）
+      licensePlates = [singlePlate.trim()];
+      console.log('收到单个处理请求:', { 
+        licensePlate: singlePlate,
+        loadWeight 
+      });
+    } else {
       return new Response(JSON.stringify({ 
         success: false, 
-        message: '缺少必要参数：licensePlates（车牌号数组）' 
+        message: '缺少必要参数：请提供 licensePlates（车牌号数组）或 licensePlate（单个车牌号）' 
       }), { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -348,7 +362,16 @@ serve(async (req) => {
     }
 
     // 批量处理车辆（串行处理，遇到错误记录日志并继续）
-    const results = [];
+    interface ProcessResult {
+      licensePlate: string;
+      success: boolean;
+      addStatus?: string;
+      syncIdStatus?: string;
+      message: string;
+      error?: string;
+      data?: unknown;
+    }
+    const results: ProcessResult[] = [];
     const defaultLoadWeight = loadWeight ? String(loadWeight).trim() : "0";
     const total = licensePlates.length;
 
