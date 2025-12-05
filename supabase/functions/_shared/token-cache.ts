@@ -1,6 +1,11 @@
 // 共享 Token 缓存模块（供所有 Edge Functions 使用）
-// @ts-expect-error - Edge Function运行在Deno环境，ESM导入在运行时可用
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 // 配置区域
 const CONFIG = {
@@ -8,7 +13,6 @@ const CONFIG = {
   accounts: {
     ADD: {
       username: "carquery",
-      // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
       password: Deno.env.get('PWD_ADD') || Deno.env.get('TRACKING_ADD_PASSWORD') || "Zk19090323j",
       // 第三方实际使用的 MD5 哈希值（从浏览器开发者工具中获取）
       passwordHash: "4807173a3dfd74be2af258eac2368c0f",
@@ -18,7 +22,6 @@ const CONFIG = {
     },
     QUERY: {
       username: "cladmin",
-      // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
       password: Deno.env.get('PWD_QUERY') || Deno.env.get('TRACKING_QUERY_PASSWORD') || "Zk16120325j",
       // 第三方实际使用的 MD5 哈希值（从浏览器开发者工具中获取）
       passwordHash: "7208851e4c11bbeaaa57772aa4008ba4",
@@ -232,9 +235,7 @@ function md5(message: string): string {
  * 从数据库获取 Token
  */
 async function getTokenFromDatabase(type: 'add' | 'query'): Promise<{ token: string; expiresAt: number } | null> {
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -281,9 +282,7 @@ async function getTokenFromDatabase(type: 'add' | 'query'): Promise<{ token: str
  * 保存 Token 到数据库
  */
 async function saveTokenToDatabase(type: 'add' | 'query', token: string, expiresAt: number): Promise<void> {
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
   if (!supabaseUrl || !supabaseServiceKey) {
