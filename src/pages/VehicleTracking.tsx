@@ -682,6 +682,24 @@ export default function VehicleTracking() {
 
     setAddAndSyncLoading(true);
     try {
+      // 🔴 第一步：先查询本地数据库是否有该车牌号的记录
+      const existingId = await getVehicleIdByLicensePlate(addAndSyncLicensePlate.trim());
+      
+      if (existingId) {
+        // 如果已有记录，提示用户并跳过后续操作
+        toast({
+          title: "车辆已存在",
+          description: `车辆 ${addAndSyncLicensePlate} 已在本地数据库中（ID: ${existingId}），无需重复添加。`,
+          variant: "default"
+        });
+        setAddAndSyncLoading(false);
+        // 清空表单并关闭对话框
+        setAddAndSyncLicensePlate('');
+        setAddAndSyncLoadWeight('0');
+        setAddAndSyncDialogOpen(false);
+        return;
+      }
+
       // 🔴 创建 AbortController 用于取消请求
       const abortController = new AbortController();
       addAndSyncAbortControllerRef.current = abortController;
