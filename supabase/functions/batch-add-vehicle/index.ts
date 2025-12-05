@@ -302,7 +302,26 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { licensePlates, loadWeight } = await req.json();
+    // 解析请求体
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('收到批量处理请求:', { 
+        licensePlatesCount: requestBody.licensePlates?.length || 0,
+        loadWeight: requestBody.loadWeight 
+      });
+    } catch (parseError) {
+      console.error('JSON 解析失败:', parseError);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: `请求体格式错误（Invalid JSON）: ${parseError instanceof Error ? parseError.message : '未知错误'}` 
+      }), { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    const { licensePlates, loadWeight } = requestBody;
 
     if (!licensePlates || !Array.isArray(licensePlates) || licensePlates.length === 0) {
       return new Response(JSON.stringify({ 
@@ -314,18 +333,55 @@ serve(async (req) => {
       });
     }
 
-    // 批量处理车辆
+    // 批量处理车辆（串行处理，遇到错误记录日志并继续）
     const results = [];
     const defaultLoadWeight = loadWeight ? String(loadWeight).trim() : "0";
+    const total = licensePlates.length;
 
-    for (const plate of licensePlates) {
-      const result = await processVehicle(plate, defaultLoadWeight);
-      results.push(result);
+    console.log(`🚀 [批量处理] 开始处理 ${total} 个车辆`);
+
+    for (let i = 0; i < licensePlates.length; i++) {
+      const plate = licensePlates[i];
+      const currentIndex = i + 1;
+      
+      console.log(`📋 [批量处理] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
+
+      try {
+        const result = await processVehicle(plate, defaultLoadWeight);
+        results.push(result);
+
+        // 记录处理结果
+        if (result.success) {
+          console.log(`✅ [批量处理] [${currentIndex}/${total}] ${plate} - 处理成功`);
+        } else {
+          console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 处理失败: ${result.message}`);
+        }
+      } catch (error) {
+        // 🔴 遇到错误：记录日志，跳过当前项，继续执行下一个
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 发生异常:`, {
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        });
+
+        // 添加错误结果，但继续处理下一个
+        results.push({
+          licensePlate: plate.trim(),
+          success: false,
+          addStatus: 'error',
+          syncIdStatus: 'skipped',
+          message: `处理异常: ${errorMessage}`,
+          error: errorMessage
+        });
+      }
     }
 
     // 统计结果
     const successCount = results.filter(r => r.success).length;
     const failedCount = results.length - successCount;
+
+    console.log(`📊 [批量处理] 处理完成 - 总数: ${total}, 成功: ${successCount}, 失败: ${failedCount}`);
 
     return new Response(JSON.stringify({
       success: failedCount === 0,

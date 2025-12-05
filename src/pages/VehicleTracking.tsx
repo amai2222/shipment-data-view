@@ -80,16 +80,25 @@ export default function VehicleTracking() {
         .from('vehicle_tracking_id_mappings')
         .select('license_plate, external_tracking_id')
         .eq('license_plate', plate.trim())
-        .single();
+        .maybeSingle(); // 使用 maybeSingle 而不是 single，避免404错误
 
-      if (error || !data) {
+      // 如果是404（未找到），这是正常的，返回null
+      if (error) {
+        // 404是正常的（记录不存在），其他错误才需要记录
+        if (error.code !== 'PGRST116') {
+          console.error('查询车辆ID失败:', error);
+        }
+        return null;
+      }
+
+      if (!data) {
         return null;
       }
 
       // 返回外部车辆ID
       return data.external_tracking_id || null;
     } catch (error) {
-      console.error('查询车辆ID失败:', error);
+      console.error('查询车辆ID异常:', error);
       return null;
     }
   };
@@ -597,40 +606,70 @@ export default function VehicleTracking() {
       // 使用原生 fetch 以支持 AbortController
       const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/sync-vehicle`, {
+      const requestUrl = `${supabaseUrl}/functions/v1/sync-vehicle`;
+      const requestBody = {
+        licensePlate: syncIdLicensePlate.trim(),
+        onlySyncId: true // 只查询ID，不添加车辆
+      };
+
+      console.log('🔍 [查询并同步] 开始请求:', {
+        url: requestUrl,
+        licensePlate: requestBody.licensePlate,
+        onlySyncId: requestBody.onlySyncId
+      });
+
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
           'apikey': supabaseAnonKey
         },
-        body: JSON.stringify({
-          licensePlate: syncIdLicensePlate.trim(),
-          onlySyncId: true // 只查询ID，不添加车辆
-        }),
+        body: JSON.stringify(requestBody),
         signal: abortController.signal
       });
 
       // 检查是否被取消
       if (abortController.signal.aborted) {
+        console.log('⚠️ [查询并同步] 请求已被取消');
         return;
       }
 
+      console.log('📥 [查询并同步] 响应状态:', response.status, response.statusText);
+
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        let errorDetails = '';
         try {
           const errorBody = await response.json();
           errorMessage = errorBody.message || errorBody.error || errorMessage;
+          errorDetails = JSON.stringify(errorBody);
         } catch (e) {
-          // 如果响应不是 JSON，使用默认错误信息
+          // 如果响应不是 JSON，尝试读取文本
+          try {
+            const errorText = await response.text();
+            errorDetails = errorText;
+          } catch (textError) {
+            errorDetails = '无法读取错误详情';
+          }
         }
+        
+        console.error('❌ [查询并同步] 请求失败:', {
+          status: response.status,
+          statusText: response.statusText,
+          message: errorMessage,
+          details: errorDetails
+        });
+        
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      console.log('✅ [查询并同步] 响应数据:', data);
 
       // 检查是否被取消
       if (abortController.signal.aborted) {
+        console.log('⚠️ [查询并同步] 响应处理时已被取消');
         return;
       }
 
@@ -647,7 +686,7 @@ export default function VehicleTracking() {
     } catch (error) {
       // 如果是取消操作，不显示错误提示
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('查询ID并同步已取消');
+        console.log('ℹ️ [查询并同步] 操作已取消');
         toast({
           title: "操作已取消",
           description: "已取消查询ID并同步",
@@ -655,11 +694,31 @@ export default function VehicleTracking() {
         return;
       }
       
-      console.error('查询ID并同步失败:', error);
+      // 详细错误日志
+      console.error('❌ [查询并同步] 失败:', {
+        error,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
+
+      // 根据错误类型提供更友好的错误信息
+      let userMessage = '未知错误，请稍后重试';
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          userMessage = '网络连接失败，请检查网络连接或稍后重试';
+        } else if (error.message.includes('timeout') || error.message.includes('aborted')) {
+          userMessage = '请求超时，请稍后重试';
+        } else {
+          userMessage = error.message;
+        }
+      }
+
       toast({
         title: "同步失败",
-        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
-        variant: "destructive"
+        description: userMessage,
+        variant: "destructive",
+        duration: 10000 // 延长显示时间
       });
     } finally {
       setSyncIdLoading(false);
@@ -856,95 +915,215 @@ export default function VehicleTracking() {
       return;
     }
 
-    // 先检查本地数据库，过滤掉已存在的车牌号
+    // 🔴 第一步：并行批量查询本地数据库，过滤掉已存在的车牌号
     const platesToProcess: string[] = [];
     const existingPlates: Array<{ plate: string; id: string }> = [];
 
+    console.log('🔍 [批量处理] 第一步：开始并行查询本地数据库，车牌号数量:', licensePlates.length);
+    
+    try {
+      // 批量查询所有车牌号（一次性并行查询，避免多次请求）
+      const { data: existingMappings, error: queryError } = await supabase
+        .from('vehicle_tracking_id_mappings')
+        .select('license_plate, external_tracking_id')
+        .in('license_plate', licensePlates);
+
+      if (queryError) {
+        console.warn('⚠️ [批量处理] 批量查询本地数据库失败，将跳过检查:', queryError);
+        // 如果批量查询失败，将所有车牌号都加入处理列表（不阻塞处理）
+        platesToProcess.push(...licensePlates);
+      } else {
+        // 构建已存在的车牌号映射（使用 Map 提高查找效率）
+        const existingMap = new Map<string, string>();
+        if (existingMappings && Array.isArray(existingMappings)) {
+          existingMappings.forEach((mapping: { license_plate: string; external_tracking_id: string }) => {
+            existingMap.set(mapping.license_plate.trim(), mapping.external_tracking_id);
+          });
+        }
+
+        // 分类车牌号：已存在 vs 待处理
+        for (const plate of licensePlates) {
+          const trimmedPlate = plate.trim();
+          const existingId = existingMap.get(trimmedPlate);
+          if (existingId) {
+            existingPlates.push({ plate: trimmedPlate, id: existingId });
+          } else {
+            platesToProcess.push(trimmedPlate);
+          }
+        }
+      }
+    } catch (checkError) {
+      console.error('❌ [批量处理] 检查本地数据库异常:', checkError);
+      // 如果检查失败，将所有车牌号都加入处理列表（不阻塞处理）
+      platesToProcess.push(...licensePlates);
+    }
+
+    console.log('✅ [批量处理] 第一步完成 - 本地数据库检查结果:', {
+      总数: licensePlates.length,
+      已存在: existingPlates.length,
+      待处理: platesToProcess.length
+    });
+
+    // 如果有已存在的车牌号，显示提示
+    if (existingPlates.length > 0) {
+      toast({
+        title: "部分车辆已存在",
+        description: `以下 ${existingPlates.length} 个车辆已在本地数据库中，将跳过：${existingPlates.slice(0, 3).map(p => p.plate).join('、')}${existingPlates.length > 3 ? '...' : ''}`,
+        variant: "default"
+      });
+    }
+
+    // 🔴 第二步：只对本地没有的车牌进行后续操作
+    if (platesToProcess.length === 0) {
+      toast({
+        title: "无需处理",
+        description: "所有车辆已在本地数据库中",
+        variant: "default"
+      });
+      setBatchProcessing(false);
+      setBatchProgress(null);
+      setBatchInputText('');
+      setBatchInputDialogOpen(false);
+      return;
+    }
+
+    // 开始处理：只处理本地没有的车牌
     setBatchProcessing(true);
-    setBatchProgress({ current: 0, total: licensePlates.length, results: [] });
+    setBatchProgress({ current: 0, total: platesToProcess.length, results: [] });
 
     try {
-      // 检查每个车牌号是否已存在
-      for (const plate of licensePlates) {
-        const existingId = await getVehicleIdByLicensePlate(plate);
-        if (existingId) {
-          existingPlates.push({ plate, id: existingId });
-        } else {
-          platesToProcess.push(plate);
-        }
-      }
-
-      // 如果有已存在的车牌号，显示提示
-      if (existingPlates.length > 0) {
-        toast({
-          title: "部分车辆已存在",
-          description: `以下 ${existingPlates.length} 个车辆已在本地数据库中，将跳过：${existingPlates.slice(0, 3).map(p => p.plate).join('、')}${existingPlates.length > 3 ? '...' : ''}`,
-          variant: "default"
-        });
-      }
-
-      // 如果没有需要处理的车牌号，直接返回
-      if (platesToProcess.length === 0) {
-        toast({
-          title: "无需处理",
-          description: "所有车辆已在本地数据库中",
-          variant: "default"
-        });
-        setBatchProcessing(false);
-        setBatchProgress(null);
-        setBatchInputText('');
-        setBatchInputDialogOpen(false);
-        return;
-      }
-
-      // 调用批量处理 Edge Function
+      // 🔴 第二步：逐个处理车辆，实时显示进度（遇到错误记录日志并跳过）
+      console.log('🚀 [批量处理] 第二步：开始逐个处理本地没有的车牌，数量:', platesToProcess.length);
       const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/batch-add-vehicle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
-          'apikey': supabaseAnonKey
-        },
-        body: JSON.stringify({
-          licensePlates: platesToProcess,
-          loadWeight: addAndSyncLoadWeight.trim() || '0'
-        })
-      });
+      const results: Array<{
+        licensePlate: string;
+        success: boolean;
+        message?: string;
+        addStatus?: string;
+        syncIdStatus?: string;
+        error?: string;
+      }> = [];
 
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      // 逐个处理每个车辆
+      for (let i = 0; i < platesToProcess.length; i++) {
+        const plate = platesToProcess[i];
+        const currentIndex = i + 1;
+        const total = platesToProcess.length;
+
+        // 更新进度
+        setBatchProgress({
+          current: currentIndex,
+          total: total,
+          results: [...results]
+        });
+
+        console.log(`📋 [批量处理] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
+
         try {
-          const errorBody = await response.json();
-          errorMessage = errorBody.message || errorBody.error || errorMessage;
-        } catch (e) {
-          // 如果响应不是 JSON，使用默认错误信息
+          // 调用 sync-vehicle Edge Function（添加车辆并同步ID）
+          const response = await fetch(`${supabaseUrl}/functions/v1/sync-vehicle`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+              'apikey': supabaseAnonKey
+            },
+            body: JSON.stringify({
+              licensePlate: plate.trim(),
+              loadWeight: addAndSyncLoadWeight.trim() || '0',
+              syncId: true // 启用ID同步
+            })
+          });
+
+          if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            try {
+              const errorBody = await response.json();
+              errorMessage = errorBody.message || errorBody.error || errorMessage;
+            } catch (e) {
+              // 如果响应不是 JSON，使用默认错误信息
+            }
+            
+            // 🔴 记录错误日志，但继续处理下一个
+            console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
+            
+            results.push({
+              licensePlate: plate.trim(),
+              success: false,
+              addStatus: 'failed',
+              syncIdStatus: 'skipped',
+              message: errorMessage,
+              error: errorMessage
+            });
+            
+            continue; // 跳过当前项，继续处理下一个
+          }
+
+          const data = await response.json();
+
+          if (data?.success) {
+            console.log(`✅ [批量处理] [${currentIndex}/${total}] ${plate} - 处理成功`);
+            results.push({
+              licensePlate: plate.trim(),
+              success: true,
+              addStatus: data.addStatus || 'created',
+              syncIdStatus: data.syncIdStatus || 'synced',
+              message: data.message || '处理成功'
+            });
+          } else {
+            // 🔴 记录错误日志，但继续处理下一个
+            const errorMessage = data?.message || '处理失败';
+            console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
+            
+            results.push({
+              licensePlate: plate.trim(),
+              success: false,
+              addStatus: data?.addStatus || 'failed',
+              syncIdStatus: data?.syncIdStatus || 'skipped',
+              message: errorMessage,
+              error: errorMessage
+            });
+          }
+        } catch (error) {
+          // 🔴 遇到异常：记录日志，跳过当前项，继续执行下一个
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`❌ [批量处理] [${currentIndex}/${total}] ${plate} - 发生异常:`, {
+            error: errorMessage,
+            stack: error instanceof Error ? error.stack : undefined,
+            timestamp: new Date().toISOString()
+          });
+
+          results.push({
+            licensePlate: plate.trim(),
+            success: false,
+            addStatus: 'error',
+            syncIdStatus: 'skipped',
+            message: `处理异常: ${errorMessage}`,
+            error: errorMessage
+          });
         }
-        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
-
-      if (!result) {
-        throw new Error('Edge Function 返回空数据');
-      }
-
-      // 更新进度
+      // 最终更新进度
       setBatchProgress({
-        current: result.total || platesToProcess.length,
-        total: result.total || platesToProcess.length,
-        results: result.results || []
+        current: platesToProcess.length,
+        total: platesToProcess.length,
+        results: results
       });
+
+      // 统计结果
+      const successCount = results.filter(r => r.success).length;
+      const failedCount = results.length - successCount;
+
+      console.log(`📊 [批量处理] 处理完成 - 总数: ${platesToProcess.length}, 成功: ${successCount}, 失败: ${failedCount}`);
 
       // 显示结果
-      const successCount = result.successCount || 0;
-      const failedCount = result.failedCount || 0;
-
       toast({
-        title: result.success ? "批量处理完成" : "批量处理部分完成",
-        description: `共处理 ${result.total} 个车辆，成功 ${successCount} 个，失败 ${failedCount} 个`,
-        variant: result.success ? 'default' : 'destructive'
+        title: failedCount === 0 ? "批量处理完成" : "批量处理部分完成",
+        description: `共处理 ${platesToProcess.length} 个车辆，成功 ${successCount} 个，失败 ${failedCount} 个`,
+        variant: failedCount === 0 ? 'default' : 'destructive',
+        duration: 10000 // 延长显示时间
       });
 
       // 清空表单并关闭对话框
@@ -956,17 +1135,37 @@ export default function VehicleTracking() {
 
     } catch (error) {
       console.error('批量处理失败:', error);
+      
+      // 显示详细的错误信息
+      let errorMessage = '未知错误，请稍后重试';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error('错误详情:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
         title: "批量处理失败",
-        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
-        variant: "destructive"
+        description: errorMessage,
+        variant: "destructive",
+        duration: 10000 // 延长显示时间到10秒
       });
+      
+      // 错误时不关闭对话框，让用户看到错误信息
+      // 不清空输入，方便用户修改后重试
     } finally {
       setBatchProcessing(false);
-      // 延迟清除进度，让用户看到结果
-      setTimeout(() => {
-        setBatchProgress(null);
-      }, 5000);
+      // 延迟清除进度，让用户看到结果（如果有进度的话）
+      if (batchProgress) {
+        setTimeout(() => {
+          setBatchProgress(null);
+        }, 5000);
+      }
     }
   };
 
