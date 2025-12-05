@@ -78,23 +78,6 @@ export default function VehicleTracking() {
     error?: string;
   }>>([]);
   
-  // 定位相关状态
-  const [locationInputText, setLocationInputText] = useState('');
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationResults, setLocationResults] = useState<Array<{
-    licensePlate: string;
-    success: boolean;
-    vehicleId?: string;
-    location?: {
-      lat: number;
-      lng: number;
-      time: number;
-      address?: string;
-      speed?: number;
-    };
-    error?: string;
-  }>>([]);
-  
   // Token 刷新相关状态
   const [refreshingToken, setRefreshingToken] = useState(false);
   const [tokenType, setTokenType] = useState<'add' | 'query'>('query');
