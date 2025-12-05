@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X } from 'lucide-react';
+import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X, FileText } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface TrackingPoint {
   lat: number;
@@ -53,6 +54,12 @@ export default function VehicleTracking() {
   const [addAndSyncLicensePlate, setAddAndSyncLicensePlate] = useState('');
   const [addAndSyncLoadWeight, setAddAndSyncLoadWeight] = useState('0');
   const [addAndSyncLoading, setAddAndSyncLoading] = useState(false);
+  
+  // 批量输入相关状态
+  const [batchInputDialogOpen, setBatchInputDialogOpen] = useState(false);
+  const [batchInputText, setBatchInputText] = useState('');
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; results: Array<{ licensePlate: string; success: boolean; message: string }> } | null>(null);
   
   // Token 刷新相关状态
   const [refreshingToken, setRefreshingToken] = useState(false);
@@ -812,6 +819,157 @@ export default function VehicleTracking() {
     }
   };
 
+  // 🔴 解析批量输入的车牌号（支持空格、逗号、换行）
+  const parseBatchLicensePlates = (text: string): string[] => {
+    if (!text.trim()) return [];
+    
+    // 使用正则表达式分割：支持空格、逗号、换行、分号等
+    const plates = text
+      .split(/[\s,，\n\r;；]+/)
+      .map(plate => plate.trim())
+      .filter(plate => plate.length > 0);
+    
+    // 去重
+    return Array.from(new Set(plates));
+  };
+
+  // 🔴 批量处理函数
+  const handleBatchAddAndSync = async () => {
+    if (!batchInputText.trim()) {
+      toast({
+        title: "输入错误",
+        description: "请输入车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 解析车牌号
+    const licensePlates = parseBatchLicensePlates(batchInputText);
+    
+    if (licensePlates.length === 0) {
+      toast({
+        title: "输入错误",
+        description: "未找到有效的车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 先检查本地数据库，过滤掉已存在的车牌号
+    const platesToProcess: string[] = [];
+    const existingPlates: Array<{ plate: string; id: string }> = [];
+
+    setBatchProcessing(true);
+    setBatchProgress({ current: 0, total: licensePlates.length, results: [] });
+
+    try {
+      // 检查每个车牌号是否已存在
+      for (const plate of licensePlates) {
+        const existingId = await getVehicleIdByLicensePlate(plate);
+        if (existingId) {
+          existingPlates.push({ plate, id: existingId });
+        } else {
+          platesToProcess.push(plate);
+        }
+      }
+
+      // 如果有已存在的车牌号，显示提示
+      if (existingPlates.length > 0) {
+        toast({
+          title: "部分车辆已存在",
+          description: `以下 ${existingPlates.length} 个车辆已在本地数据库中，将跳过：${existingPlates.slice(0, 3).map(p => p.plate).join('、')}${existingPlates.length > 3 ? '...' : ''}`,
+          variant: "default"
+        });
+      }
+
+      // 如果没有需要处理的车牌号，直接返回
+      if (platesToProcess.length === 0) {
+        toast({
+          title: "无需处理",
+          description: "所有车辆已在本地数据库中",
+          variant: "default"
+        });
+        setBatchProcessing(false);
+        setBatchProgress(null);
+        setBatchInputText('');
+        setBatchInputDialogOpen(false);
+        return;
+      }
+
+      // 调用批量处理 Edge Function
+      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/batch-add-vehicle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
+          licensePlates: platesToProcess,
+          loadWeight: addAndSyncLoadWeight.trim() || '0'
+        })
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.message || errorBody.error || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用默认错误信息
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      if (!result) {
+        throw new Error('Edge Function 返回空数据');
+      }
+
+      // 更新进度
+      setBatchProgress({
+        current: result.total || platesToProcess.length,
+        total: result.total || platesToProcess.length,
+        results: result.results || []
+      });
+
+      // 显示结果
+      const successCount = result.successCount || 0;
+      const failedCount = result.failedCount || 0;
+
+      toast({
+        title: result.success ? "批量处理完成" : "批量处理部分完成",
+        description: `共处理 ${result.total} 个车辆，成功 ${successCount} 个，失败 ${failedCount} 个`,
+        variant: result.success ? 'default' : 'destructive'
+      });
+
+      // 清空表单并关闭对话框
+      setBatchInputText('');
+      setBatchInputDialogOpen(false);
+      setAddAndSyncDialogOpen(false);
+      setAddAndSyncLicensePlate('');
+      setAddAndSyncLoadWeight('0');
+
+    } catch (error) {
+      console.error('批量处理失败:', error);
+      toast({
+        title: "批量处理失败",
+        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
+        variant: "destructive"
+      });
+    } finally {
+      setBatchProcessing(false);
+      // 延迟清除进度，让用户看到结果
+      setTimeout(() => {
+        setBatchProgress(null);
+      }, 5000);
+    }
+  };
+
   // 刷新 Token
   const handleRefreshToken = async (type: 'add' | 'query') => {
     setRefreshingToken(true);
@@ -1431,20 +1589,33 @@ export default function VehicleTracking() {
                 <Truck className="h-4 w-4" />
                 车牌号 <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="addAndSyncLicensePlate"
-                placeholder="请输入车牌号（例如：冀EX9795）"
-                value={addAndSyncLicensePlate}
-                onChange={(e) => setAddAndSyncLicensePlate(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !addAndSyncLoading) {
-                    handleAddAndSync();
-                  }
-                }}
-                disabled={addAndSyncLoading}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="addAndSyncLicensePlate"
+                  placeholder="请输入车牌号（例如：冀EX9795）"
+                  value={addAndSyncLicensePlate}
+                  onChange={(e) => setAddAndSyncLicensePlate(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !addAndSyncLoading) {
+                      handleAddAndSync();
+                    }
+                  }}
+                  disabled={addAndSyncLoading}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setBatchInputDialogOpen(true)}
+                  disabled={addAndSyncLoading}
+                  title="批量输入"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                格式示例：冀EX9795、京A12345
+                格式示例：冀EX9795、京A12345（支持批量输入，用空格、逗号或换行分隔）
               </p>
             </div>
 
@@ -1497,6 +1668,106 @@ export default function VehicleTracking() {
                 >
                   <Database className="mr-2 h-4 w-4" />
                   开始处理
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量输入对话框 */}
+      <Dialog open={batchInputDialogOpen} onOpenChange={setBatchInputDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              批量输入车牌号
+            </DialogTitle>
+            <DialogDescription>
+              支持使用空格、逗号或换行分隔多个车牌号
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="batchInputText">
+                车牌号列表 <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="batchInputText"
+                placeholder="请输入车牌号，支持以下格式：&#10;冀EX9795 京A12345 沪B67890&#10;或&#10;冀EX9795,京A12345,沪B67890&#10;或每行一个车牌号"
+                value={batchInputText}
+                onChange={(e) => setBatchInputText(e.target.value)}
+                disabled={batchProcessing}
+                rows={10}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                已输入 {parseBatchLicensePlates(batchInputText).length} 个车牌号
+              </p>
+            </div>
+
+            {batchProgress && (
+              <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
+                <div className="flex items-center justify-between text-sm">
+                  <span>处理进度</span>
+                  <span>{batchProgress.current} / {batchProgress.total}</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                  />
+                </div>
+                {batchProgress.results.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto space-y-1 text-xs">
+                    {batchProgress.results.map((result, index) => (
+                      <div
+                        key={index}
+                        className={`p-2 rounded ${
+                          result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                        }`}
+                      >
+                        <span className="font-medium">{result.licensePlate}:</span> {result.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {batchProcessing ? (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setBatchProcessing(false);
+                  setBatchProgress(null);
+                }}
+                className="w-full"
+              >
+                <X className="mr-2 h-4 w-4" />
+                停止处理
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBatchInputDialogOpen(false);
+                    setBatchInputText('');
+                    setBatchProgress(null);
+                  }}
+                >
+                  关闭
+                </Button>
+                <Button
+                  onClick={handleBatchAddAndSync}
+                  disabled={!batchInputText.trim() || parseBatchLicensePlates(batchInputText).length === 0}
+                >
+                  <Database className="mr-2 h-4 w-4" />
+                  批量开始处理 ({parseBatchLicensePlates(batchInputText).length})
                 </Button>
               </>
             )}
