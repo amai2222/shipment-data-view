@@ -76,9 +76,9 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
       {
         exFieldId: "#157:590",
         field: "车牌颜色",
-        // 🔴 关键修复：第三方API期望 value 是 JSON 字符串，而不是对象
-        // 从实际请求中确认：value 应该是字符串化的 JSON
-        value: JSON.stringify({
+        // 🔴 直接传递对象，不要使用 JSON.stringify
+        // 当整个 payload 被 JSON.stringify 序列化时，这个对象会被正确序列化
+        value: {
           "rid": "#183:51",
           "value": "黄色",
           "display": "黄色",
@@ -95,7 +95,7 @@ async function syncVehicleToThirdParty(licensePlate: string, loadWeight: string 
               "value": "2"
             }
           ]
-        }),
+        },
         format: "json",
         valueRefId: "#183:51",
         codefId: "#182:14"
