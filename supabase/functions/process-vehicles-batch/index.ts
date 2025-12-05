@@ -63,6 +63,46 @@ async function addVehicleViaEdgeFunction(licensePlate: string, loadWeight: strin
 }
 
 /**
+ * 查询车辆ID并同步到数据库（带智能重试机制）
+ * @param licensePlate 车牌号
+ * @param isExistingVehicle 是否为已存在的车辆（已存在的车辆重试次数更少）
+ * @param retryCount 当前重试次数（内部使用）
+ * @param maxRetries 最大重试次数（新车辆3次，已存在车辆2次）
+ */
+async function syncVehicleIdToDatabaseWithRetry(
+  licensePlate: string, 
+  isExistingVehicle: boolean = false,
+  retryCount: number = 0,
+  maxRetries: number = isExistingVehicle ? 2 : 3
+) {
+  // 调用实际的查询函数
+  const result = await syncVehicleIdToDatabase(licensePlate);
+  
+  // 如果成功或不是超时错误，直接返回
+  if (result.success || !result.message.includes('超时')) {
+    return result;
+  }
+  
+  // 如果是超时错误且还有重试次数
+  if (retryCount < maxRetries) {
+    // 指数退避：第1次重试等待3秒，第2次等待6秒，第3次等待9秒
+    const waitTime = (retryCount + 1) * 3;
+    console.log(`⏳ [Sync ID] 查询超时，等待 ${waitTime} 秒后重试 (${retryCount + 1}/${maxRetries})...`);
+    await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+    
+    // 递归重试
+    return syncVehicleIdToDatabaseWithRetry(licensePlate, isExistingVehicle, retryCount + 1, maxRetries);
+  }
+  
+  // 所有重试都失败
+  console.error(`❌ [Sync ID] 查询超时，已重试 ${maxRetries} 次仍失败: ${licensePlate}`);
+  return {
+    success: false,
+    message: `查询车辆ID请求超时（已重试 ${maxRetries} 次），第三方平台可能响应较慢，请稍后手动重试`
+  };
+}
+
+/**
  * 查询车辆ID并同步到数据库（优化版：增加超时时间，优化消息格式）
  */
 async function syncVehicleIdToDatabase(licensePlate: string) {
@@ -92,12 +132,13 @@ async function syncVehicleIdToDatabase(licensePlate: string) {
     const params = new URLSearchParams({ keyword: licensePlate, shab: "y" });
     const url = `${apiBaseUrl}/rest/entity/search?${params.toString()}`;
 
-    // 🔴 设置 60秒 超时，防止查询请求无限等待（增加超时时间以应对慢速响应）
+    // 🔴 设置 20秒 超时（配合重试机制，快速失败后重试比长时间等待更有效）
+    // 如果超时，会通过 syncVehicleIdToDatabaseWithRetry 进行重试
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
-      console.error(`⏱️ [Sync ID] 查询车辆ID请求超时: ${licensePlate}`);
-    }, 60000); // 60秒超时
+      console.warn(`⏱️ [Sync ID] 查询车辆ID请求超时（20秒）: ${licensePlate}`);
+    }, 20000); // 20秒超时（配合重试机制）
 
     const response = await fetch(url, {
       method: "GET",
@@ -242,10 +283,10 @@ async function syncVehicleIdToDatabase(licensePlate: string) {
 
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error(`❌ 查询车辆ID请求超时（60秒）: ${licensePlate}`);
+      // 超时错误会由 syncVehicleIdToDatabaseWithRetry 处理重试
       return { 
         success: false, 
-        message: "查询车辆ID请求超时，请稍后重试" 
+        message: "查询车辆ID请求超时（20秒）" 
       };
     }
     console.error(`❌ 发生异常: ${licensePlate}`, error);
@@ -281,11 +322,15 @@ async function processVehicle(licensePlate: string, loadWeight: string = "0") {
     };
   }
 
-  // 等待1秒，确保第三方平台已处理完添加请求
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // 🔴 根据车辆状态调整等待时间：
+  // - 新添加的车辆：等待5秒（第三方平台需要时间同步数据）
+  // - 已存在的车辆：等待2秒（通常可以立即查询到）
+  const waitTime = addResult.status === 'existed' ? 2000 : 5000;
+  console.log(`⏳ [处理车辆] ${cleanPlate} - 等待 ${waitTime}ms 让第三方平台完成数据同步（状态: ${addResult.status}）...`);
+  await new Promise(resolve => setTimeout(resolve, waitTime));
 
-  // 第二步：查询ID并同步到数据库
-  const syncIdResult = await syncVehicleIdToDatabase(cleanPlate);
+  // 第二步：查询ID并同步到数据库（带智能重试）
+  const syncIdResult = await syncVehicleIdToDatabaseWithRetry(cleanPlate, addResult.status === 'existed');
 
   // 🔴 优化消息格式，避免显示 undefined
   const addMessage = addResult.message || (addResult.status === 'existed' ? '车辆已存在' : '车辆添加成功');

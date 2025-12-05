@@ -61,6 +61,40 @@ export default function VehicleTracking() {
   const [batchProcessing, setBatchProcessing] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; results: Array<{ licensePlate: string; success: boolean; message: string }> } | null>(null);
   
+  // 定位相关状态
+  const [locationInputText, setLocationInputText] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationResults, setLocationResults] = useState<Array<{
+    licensePlate: string;
+    success: boolean;
+    vehicleId?: string;
+    location?: {
+      lat: number;
+      lng: number;
+      time: number;
+      address?: string;
+      speed?: number;
+    };
+    error?: string;
+  }>>([]);
+  
+  // 定位相关状态
+  const [locationInputText, setLocationInputText] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationResults, setLocationResults] = useState<Array<{
+    licensePlate: string;
+    success: boolean;
+    vehicleId?: string;
+    location?: {
+      lat: number;
+      lng: number;
+      time: number;
+      address?: string;
+      speed?: number;
+    };
+    error?: string;
+  }>>([]);
+  
   // Token 刷新相关状态
   const [refreshingToken, setRefreshingToken] = useState(false);
   const [tokenType, setTokenType] = useState<'add' | 'query'>('query');
@@ -878,6 +912,223 @@ export default function VehicleTracking() {
     }
   };
 
+  // 🔴 定位功能：查询多个车辆最近1小时的轨迹，获取最近时间点的位置
+  const handleLocation = async () => {
+    if (!locationInputText.trim()) {
+      toast({
+        title: "输入错误",
+        description: "请输入车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 解析车牌号
+    const licensePlates = parseBatchLicensePlates(locationInputText);
+    
+    if (licensePlates.length === 0) {
+      toast({
+        title: "输入错误",
+        description: "未找到有效的车牌号",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationResults([]);
+
+    try {
+      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+      const results: Array<{
+        licensePlate: string;
+        success: boolean;
+        vehicleId?: string;
+        location?: {
+          lat: number;
+          lng: number;
+          time: number;
+          address?: string;
+          speed?: number;
+        };
+        error?: string;
+      }> = [];
+
+      // 逐个查询每个车牌的位置
+      for (const plate of licensePlates) {
+        try {
+          // 1. 获取车辆ID
+          const vehicleId = await getVehicleIdByLicensePlate(plate.trim());
+          if (!vehicleId) {
+            results.push({
+              licensePlate: plate.trim(),
+              success: false,
+              error: '未找到对应的车辆ID，请先同步车辆ID'
+            });
+            continue;
+          }
+
+          // 2. 查询最近1小时的轨迹
+          const now = Date.now();
+          const oneHourAgo = now - 60 * 60 * 1000; // 1小时前
+
+          const response = await fetch(`${supabaseUrl}/functions/v1/vehicle-tracking`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+              'apikey': supabaseAnonKey
+            },
+            body: JSON.stringify({
+              vehicleId: vehicleId,
+              field: 'id',
+              startTime: oneHourAgo,
+              endTime: now
+            })
+          });
+
+          if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            results.push({
+              licensePlate: plate.trim(),
+              success: false,
+              vehicleId: vehicleId,
+              error: errorBody.message || `HTTP ${response.status}: ${response.statusText}`
+            });
+            continue;
+          }
+
+          const data = await response.json();
+          
+          // 3. 解析轨迹数据，获取最近的时间点
+          // vehicle-tracking 函数返回的是数组格式，每个元素包含 lat, lng, time 等字段
+          let trackingPoints: Array<{
+            lat: number;
+            lng: number;
+            time: number;
+            address?: string;
+            speed?: number;
+          }> = [];
+
+          if (Array.isArray(data)) {
+            trackingPoints = data.map((point: unknown) => {
+              const p = point as Record<string, unknown>;
+              // 处理时间戳：可能是数字或字符串
+              let timeValue = 0;
+              if (typeof p.time === 'number') {
+                timeValue = p.time;
+              } else if (typeof p.time === 'string') {
+                timeValue = parseInt(p.time, 10) || 0;
+              }
+              
+              // 处理速度：可能是数字或字符串
+              let speedValue: number | undefined = undefined;
+              if (p.spd !== undefined) {
+                speedValue = typeof p.spd === 'number' ? p.spd : parseFloat(String(p.spd)) || undefined;
+              } else if (p.speed !== undefined) {
+                speedValue = typeof p.speed === 'number' ? p.speed : parseFloat(String(p.speed)) || undefined;
+              }
+              
+              return {
+                lat: (p.lat as number) || 0,
+                lng: (p.lng as number) || 0,
+                time: timeValue,
+                address: p.address as string | undefined,
+                speed: speedValue
+              };
+            }).filter((p: { lat: number; lng: number; time: number }) => 
+              p.lat !== 0 && p.lng !== 0 && p.time > 0
+            );
+          } else if (data && typeof data === 'object') {
+            // 兼容其他可能的返回格式
+            if (Array.isArray(data.points)) {
+              trackingPoints = data.points.map((point: unknown) => {
+                const p = point as Record<string, unknown>;
+                return {
+                  lat: (p.lat as number) || 0,
+                  lng: (p.lng as number) || 0,
+                  time: typeof p.time === 'number' ? p.time : (typeof p.time === 'string' ? parseInt(p.time, 10) : 0),
+                  address: p.address as string | undefined,
+                  speed: typeof p.speed === 'number' ? p.speed : (typeof p.speed === 'string' ? parseFloat(p.speed) : undefined)
+                };
+              }).filter((p: { lat: number; lng: number; time: number }) => 
+                p.lat !== 0 && p.lng !== 0 && p.time > 0
+              );
+            } else if (Array.isArray(data.data)) {
+              trackingPoints = data.data.map((point: unknown) => {
+                const p = point as Record<string, unknown>;
+                return {
+                  lat: (p.lat as number) || 0,
+                  lng: (p.lng as number) || 0,
+                  time: typeof p.time === 'number' ? p.time : (typeof p.time === 'string' ? parseInt(p.time, 10) : 0),
+                  address: p.address as string | undefined,
+                  speed: typeof p.speed === 'number' ? p.speed : (typeof p.speed === 'string' ? parseFloat(p.speed) : undefined)
+                };
+              }).filter((p: { lat: number; lng: number; time: number }) => 
+                p.lat !== 0 && p.lng !== 0 && p.time > 0
+              );
+            }
+          }
+
+          if (trackingPoints.length === 0) {
+            results.push({
+              licensePlate: plate.trim(),
+              success: false,
+              vehicleId: vehicleId,
+              error: '最近1小时内无轨迹数据'
+            });
+            continue;
+          }
+
+          // 4. 找到离当前时间最近的点
+          const nowTime = Date.now();
+          const nearestPoint = trackingPoints.reduce((nearest, current) => {
+            const nearestDiff = Math.abs(nearest.time - nowTime);
+            const currentDiff = Math.abs(current.time - nowTime);
+            return currentDiff < nearestDiff ? current : nearest;
+          });
+
+          results.push({
+            licensePlate: plate.trim(),
+            success: true,
+            vehicleId: vehicleId,
+            location: nearestPoint
+          });
+
+        } catch (error) {
+          results.push({
+            licensePlate: plate.trim(),
+            success: false,
+            error: error instanceof Error ? error.message : '查询失败'
+          });
+        }
+      }
+
+      setLocationResults(results);
+
+      // 显示结果统计
+      const successCount = results.filter(r => r.success).length;
+      const failedCount = results.length - successCount;
+
+      toast({
+        title: failedCount === 0 ? "定位完成" : "定位部分完成",
+        description: `共查询 ${results.length} 个车辆，成功 ${successCount} 个，失败 ${failedCount} 个`,
+        variant: failedCount === 0 ? 'default' : 'destructive',
+        duration: 5000
+      });
+
+    } catch (error) {
+      console.error('定位失败:', error);
+      toast({
+        title: "定位失败",
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: "destructive"
+      });
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
   // 🔴 解析批量输入的车牌号（支持空格、逗号、换行）
   const parseBatchLicensePlates = (text: string): string[] => {
     if (!text.trim()) return [];
@@ -1338,7 +1589,7 @@ export default function VehicleTracking() {
     <div className="container mx-auto p-6 space-y-6">
       {/* 标签页 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="tracking">
             <Route className="h-4 w-4 mr-2" />
             轨迹查询
@@ -1346,6 +1597,10 @@ export default function VehicleTracking() {
           <TabsTrigger value="sync">
             <Plus className="h-4 w-4 mr-2" />
             车辆进轨迹查询库
+          </TabsTrigger>
+          <TabsTrigger value="location">
+            <MapPin className="h-4 w-4 mr-2" />
+            定位
           </TabsTrigger>
         </TabsList>
         
@@ -1778,6 +2033,149 @@ export default function VehicleTracking() {
               </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 定位标签页 */}
+        <TabsContent value="location" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                车辆定位
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                查询多个车辆最近1小时的轨迹，获取离当前时间最近的位置信息
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="locationInputText" className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  车牌号列表 <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="locationInputText"
+                  placeholder="请输入车牌号，支持以下格式：&#10;冀EX9795 京A12345 沪B67890&#10;或&#10;冀EX9795,京A12345,沪B67890&#10;或每行一个车牌号"
+                  value={locationInputText}
+                  onChange={(e) => setLocationInputText(e.target.value)}
+                  disabled={locationLoading}
+                  rows={6}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  已输入 {parseBatchLicensePlates(locationInputText).length} 个车牌号
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                {locationLoading ? (
+                  <Button
+                    variant="destructive"
+                    disabled
+                    className="min-w-[120px]"
+                  >
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    定位中...
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleLocation}
+                    disabled={!locationInputText.trim() || parseBatchLicensePlates(locationInputText).length === 0}
+                    className="min-w-[120px]"
+                  >
+                    <MapPin className="mr-2 h-4 w-4" />
+                    定位
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 定位结果卡片列表 */}
+          {locationResults.length > 0 && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    定位结果
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {locationResults.map((result, index) => (
+                      <Card
+                        key={index}
+                        className={result.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}
+                      >
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              <Truck className="h-4 w-4" />
+                              {result.licensePlate}
+                            </span>
+                            {result.success ? (
+                              <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">成功</span>
+                            ) : (
+                              <span className="text-xs bg-red-500 text-white px-2 py-1 rounded">失败</span>
+                            )}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          {result.success && result.location ? (
+                            <>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-medium">坐标：</span>
+                                  <span className="text-muted-foreground">
+                                    {result.location.lat.toFixed(6)}, {result.location.lng.toFixed(6)}
+                                  </span>
+                                </div>
+                                {result.location.address && (
+                                  <div className="flex items-start gap-2">
+                                    <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
+                                    <span className="font-medium">地址：</span>
+                                    <span className="text-muted-foreground">{result.location.address}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-medium">时间：</span>
+                                  <span className="text-muted-foreground">
+                                    {new Date(result.location.time).toLocaleString('zh-CN')}
+                                  </span>
+                                </div>
+                                {result.location.speed !== undefined && (
+                                  <div className="flex items-center gap-2">
+                                    <Route className="h-3 w-3 text-muted-foreground" />
+                                    <span className="font-medium">速度：</span>
+                                    <span className="text-muted-foreground">{result.location.speed} km/h</span>
+                                  </div>
+                                )}
+                                {result.vehicleId && (
+                                  <div className="flex items-center gap-2">
+                                    <Database className="h-3 w-3 text-muted-foreground" />
+                                    <span className="font-medium">车辆ID：</span>
+                                    <span className="text-muted-foreground text-xs">{result.vehicleId}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-sm text-red-600">
+                              <p className="font-medium">错误：</p>
+                              <p className="text-muted-foreground">{result.error || '未知错误'}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
