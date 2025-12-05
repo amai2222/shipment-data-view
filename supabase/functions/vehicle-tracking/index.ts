@@ -482,6 +482,22 @@ serve(async (req) => {
         finalLat = bd09Coords.lat;
         finalLng = bd09Coords.lng;
       }
+
+      // 🔴 速度单位转换：根据 JT/T 808 部标协议，spd 字段采用 1/10 km/h 单位
+      // 需要除以 10 得到实际速度（km/h）
+      let speed: number | undefined = undefined;
+      if (tracePoint.spd !== undefined) {
+        const spdNum = typeof tracePoint.spd === 'string' ? parseFloat(tracePoint.spd) : Number(tracePoint.spd);
+        if (!isNaN(spdNum) && spdNum >= 0) {
+          speed = spdNum / 10; // 转换为 km/h
+        }
+      } else if (tracePoint.speed !== undefined) {
+        // 如果已经是转换后的速度，直接使用
+        const speedNum = typeof tracePoint.speed === 'string' ? parseFloat(tracePoint.speed) : Number(tracePoint.speed);
+        if (!isNaN(speedNum) && speedNum >= 0) {
+          speed = speedNum;
+        }
+      }
       
       return {
         ...tracePoint,
@@ -491,11 +507,13 @@ serve(async (req) => {
         latitude: finalLat,      // 保留 latitude 字段（向后兼容）
         longitude: finalLng,     // 保留 longitude 字段（向后兼容）
         time: timestamp,
+        speed: speed,            // 转换后的速度（km/h）
         // 保留原始 WGS-84 坐标数据（用于调试或后续处理）
         originalWgs84Lat: latitude,
         originalWgs84Lng: longitude,
         originalLat: tracePoint.lat,
         originalLon: tracePoint.lon,
+        originalSpd: tracePoint.spd, // 保留原始速度值（1/10 km/h）
         gtm: tracePoint.gtm
       };
     });

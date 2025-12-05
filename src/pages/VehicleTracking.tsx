@@ -1084,13 +1084,19 @@ export default function VehicleTracking() {
                   timeValue = parseInt(p.time, 10) || 0;
                 }
                 
-                // 处理速度：可能是数字或字符串
-                let speedValue: number | undefined = undefined;
-                if (p.spd !== undefined) {
-                  speedValue = typeof p.spd === 'number' ? p.spd : parseFloat(String(p.spd)) || undefined;
-                } else if (p.speed !== undefined) {
-                  speedValue = typeof p.speed === 'number' ? p.speed : parseFloat(String(p.speed)) || undefined;
+              // 处理速度：根据 JT/T 808 部标协议，spd 字段采用 1/10 km/h 单位
+              // 如果 Edge Function 已经转换，直接使用 speed；否则需要除以 10
+              let speedValue: number | undefined = undefined;
+              if (p.speed !== undefined) {
+                // Edge Function 已经转换过的速度（km/h）
+                speedValue = typeof p.speed === 'number' ? p.speed : parseFloat(String(p.speed)) || undefined;
+              } else if (p.spd !== undefined) {
+                // 如果 Edge Function 没有转换，前端转换（1/10 km/h -> km/h）
+                const spdNum = typeof p.spd === 'number' ? p.spd : parseFloat(String(p.spd));
+                if (!isNaN(spdNum) && spdNum >= 0) {
+                  speedValue = spdNum / 10; // 转换为 km/h
                 }
+              }
                 
                 return {
                   lat: (p.lat as number) || 0,
