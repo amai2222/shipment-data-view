@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X, FileText } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
+import { LocationCard } from '@/components/LocationCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -1188,7 +1189,7 @@ export default function VehicleTracking() {
         // 将批次结果添加到总结果中
         results.push(...batchResults);
         
-        // 实时更新结果（显示进度）
+        // 实时更新结果（显示进度）- 查到几个就显示几个
         setLocationResults([...results]);
 
         // 检查是否被中断
@@ -1199,7 +1200,7 @@ export default function VehicleTracking() {
 
         // 批次之间添加短暂延迟，避免资源竞争（最后一个批次不需要延迟）
         if (batchIndex < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms 延迟
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒延迟
         }
       }
 
@@ -2203,85 +2204,20 @@ export default function VehicleTracking() {
             </CardContent>
           </Card>
 
-          {/* 定位结果卡片列表 */}
+          {/* 定位结果卡片列表 - 实时显示，查到几个就显示几个 */}
           {locationResults.length > 0 && (
             <div className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    定位结果
+                    定位结果 ({locationResults.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {locationResults.map((result, index) => (
-                      <Card
-                        key={index}
-                        className={result.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}
-                      >
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg flex items-center justify-between">
-                            <span className="flex items-center gap-2">
-                              <Truck className="h-4 w-4" />
-                              {result.licensePlate}
-                            </span>
-                            {result.success ? (
-                              <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">成功</span>
-                            ) : (
-                              <span className="text-xs bg-red-500 text-white px-2 py-1 rounded">失败</span>
-                            )}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          {result.success && result.location ? (
-                            <>
-                              <div className="space-y-1 text-sm">
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                                  <span className="font-medium">坐标：</span>
-                                  <span className="text-muted-foreground">
-                                    {result.location.lat.toFixed(6)}, {result.location.lng.toFixed(6)}
-                                  </span>
-                                </div>
-                                {result.location.address && (
-                                  <div className="flex items-start gap-2">
-                                    <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
-                                    <span className="font-medium">地址：</span>
-                                    <span className="text-muted-foreground">{result.location.address}</span>
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                                  <span className="font-medium">时间：</span>
-                                  <span className="text-muted-foreground">
-                                    {new Date(result.location.time).toLocaleString('zh-CN')}
-                                  </span>
-                                </div>
-                                {result.location.speed !== undefined && (
-                                  <div className="flex items-center gap-2">
-                                    <Route className="h-3 w-3 text-muted-foreground" />
-                                    <span className="font-medium">速度：</span>
-                                    <span className="text-muted-foreground">{result.location.speed} km/h</span>
-                                  </div>
-                                )}
-                                {result.vehicleId && (
-                                  <div className="flex items-center gap-2">
-                                    <Database className="h-3 w-3 text-muted-foreground" />
-                                    <span className="font-medium">车辆ID：</span>
-                                    <span className="text-muted-foreground text-xs">{result.vehicleId}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-sm text-red-600">
-                              <p className="font-medium">错误：</p>
-                              <p className="text-muted-foreground">{result.error || '未知错误'}</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <LocationCard key={`${result.licensePlate}-${index}`} result={result} />
                     ))}
                   </div>
                 </CardContent>
