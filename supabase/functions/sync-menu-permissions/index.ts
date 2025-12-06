@@ -112,8 +112,8 @@ serve(async (req) => {
     console.error('同步菜单权限失败:', error)
     return new Response(
       JSON.stringify({ 
-        error: error.message || '同步菜单权限失败',
-        details: error 
+        error: error instanceof Error ? error.message : '同步菜单权限失败',
+        details: error instanceof Error ? error.stack : String(error)
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

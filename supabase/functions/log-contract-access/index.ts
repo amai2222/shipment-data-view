@@ -77,13 +77,10 @@ serve(async (req) => {
 
     // 更新合同的访问统计
     if (action === 'view') {
-      const { error: updateError } = await supabaseClient
-        .from('contracts')
-        .update({
-          last_accessed_at: new Date().toISOString(),
-          access_count: supabaseClient.sql`access_count + 1`
-        })
-        .eq('id', contract_id)
+      // 使用 RPC 调用来更新访问计数（因为 supabase-js v2 不支持 .sql 模板）
+      const { error: updateError } = await supabaseClient.rpc('increment_contract_access_count', {
+        p_contract_id: contract_id
+      })
 
       if (updateError) {
         console.error('Error updating contract access count:', updateError)

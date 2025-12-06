@@ -1,7 +1,5 @@
 // 批量添加车辆到轨迹查询库并同步ID
-// @ts-expect-error - Edge Function运行在Deno环境
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-expect-error - Edge Function运行在Deno环境，ESM导入在运行时可用
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // === 全局配置 ===
@@ -16,9 +14,7 @@ import { getToken } from '../_shared/token-cache.ts';
  * 调用 add-vehicle Edge Function 添加车辆到第三方平台
  */
 async function addVehicleViaEdgeFunction(licensePlate: string, loadWeight: string = "0") {
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
   try {
@@ -66,9 +62,7 @@ async function addVehicleViaEdgeFunction(licensePlate: string, loadWeight: strin
  * 查询车辆ID并同步到数据库
  */
 async function syncVehicleIdToDatabase(licensePlate: string) {
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
   // 从共享模块获取 Token
@@ -76,7 +70,6 @@ async function syncVehicleIdToDatabase(licensePlate: string) {
   try {
     authToken = await getToken('query');
   } catch (error) {
-    // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
     authToken = Deno.env.get('TRACKING_AUTH_SESSION') || "";
     if (!authToken) {
       throw new Error(`无法获取 Token：共享模块调用失败且未配置环境变量。错误: ${error instanceof Error ? error.message : String(error)}`);

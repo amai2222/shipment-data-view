@@ -180,7 +180,7 @@ export interface PlatformOption {
 }
 
 // 用户权限相关类型
-export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer";
+export type UserRole = "admin" | "finance" | "business" | "partner" | "operator" | "viewer" | "fleet_manager" | "driver";
 
 export interface UserPermission {
   id: string;

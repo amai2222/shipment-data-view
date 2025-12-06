@@ -10,7 +10,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
-function safeUrlsafeBase64Encode(str) {
+function safeUrlsafeBase64Encode(str: string): string {
   const utf8Bytes = new TextEncoder().encode(str);
   let binaryString = '';
   utf8Bytes.forEach((byte)=>{
@@ -19,7 +19,7 @@ function safeUrlsafeBase64Encode(str) {
   const base64 = btoa(binaryString);
   return base64.replace(/\+/g, '-').replace(/\//g, '_');
 }
-async function generateSign(data, secretKey) {
+async function generateSign(data: string, secretKey: string): Promise<string> {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(secretKey);
   const dataToSign = encoder.encode(data);
@@ -44,15 +44,10 @@ serve(async (req)=>{
     });
   }
   try {
-    // @ts-expect-error - Deno环境变量
     const QINIU_ACCESS_KEY = Deno.env.get('QINIU_ACCESS_KEY');
-    // @ts-expect-error - Deno环境变量
     const QINIU_SECRET_KEY = Deno.env.get('QINIU_SECRET_KEY');
-    // @ts-expect-error - Deno环境变量
     const QINIU_BUCKET = Deno.env.get('QINIU_BUCKET');
-    // @ts-expect-error - Deno环境变量
     const QINIU_DOMAIN = Deno.env.get('QINIU_DOMAIN');
-    // @ts-expect-error - Deno环境变量
     const QINIU_UPLOAD_URL = Deno.env.get('QINIU_UPLOAD_URL');
     if (!QINIU_ACCESS_KEY || !QINIU_SECRET_KEY || !QINIU_BUCKET || !QINIU_DOMAIN || !QINIU_UPLOAD_URL) {
       throw new Error('Qiniu environment variables are not fully configured in Supabase Secrets.');
@@ -180,7 +175,7 @@ serve(async (req)=>{
   } catch (error) {
     console.error('Critical error in qiniu-upload function:', error);
     return new Response(JSON.stringify({
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }), {
       headers: {
         ...corsHeaders,
