@@ -184,9 +184,15 @@ export default function VehicleTracking() {
   // 同步车辆ID映射：从drivers表获取车牌，处理不存在的
   const handleSyncVehicleIds = async () => {
     setSyncing(true);
-    // 先不设置进度，等确认有需要处理的车牌后再显示
+    setSyncProgress(null); // 先清空进度
 
     try {
+      // 显示加载提示
+      toast({
+        title: "正在检查",
+        description: "正在查询drivers表和vehicle_tracking_id_mappings表...",
+      });
+
       // 第一步：从drivers表获取所有车牌号（排除空值）
       console.log('🔍 [同步车辆ID] 第一步：从drivers表获取所有车牌号');
       const { data: drivers, error: driversError } = await supabase
@@ -398,7 +404,7 @@ export default function VehicleTracking() {
       console.log(`📊 [同步车辆ID] 处理完成 - 总数: ${platesToProcess.length}, 成功: ${successCount}, 失败: ${failedCount}`);
 
       // 显示结果
-      toast({
+          toast({
         title: failedCount === 0 ? "同步完成" : "同步部分完成",
         description: `共处理 ${platesToProcess.length} 个车辆，成功 ${successCount} 个，失败 ${failedCount} 个`,
         variant: failedCount === 0 ? 'default' : 'destructive',

@@ -24,3 +24,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cursor editor temporary files
+# 忽略 Cursor 自动保存的临时截图和文件
+assets/c__Users_*
+assets/**/*cursor*
+assets/**/*workspaceStorage*
