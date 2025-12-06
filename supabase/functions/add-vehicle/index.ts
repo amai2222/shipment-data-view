@@ -1,5 +1,4 @@
 // 添加车辆到轨迹查询库（使用 replacer 函数优化版）
-// @ts-expect-error - Edge Function运行在Deno环境
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // === 全局配置 ===
@@ -20,7 +19,6 @@ async function addVehicleToThirdParty(licensePlate: string, loadWeight: string =
     authToken = await getToken('add');
     console.log('✅ [Add] 获取 Token 成功');
   } catch (error) {
-    // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
     authToken = Deno.env.get('TRACKING_ADD_TOKEN') || "";
     if (!authToken) throw new Error(`无法获取 Token: ${error}`);
   }

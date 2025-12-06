@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     // 7. 如果过程中出现任何错误，返回标准的错误响应
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });

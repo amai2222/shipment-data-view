@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -518,7 +518,7 @@ export function ProjectAssignmentManager({
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                             <span>开始: {new Date(project.start_date).toLocaleDateString()}</span>
                             <span>结束: {new Date(project.end_date).toLocaleDateString()}</span>
-                            {(project as Record<string, unknown>).auto_code && <span>编码: {(project as Record<string, unknown>).auto_code as string}</span>}
+                            {(project as unknown as Record<string, unknown>).auto_code && <span>编码: {(project as unknown as Record<string, unknown>).auto_code as string}</span>}
                           </div>
                         </div>
                       </div>

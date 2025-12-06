@@ -51,7 +51,6 @@ serve(async (req) => {
       console.log('✅ 从共享模块获取到 Token');
     } catch (error) {
       // 如果获取失败，尝试使用环境变量（降级方案）
-      // @ts-expect-error - Deno 全局对象在 Edge Function 运行时环境中可用
       SESSION_TOKEN = Deno.env.get('TRACKING_AUTH_SESSION') || "";
       if (!SESSION_TOKEN) {
         throw new Error(`无法获取 Token：共享模块调用失败且未配置环境变量。错误: ${error instanceof Error ? error.message : String(error)}`);
