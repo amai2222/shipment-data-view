@@ -61,6 +61,9 @@ export default function VehicleTracking() {
   const [syncing, setSyncing] = useState(false);
   const [useVehicleId, setUseVehicleId] = useState(false);
   
+  // 取消同步的AbortController
+  const syncAbortControllerRef = useRef<AbortController | null>(null);
+  
   // 同步进度相关状态
   const [syncProgress, setSyncProgress] = useState<{ 
     current: number; 
@@ -181,8 +184,36 @@ export default function VehicleTracking() {
     }
   };
 
-  // 同步车辆ID映射：从drivers表获取车牌，处理不存在的
+  // 取消同步车辆ID
+  const handleCancelSyncVehicleIds = () => {
+    if (syncAbortControllerRef.current) {
+      syncAbortControllerRef.current.abort();
+      syncAbortControllerRef.current = null;
+      setSyncing(false);
+      setSyncProgress({
+        current: 0,
+        total: 0,
+        results: [{
+          licensePlate: '系统',
+          success: false,
+          message: '⏹️ 同步操作已取消'
+        }]
+      });
+      setTimeout(() => {
+        setSyncProgress(null);
+      }, 2000);
+    }
+  };
+
+  // 同步车辆ID映射：从drivers表获取车牌，处理不存在的（使用并行处理）
   const handleSyncVehicleIds = async () => {
+    // 创建新的AbortController
+    if (syncAbortControllerRef.current) {
+      syncAbortControllerRef.current.abort();
+    }
+    syncAbortControllerRef.current = new AbortController();
+    const abortSignal = syncAbortControllerRef.current.signal;
+    
     setSyncing(true);
     // 立即显示进度窗口，显示检查状态
     setSyncProgress({ 
@@ -309,127 +340,114 @@ export default function VehicleTracking() {
           return;
         }
 
-        // 更新进度窗口，开始处理
+        // 备选方案也使用并行处理（与主流程保持一致）
         setSyncProgress({ 
           current: 0, 
           total: finalPlatesArray.length, 
           results: [{
             licensePlate: '系统',
             success: true,
-            message: `✅ 查询完成，开始处理 ${finalPlatesArray.length} 个车牌号...`
+            message: `✅ 查询完成，开始并行处理 ${finalPlatesArray.length} 个车牌号（备选方案）...`
           }]
         });
-        console.log(`🚀 [同步车辆ID] 开始处理 ${finalPlatesArray.length} 个车牌号`);
+        console.log(`🚀 [同步车辆ID] 开始并行处理 ${finalPlatesArray.length} 个车牌号（备选方案）`);
 
         const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
-        const results: Array<{
+
+        // 使用并行批量处理的Edge Function
+        const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch-parallel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+            'apikey': supabaseAnonKey
+          },
+          body: JSON.stringify({
+            licensePlates: finalPlatesArray.map(p => typeof p === 'string' ? p.trim() : String(p)),
+            loadWeight: '0'
+          }),
+          signal: abortSignal
+        });
+
+        // 检查是否被取消
+        if (abortSignal.aborted) {
+          throw new Error('操作已取消');
+        }
+
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          try {
+            const errorBody = await response.json();
+            errorMessage = errorBody.message || errorBody.error || errorMessage;
+          } catch (e) {
+            // 忽略JSON解析错误
+          }
+          throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+
+        // 检查是否被取消
+        if (abortSignal.aborted) {
+          throw new Error('操作已取消');
+        }
+
+        // 处理返回结果（与主流程一致）
+        if (!data?.results || !Array.isArray(data.results)) {
+          throw new Error('返回格式异常：缺少results数组');
+        }
+
+        const results = data.results.map((result: {
           licensePlate: string;
           success: boolean;
           message?: string;
           addStatus?: string;
           syncIdStatus?: string;
           error?: string;
-        }> = [];
+        }) => ({
+          licensePlate: result.licensePlate,
+          success: result.success,
+          message: result.message,
+          addStatus: result.addStatus,
+          syncIdStatus: result.syncIdStatus,
+          error: result.error
+        }));
 
-        // 逐个处理每个车牌
-        for (let i = 0; i < finalPlatesArray.length; i++) {
-          const plate: string = finalPlatesArray[i];
-          const currentIndex = i + 1;
-          const total = finalPlatesArray.length;
+        const successCount = data.totalSuccessCount || results.filter((r: { success: boolean }) => r.success).length;
+        const failedCount = data.totalFailedCount || results.length - successCount;
 
-          console.log(`📋 [同步车辆ID] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
-
-          try {
-            const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
-                'apikey': supabaseAnonKey
-              },
-              body: JSON.stringify({
-                licensePlate: plate.trim(),
-                loadWeight: '0',
-                syncId: true
-              })
-            });
-
-            if (!response.ok) {
-              let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-              try {
-                const errorBody = await response.json();
-                errorMessage = errorBody.message || errorBody.error || errorMessage;
-              } catch (e) {
-                // 忽略JSON解析错误
-              }
-              
-              const errorResult = {
-                licensePlate: plate.trim(),
-                success: false,
-                addStatus: 'failed',
-                syncIdStatus: 'skipped',
-                message: errorMessage,
-                error: errorMessage
-              };
-              results.push(errorResult);
-              setSyncProgress({
-                current: currentIndex,
-                total: total,
-                results: [...results]
-              });
-              continue;
-            }
-
-            const data = await response.json();
-            if (data?.results && Array.isArray(data.results) && data.results.length > 0) {
-              const result = data.results[0];
-              const resultItem = {
-                licensePlate: plate.trim(),
-                success: result.success,
-                addStatus: result.addStatus || (result.success ? 'created' : 'failed'),
-                syncIdStatus: result.syncIdStatus || (result.success ? 'synced' : 'skipped'),
-                message: result.message || (result.success ? '处理成功' : '处理失败'),
-                error: result.success ? undefined : (result.message || '处理失败')
-              };
-              results.push(resultItem);
-              setSyncProgress({
-                current: currentIndex,
-                total: total,
-                results: [...results]
-              });
-            }
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const errorResult = {
-              licensePlate: plate.trim(),
-              success: false,
-              addStatus: 'error',
-              syncIdStatus: 'skipped',
-              message: `处理异常: ${errorMessage}`,
-              error: errorMessage
-            };
-            results.push(errorResult);
-            setSyncProgress({
-              current: currentIndex,
-              total: total,
-              results: [...results]
-            });
-          }
+        const stageLogs: Array<{ licensePlate: string; success: boolean; message?: string }> = [];
+        
+        if (data.addSuccessCount !== undefined) {
+          stageLogs.push({
+            licensePlate: '系统',
+            success: true,
+            message: `📋 [阶段1] 添加完成 - 成功: ${data.addSuccessCount}, 失败: ${data.addFailedCount || 0}`
+          });
+        }
+        
+        if (data.querySuccessCount !== undefined) {
+          stageLogs.push({
+            licensePlate: '系统',
+            success: true,
+            message: `🔍 [阶段2] 查询ID完成 - 成功: ${data.querySuccessCount}, 失败: ${data.queryFailedCount || 0}`
+          });
         }
 
-        // 最终更新进度
-        const successCount = results.filter(r => r.success).length;
-        const failedCount = results.length - successCount;
         const summaryResult = {
           licensePlate: '系统',
           success: failedCount === 0,
-          message: `📊 处理完成 - 总数: ${finalPlatesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
+          message: `📊 [总结] 处理完成 - 总数: ${finalPlatesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
         };
+
         setSyncProgress({
           current: finalPlatesArray.length,
           total: finalPlatesArray.length,
-          results: [...results, summaryResult]
+          results: [...stageLogs, ...results, summaryResult]
         });
+
+        console.log(`📊 [同步车辆ID] 并行处理完成（备选方案） - 总数: ${finalPlatesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
+
         setTimeout(() => {
           setSyncProgress(null);
         }, 10000);
@@ -461,188 +479,116 @@ export default function VehicleTracking() {
         return;
       }
 
-      // 更新进度窗口，开始处理
+      // 更新进度窗口，开始处理（使用并行批量处理）
       setSyncProgress({ 
         current: 0, 
         total: platesArray.length, 
         results: [{
           licensePlate: '系统',
           success: true,
-          message: `✅ 查询完成，开始处理 ${platesArray.length} 个车牌号...`
+          message: `✅ 查询完成，开始并行处理 ${platesArray.length} 个车牌号（使用并行优化）...`
         }]
       });
-      console.log(`🚀 [同步车辆ID] 开始处理 ${platesArray.length} 个车牌号`);
+      console.log(`🚀 [同步车辆ID] 开始并行处理 ${platesArray.length} 个车牌号`);
 
       const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
 
-      const results: Array<{
+      // 调用并行批量处理的Edge Function，一次性发送所有车牌号
+      const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch-parallel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
+          licensePlates: platesArray.map(p => typeof p === 'string' ? p.trim() : String(p)),
+          loadWeight: '0'
+        }),
+        signal: abortSignal
+      });
+
+      // 检查是否被取消
+      if (abortSignal.aborted) {
+        throw new Error('操作已取消');
+      }
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.message || errorBody.error || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用默认错误信息
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      // 检查是否被取消
+      if (abortSignal.aborted) {
+        throw new Error('操作已取消');
+      }
+
+      // 处理返回结果
+      if (!data?.results || !Array.isArray(data.results)) {
+        throw new Error('返回格式异常：缺少results数组');
+      }
+
+      const results = data.results.map((result: {
         licensePlate: string;
         success: boolean;
         message?: string;
         addStatus?: string;
         syncIdStatus?: string;
         error?: string;
-      }> = [];
+      }) => ({
+        licensePlate: result.licensePlate,
+        success: result.success,
+        message: result.message,
+        addStatus: result.addStatus,
+        syncIdStatus: result.syncIdStatus,
+        error: result.error
+      }));
 
-      // 逐个处理每个车牌
-      for (let i = 0; i < platesArray.length; i++) {
-        const plate: string = platesArray[i];
-        const currentIndex = i + 1;
-        const total = platesArray.length;
+      // 更新进度（实时显示所有结果）
+      const successCount = data.totalSuccessCount || results.filter((r: { success: boolean }) => r.success).length;
+      const failedCount = data.totalFailedCount || results.length - successCount;
 
-        console.log(`📋 [同步车辆ID] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
-
-        try {
-          // 调用 process-vehicles-batch Edge Function（添加车辆并同步ID）
-          const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
-              'apikey': supabaseAnonKey
-            },
-            body: JSON.stringify({
-              licensePlate: typeof plate === 'string' ? plate.trim() : String(plate),
-              loadWeight: '0', // 默认载重为0
-              syncId: true // 启用ID同步
-            })
-          });
-
-          if (!response.ok) {
-            let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-            try {
-              const errorBody = await response.json();
-              errorMessage = errorBody.message || errorBody.error || errorMessage;
-            } catch (e) {
-              // 如果响应不是 JSON，使用默认错误信息
-            }
-            
-            console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
-            
-            const errorResult = {
-              licensePlate: plate.trim(),
-              success: false,
-              addStatus: 'failed',
-              syncIdStatus: 'skipped',
-              message: errorMessage,
-              error: errorMessage
-            };
-            results.push(errorResult);
-            // 更新进度（包含最新的处理结果）
-            setSyncProgress({
-              current: currentIndex,
-              total: total,
-              results: [...results]
-            });
-            
-            continue; // 跳过当前项，继续处理下一个
-          }
-
-          const data = await response.json();
-
-          // 处理返回结果
-          if (data?.results && Array.isArray(data.results) && data.results.length > 0) {
-            const result = data.results[0];
-            if (result.success) {
-              console.log(`✅ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理成功`);
-              const successResult = {
-                licensePlate: plate.trim(),
-                success: true,
-                addStatus: result.addStatus || 'created',
-                syncIdStatus: result.syncIdStatus || 'synced',
-                message: result.message || '处理成功'
-              };
-              results.push(successResult);
-              // 更新进度（包含最新的处理结果）
-              setSyncProgress({
-                current: currentIndex,
-                total: total,
-                results: [...results]
-              });
-            } else {
-              const errorMessage = result.message || '处理失败';
-              console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
-              
-              const errorResult = {
-                licensePlate: plate.trim(),
-                success: false,
-                addStatus: result.addStatus || 'failed',
-                syncIdStatus: result.syncIdStatus || 'skipped',
-                message: errorMessage,
-                error: errorMessage
-              };
-              results.push(errorResult);
-              // 更新进度（包含最新的处理结果）
-              setSyncProgress({
-                current: currentIndex,
-                total: total,
-                results: [...results]
-              });
-            }
-          } else {
-            const errorMessage = data?.message || '处理失败：返回格式异常';
-            console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
-            
-            const errorResult = {
-              licensePlate: plate.trim(),
-              success: false,
-              addStatus: 'failed',
-              syncIdStatus: 'skipped',
-              message: errorMessage,
-              error: errorMessage
-            };
-            results.push(errorResult);
-            // 更新进度（包含最新的处理结果）
-            setSyncProgress({
-              current: currentIndex,
-              total: total,
-              results: [...results]
-            });
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 发生异常:`, {
-            error: errorMessage,
-            stack: error instanceof Error ? error.stack : undefined,
-            timestamp: new Date().toISOString()
-          });
-
-          const errorResult = {
-            licensePlate: plate.trim(),
-            success: false,
-            addStatus: 'error',
-            syncIdStatus: 'skipped',
-            message: `处理异常: ${errorMessage}`,
-            error: errorMessage
-          };
-          results.push(errorResult);
-          // 更新进度（包含最新的处理结果）
-          setSyncProgress({
-            current: currentIndex,
-            total: total,
-            results: [...results]
-          });
-        }
+      // 添加阶段统计日志
+      const stageLogs: Array<{ licensePlate: string; success: boolean; message?: string }> = [];
+      
+      if (data.addSuccessCount !== undefined) {
+        stageLogs.push({
+          licensePlate: '系统',
+          success: true,
+          message: `📋 [阶段1] 添加完成 - 成功: ${data.addSuccessCount}, 失败: ${data.addFailedCount || 0}`
+        });
+      }
+      
+      if (data.querySuccessCount !== undefined) {
+        stageLogs.push({
+          licensePlate: '系统',
+          success: true,
+          message: `🔍 [阶段2] 查询ID完成 - 成功: ${data.querySuccessCount}, 失败: ${data.queryFailedCount || 0}`
+        });
       }
 
-      // 最终更新进度
-      const successCount = results.filter(r => r.success).length;
-      const failedCount = results.length - successCount;
-
-      // 添加总结日志到结果列表
+      // 添加总结日志
       const summaryResult = {
         licensePlate: '系统',
         success: failedCount === 0,
-        message: `📊 处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
+        message: `📊 [总结] 处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
       };
 
       setSyncProgress({
         current: platesArray.length,
         total: platesArray.length,
-        results: [...results, summaryResult]
+        results: [...stageLogs, ...results, summaryResult]
       });
 
-      console.log(`📊 [同步车辆ID] 处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
+      console.log(`📊 [同步车辆ID] 并行处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
 
       // 延迟清除进度，让用户看到结果（延长到10秒）
       setTimeout(() => {
@@ -650,6 +596,11 @@ export default function VehicleTracking() {
       }, 10000);
 
     } catch (error) {
+      // 如果是取消操作，不显示错误
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === '操作已取消')) {
+        return; // 取消操作已在handleCancelSyncVehicleIds中处理
+      }
+
       console.error('同步车辆ID失败:', error);
       const errorMessage = error instanceof Error ? error.message : '无法同步车辆ID';
       
@@ -669,6 +620,7 @@ export default function VehicleTracking() {
       }, 3000);
     } finally {
       setSyncing(false);
+      syncAbortControllerRef.current = null;
     }
   };
 
@@ -2066,24 +2018,32 @@ export default function VehicleTracking() {
             根据车牌号和时间范围查询车辆的行驶轨迹
           </p>
         </div>
-        <Button
-          onClick={handleSyncVehicleIds}
-          disabled={syncing}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          {syncing ? (
-            <>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={syncing ? handleCancelSyncVehicleIds : handleSyncVehicleIds}
+            disabled={false}
+            variant={syncing ? "destructive" : "outline"}
+            className="flex items-center gap-2"
+          >
+            {syncing ? (
+              <>
+                <X className="h-4 w-4" />
+                取消同步
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                同步车辆ID
+              </>
+            )}
+          </Button>
+          {syncing && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              同步中...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4" />
-              同步车辆ID
-            </>
+              <span>同步中...</span>
+            </div>
           )}
-        </Button>
+        </div>
       </div>
 
       {/* 同步进度显示 */}
