@@ -660,7 +660,7 @@ export default function VehicleTracking() {
     });
   };
 
-  // 🔴 定位功能：批次并发查询（每批5个），支持中断
+  // 🔴 定位功能：批次并发查询（优化版 - 批量查询车辆ID，使用 Promise.allSettled）
   const handleLocation = async () => {
     if (!locationInputText.trim()) {
       toast({
@@ -706,16 +706,58 @@ export default function VehicleTracking() {
         error?: string;
       }> = [];
 
-      // 批次大小：每批同时查询5个
-      const BATCH_SIZE = 5;
+      // 🔴 优化1：批量查询所有车牌号的车辆ID（一次性查询，避免逐个查询）
+      console.log(`🔍 批量查询 ${licensePlates.length} 个车牌号的车辆ID...`);
+      const { data: vehicleIdMappings, error: mappingError } = await supabase
+        .from('vehicle_tracking_id_mappings')
+        .select('license_plate, external_tracking_id')
+        .in('license_plate', licensePlates);
+
+      // 构建车牌号到车辆ID的映射表（使用 Map 提高查找效率）
+      const vehicleIdMap = new Map<string, string>();
+      if (!mappingError && vehicleIdMappings) {
+        vehicleIdMappings.forEach((mapping: { license_plate: string; external_tracking_id: string }) => {
+          vehicleIdMap.set(mapping.license_plate.trim(), mapping.external_tracking_id);
+        });
+      }
+
+      // 过滤出有车辆ID的车牌号
+      const platesWithId = licensePlates.filter(plate => vehicleIdMap.has(plate.trim()));
+      const platesWithoutId = licensePlates.filter(plate => !vehicleIdMap.has(plate.trim()));
+
+      // 为没有车辆ID的车牌号添加错误结果
+      platesWithoutId.forEach(plate => {
+        results.push({
+          licensePlate: plate.trim(),
+          success: false,
+          error: '未找到对应的车辆ID，请先同步车辆ID'
+        });
+      });
+
+      if (platesWithoutId.length > 0) {
+        console.warn(`⚠️ ${platesWithoutId.length} 个车牌号未找到车辆ID:`, platesWithoutId);
+      }
+
+      if (platesWithId.length === 0) {
+        setLocationResults(results);
+        toast({
+          title: "查询完成",
+          description: `所有车牌号都未找到对应的车辆ID，请先同步车辆ID`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // 批次大小：每批同时查询10个（优化：从5个增加到10个）
+      const BATCH_SIZE = 10;
       
       // 将车辆列表分成批次
       const batches: string[][] = [];
-      for (let i = 0; i < licensePlates.length; i += BATCH_SIZE) {
-        batches.push(licensePlates.slice(i, i + BATCH_SIZE));
+      for (let i = 0; i < platesWithId.length; i += BATCH_SIZE) {
+        batches.push(platesWithId.slice(i, i + BATCH_SIZE));
       }
 
-      console.log(`📦 共 ${licensePlates.length} 个车辆，分成 ${batches.length} 批次，每批 ${BATCH_SIZE} 个`);
+      console.log(`📦 共 ${platesWithId.length} 个有效车辆，分成 ${batches.length} 批次，每批 ${BATCH_SIZE} 个`);
 
       // 逐个批次处理
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -731,7 +773,7 @@ export default function VehicleTracking() {
 
         console.log(`🔄 开始处理第 ${batchNumber}/${totalBatches} 批次，包含 ${batch.length} 个车辆`);
 
-        // 并发查询当前批次的所有车辆
+        // 🔴 优化2：使用 Promise.allSettled 确保所有结果都被记录（即使有失败）
         const batchPromises = batch.map(async (plate) => {
           // 检查是否被中断
           if (abortSignal.aborted) {
@@ -742,16 +784,16 @@ export default function VehicleTracking() {
             };
           }
 
+          const vehicleId = vehicleIdMap.get(plate.trim());
+          if (!vehicleId) {
+            return {
+              licensePlate: plate.trim(),
+              success: false,
+              error: '未找到对应的车辆ID'
+            };
+          }
+
           try {
-            // 1. 获取车辆ID
-            const vehicleId = await getVehicleIdByLicensePlate(plate.trim());
-            if (!vehicleId) {
-              return {
-                licensePlate: plate.trim(),
-                success: false,
-                error: '未找到对应的车辆ID，请先同步车辆ID'
-              };
-            }
 
             // 检查是否被中断
             if (abortSignal.aborted) {
@@ -918,6 +960,7 @@ export default function VehicleTracking() {
               return {
                 licensePlate: plate.trim(),
                 success: false,
+                vehicleId: vehicleId,
                 error: '查询已中断'
               };
             }
@@ -930,16 +973,33 @@ export default function VehicleTracking() {
               finalErrorMessage = '服务器资源不足，请稍后重试';
             }
             
+            // 🔴 确保错误结果也包含 vehicleId，方便调试
             return {
               licensePlate: plate.trim(),
               success: false,
+              vehicleId: vehicleId,
               error: finalErrorMessage
             };
           }
         });
 
-        // 等待当前批次全部完成
-        const batchResults = await Promise.all(batchPromises);
+        // 🔴 优化3：使用 Promise.allSettled 确保所有结果都被记录
+        const batchSettledResults = await Promise.allSettled(batchPromises);
+        
+        // 处理 settled 结果
+        const batchResults = batchSettledResults.map((settled, index) => {
+          if (settled.status === 'fulfilled') {
+            return settled.value;
+          } else {
+            // 如果 Promise 被拒绝，返回错误结果
+            const plate = batch[index];
+            return {
+              licensePlate: plate.trim(),
+              success: false,
+              error: settled.reason instanceof Error ? settled.reason.message : '查询失败'
+            };
+          }
+        });
         
         // 将批次结果添加到总结果中
         results.push(...batchResults);
@@ -953,9 +1013,9 @@ export default function VehicleTracking() {
           break;
         }
 
-        // 批次之间添加短暂延迟，避免资源竞争（最后一个批次不需要延迟）
+        // 🔴 优化4：减少批次延迟（从1秒减少到300ms）
         if (batchIndex < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒延迟
+          await new Promise(resolve => setTimeout(resolve, 300)); // 300ms延迟
         }
       }
 
