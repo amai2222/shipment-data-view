@@ -1,13 +1,16 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye, Receipt, CreditCard, FileText } from 'lucide-react';
+import { MapPin, Truck, Calendar, Banknote, Weight, Package, User, Phone, Building2, FileImage, Eye, Receipt, CreditCard, FileText, Route, RefreshCw, Loader2, X } from 'lucide-react';
 import { LogisticsRecord } from '@/types';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { CurrencyDisplay } from '@/components/CurrencyDisplay';
 import { DriverDetailDialog } from '@/components/DriverDetailDialog';
+import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
+import { useVehicleSync } from '@/hooks/useVehicleSync';
+import { useVehicleTracking, convertUtcDateToChinaTimestamp } from '@/hooks/useVehicleTracking';
 
 interface WaybillDetailDialogProps {
   isOpen: boolean;
@@ -236,6 +239,20 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
   const [loadingScaleRecords, setLoadingScaleRecords] = useState(false);
   const [showScaleImages, setShowScaleImages] = useState(false);
   const [showDriverDetail, setShowDriverDetail] = useState(false);
+  
+  // 轨迹查询相关状态
+  const [showTrajectoryDialog, setShowTrajectoryDialog] = useState(false);
+  
+  // 车辆同步
+  const { loading: syncLoading, syncVehicleWithToast, cancelSync } = useVehicleSync();
+  
+  // 轨迹查询
+  const { 
+    loading: trajectoryLoading, 
+    trackingData: trajectoryData, 
+    queryTrajectoryWithToast, 
+    cancelQuery: cancelTrajectoryQuery 
+  } = useVehicleTracking();
 
   const loadScaleRecords = useCallback(async () => {
     if (!record?.auto_number) return;
@@ -270,6 +287,53 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
 
   const handleShowScaleImages = () => {
     setShowScaleImages(true);
+  };
+
+  // 查看轨迹：从装货日期到卸货日期
+  const handleViewTrajectory = async () => {
+    if (!record?.license_plate || !record?.loading_date) {
+      return;
+    }
+
+    setShowTrajectoryDialog(true);
+
+    try {
+      // 转换日期：UTC转中国时区
+      const startTime = convertUtcDateToChinaTimestamp(record.loading_date, false);
+      const endTime = record.unloading_date 
+        ? convertUtcDateToChinaTimestamp(record.unloading_date, true)
+        : Date.now();
+
+      // 使用公共 Hook 查询轨迹
+      await queryTrajectoryWithToast({
+        licensePlate: record.license_plate,
+        startTime,
+        endTime,
+        field: 'id'
+      });
+    } catch (error) {
+      // 错误已在 queryTrajectoryWithToast 中处理
+      console.error('查询轨迹失败:', error);
+    }
+  };
+
+  // 取消轨迹查询
+  const handleCancelTrajectory = () => {
+    cancelTrajectoryQuery();
+  };
+
+  // 同步车牌
+  const handleSyncLicensePlate = async () => {
+    if (!record?.license_plate) {
+      return;
+    }
+
+    try {
+      await syncVehicleWithToast(record.license_plate, '0');
+    } catch (error) {
+      // 错误已在 syncVehicleWithToast 中处理
+      console.error('同步车牌失败:', error);
+    }
   };
 
   return (
@@ -404,6 +468,50 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
             </div>
             <div className="bg-white p-4 rounded-lg border border-orange-100">
               {formatRoute(loadingLocations, unloadingLocations)}
+              
+              {/* 操作按钮 */}
+              {record.license_plate && (
+                <div className="flex gap-2 mt-4 pt-4 border-t border-orange-200">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleViewTrajectory}
+                    disabled={trajectoryLoading || !record.loading_date}
+                    className="flex-1"
+                  >
+                    {trajectoryLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        加载中...
+                      </>
+                    ) : (
+                      <>
+                        <Route className="mr-2 h-4 w-4" />
+                        查看轨迹
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSyncLicensePlate}
+                    disabled={syncLoading}
+                    className="flex-1"
+                  >
+                    {syncLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        同步中...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        同步车牌
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -644,6 +752,49 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
       driverName={record.driver_name}
       licensePlate={record.license_plate}
     />
+
+    {/* 轨迹查看对话框 */}
+    <Dialog open={showTrajectoryDialog} onOpenChange={setShowTrajectoryDialog}>
+      <DialogContent className="max-w-6xl w-full h-[90vh] p-0 flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0 border-b">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Route className="h-5 w-5" />
+              {record.license_plate} - 运输轨迹
+            </DialogTitle>
+            {trajectoryLoading && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleCancelTrajectory}
+              >
+                <X className="mr-2 h-4 w-4" />
+                取消查询
+              </Button>
+            )}
+          </div>
+          <div className="text-sm text-muted-foreground mt-2">
+            {record.loading_date && (
+              <span>
+                装货日期：{new Date(record.loading_date).toLocaleDateString('zh-CN')}
+              </span>
+            )}
+            {record.unloading_date && (
+              <span className="ml-4">
+                卸货日期：{new Date(record.unloading_date).toLocaleDateString('zh-CN')}
+              </span>
+            )}
+          </div>
+        </DialogHeader>
+        <div className="px-6 pb-6 flex-1 overflow-hidden">
+          <VehicleTrackingMap
+            trackingData={trajectoryData}
+            licensePlate={record.license_plate}
+            loading={trajectoryLoading}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   </>
   );
 }

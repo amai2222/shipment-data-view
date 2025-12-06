@@ -12,6 +12,8 @@ import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 import { LocationCard } from '@/components/LocationCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { useVehicleSync } from '@/hooks/useVehicleSync';
+import { useVehicleTracking, convertDateToChinaTimestamp } from '@/hooks/useVehicleTracking';
 
 interface TrackingPoint {
   lat: number;
@@ -35,10 +37,21 @@ export default function VehicleTracking() {
   const [vehicleId, setVehicleId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [useVehicleId, setUseVehicleId] = useState(false);
+  
+  // 使用公共 Hook 进行轨迹查询
+  const { 
+    loading, 
+    trackingData, 
+    queryTrajectoryWithToast, 
+    cancelQuery: cancelTrajectoryQuery 
+  } = useVehicleTracking({
+    onSuccess: (data) => {
+      // 数据已自动设置到 trackingData
+      console.log('轨迹查询成功，数据点数量:', Array.isArray(data) ? data.length : 0);
+    }
+  });
   const [activeTab, setActiveTab] = useState('tracking'); // 标签页状态
   
   // 车辆同步相关状态
@@ -248,194 +261,28 @@ export default function VehicleTracking() {
       return;
     }
 
-    setLoading(true);
-    setTrackingData(null);
-
     try {
-      let finalVehicleId = useVehicleId ? vehicleId.trim() : null;
+      // 转换日期为时间戳
+      const startTime = convertDateToChinaTimestamp(startDate, false);
+      const endTime = convertDateToChinaTimestamp(endDate, true);
 
-      // 如果不是直接使用车辆ID，尝试通过车牌号查找
-      if (!finalVehicleId && licensePlate.trim()) {
-        const foundId = await getVehicleIdByLicensePlate(licensePlate);
-        if (foundId) {
-          finalVehicleId = foundId;
-        } else {
-          // 如果没有找到映射，提示用户需要输入车辆ID
-          toast({
-            title: "需要车辆ID",
-            description: "未找到该车牌号对应的车辆ID，请切换到「车辆ID」模式并输入正确的车辆ID（格式：#26:10037）",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-      }
-
-      if (!finalVehicleId) {
-        throw new Error('无法获取车辆ID');
-      }
-
-      // 🔴 修复：使用中国时区（+08:00）将日期转换为时间戳（毫秒）
-      // 确保时间戳计算正确，避免时区问题导致的时间戳异常
-      const startTimeStr = `${startDate}T00:00:00+08:00`;
-      const endTimeStr = `${endDate}T23:59:59+08:00`;
-      const startTime = new Date(startTimeStr).getTime();
-      const endTime = new Date(endTimeStr).getTime();
-
-      // 验证时间戳有效性
-      if (isNaN(startTime) || isNaN(endTime) || startTime < 0 || endTime < 0) {
-        throw new Error(`时间戳转换失败：startTime=${startTime}, endTime=${endTime}。请检查日期格式是否正确。`);
-      }
-
-      // 再次验证时间范围（使用时间戳）
-      if (endTime < startTime) {
-        throw new Error('结束时间不能早于开始时间');
-      }
-
-      // 验证时间范围不能太大（使用时间戳验证，最多30天）
-      const maxTimeRange = 30 * 24 * 60 * 60 * 1000; // 30天的毫秒数
-      if (endTime - startTime > maxTimeRange) {
-        throw new Error(`查询时间范围过大（超过30天），请缩小日期范围后重试。`);
-      }
-
-      console.log('时间戳转换结果:', {
-        startDate,
-        endDate,
+      // 使用公共 Hook 查询轨迹
+      await queryTrajectoryWithToast({
+        licensePlate: useVehicleId ? undefined : licensePlate.trim(),
+        vehicleId: useVehicleId ? vehicleId.trim() : undefined,
         startTime,
         endTime,
-        startTimeISO: new Date(startTime).toISOString(),
-        endTimeISO: new Date(endTime).toISOString(),
-        timeRangeDays: Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24))
-      });
-
-      // 🔴 创建 AbortController 用于取消请求
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      // 调用Supabase Edge Function代理API
-      // 使用原生 fetch 以支持 AbortController
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('缺少 Supabase 配置');
-      }
-
-      // 获取当前用户的 session token
-      const { data: { session } } = await supabase.auth.getSession();
-      const authToken = session?.access_token || '';
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/vehicle-tracking`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
-          'apikey': supabaseAnonKey
-        },
-        body: JSON.stringify({
-          vehicleId: finalVehicleId,
-          field: useVehicleId ? 'id' : 'serialno',
-          startTime: startTime,
-          endTime: endTime
-        }),
-        signal: abortController.signal
-      });
-
-      // 检查是否被取消
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorBody = await response.json();
-          errorMessage = errorBody.error || errorBody.message || errorMessage;
-        } catch (e) {
-          // 如果响应不是 JSON，使用默认错误信息
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-
-      // 检查是否被取消
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      // 检查响应数据（参考 Gemini 代码，直接返回 API 数据，不包装 success）
-      if (!data) {
-        throw new Error('Edge Function 返回空数据');
-      }
-
-      // 如果返回了错误信息
-      if (data.error) {
-        console.error('Edge Function 返回错误:', data);
-        throw new Error(data.error || data.message || '查询失败');
-      }
-
-      // 直接使用返回的数据（不再检查 success 字段）
-      console.log('Edge Function 返回的数据:', data);
-      console.log('数据类型:', typeof data, '是否为数组:', Array.isArray(data));
-      
-      // 如果数据是数组，直接设置；如果是对象，尝试提取数组
-      if (Array.isArray(data)) {
-        console.log(`返回数组，长度: ${data.length}`);
-        setTrackingData(data);
-      } else if (data && typeof data === 'object') {
-        console.log('返回对象，键:', Object.keys(data));
-        // 尝试提取数组字段
-        const dataObj = data as Record<string, unknown>;
-        if (Array.isArray(dataObj.result)) {
-          console.log(`从 result 字段提取，长度: ${dataObj.result.length}`);
-          setTrackingData(dataObj.result);
-        } else if (Array.isArray(dataObj.data)) {
-          console.log(`从 data 字段提取，长度: ${dataObj.data.length}`);
-          setTrackingData(dataObj.data);
-        } else {
-          // 直接使用整个对象
-          setTrackingData(data);
-        }
-      } else {
-        console.error('返回数据格式不正确:', data);
-        throw new Error('返回数据格式不正确');
-      }
-      
-      toast({
-        title: "查询成功",
-        description: `已获取车辆轨迹数据`
+        field: useVehicleId ? 'id' : 'serialno'
       });
     } catch (error) {
-      // 如果是取消操作，不显示错误提示
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('查询已取消');
-        toast({
-          title: "查询已取消",
-          description: "已取消轨迹查询",
-        });
-        return;
-      }
-      
+      // 错误已在 queryTrajectoryWithToast 中处理
       console.error('查询车辆轨迹失败:', error);
-      toast({
-        title: "查询失败",
-        description: error instanceof Error ? error.message : '无法查询车辆轨迹',
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-      abortControllerRef.current = null;
     }
   };
 
   // 🔴 取消查询函数
   const handleCancelSearch = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      setLoading(false);
-    }
+    cancelTrajectoryQuery();
   };
 
   // 🔴 辅助函数：获取 Supabase 配置和认证信息
@@ -755,6 +602,16 @@ export default function VehicleTracking() {
   };
 
   // 新增查询入库：先添加车辆到第三方，然后查询ID并同步到数据库
+  // 使用公共 Hook 进行车辆同步
+  const { syncVehicleWithToast, cancelSync: cancelVehicleSync } = useVehicleSync({
+    onSuccess: () => {
+      // 清空表单并关闭对话框
+      setAddAndSyncLicensePlate('');
+      setAddAndSyncLoadWeight('0');
+      setAddAndSyncDialogOpen(false);
+    }
+  });
+
   const handleAddAndSync = async () => {
     if (!addAndSyncLicensePlate.trim()) {
       toast({
@@ -766,122 +623,16 @@ export default function VehicleTracking() {
     }
 
     setAddAndSyncLoading(true);
+    addAndSyncAbortControllerRef.current = new AbortController();
+    
     try {
-      // 🔴 第一步：先查询本地数据库是否有该车牌号的记录
-      const existingId = await getVehicleIdByLicensePlate(addAndSyncLicensePlate.trim());
-      
-      if (existingId) {
-        // 如果已有记录，提示用户并跳过后续操作
-        toast({
-          title: "车辆已存在",
-          description: `车辆 ${addAndSyncLicensePlate} 已在本地数据库中（ID: ${existingId}），无需重复添加。`,
-          variant: "default"
-        });
-        setAddAndSyncLoading(false);
-        // 清空表单并关闭对话框
-        setAddAndSyncLicensePlate('');
-        setAddAndSyncLoadWeight('0');
-        setAddAndSyncDialogOpen(false);
-        return;
-      }
-
-      // 🔴 创建 AbortController 用于取消请求
-      const abortController = new AbortController();
-      addAndSyncAbortControllerRef.current = abortController;
-
-      // 🔴 合并后的单次调用：添加车辆并同步ID
-      toast({
-        title: "正在处理",
-        description: `正在将车辆 ${addAndSyncLicensePlate} 添加到第三方平台并同步ID...`,
-      });
-
-      // 使用原生 fetch 以支持 AbortController
-      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/sync-vehicle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
-          'apikey': supabaseAnonKey
-        },
-        body: JSON.stringify({
-          licensePlate: addAndSyncLicensePlate.trim(),
-          loadWeight: addAndSyncLoadWeight.trim() || '0',
-          syncId: true // 🔴 关键：启用ID同步
-        }),
-        signal: abortController.signal
-      });
-
-      // 检查是否被取消
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorBody = await response.json();
-          errorMessage = errorBody.message || errorBody.error || errorMessage;
-        } catch (e) {
-          // 如果响应不是 JSON，使用默认错误信息
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-
-      // 检查是否被取消
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      // 检查响应数据
-      if (!result) {
-        throw new Error('Edge Function 返回空数据');
-      }
-
-      if (!result?.success) {
-        throw new Error(result?.message || '处理失败');
-      }
-
-      // 显示合并后的结果
-      const addStatusMessage = result.addStatus === 'existed'
-        ? `车辆 ${addAndSyncLicensePlate} 已存在于第三方平台。`
-        : `车辆 ${addAndSyncLicensePlate} 已成功添加到第三方平台。`;
-      
-      const syncIdMessage = result.syncIdStatus === 'synced'
-        ? `ID已成功同步到数据库（${result.data?.syncId?.externalId || '未知'}）。`
-        : `但ID同步失败：${result.message?.split('；')[1] || '未知错误'}`;
-
-      toast({
-        title: result.success ? "操作完成" : "部分成功",
-        description: `${addStatusMessage}${result.syncIdStatus === 'synced' ? syncIdMessage : syncIdMessage}`,
-        variant: result.success ? 'default' : 'destructive'
-      });
-
-      // 清空表单并关闭对话框
-      setAddAndSyncLicensePlate('');
-      setAddAndSyncLoadWeight('0');
-      setAddAndSyncDialogOpen(false);
-
+      await syncVehicleWithToast(
+        addAndSyncLicensePlate.trim(),
+        addAndSyncLoadWeight.trim() || '0'
+      );
     } catch (error) {
-      // 如果是取消操作，不显示错误提示
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('新增查询入库已取消');
-        toast({
-          title: "操作已取消",
-          description: "已取消添加车辆并同步ID",
-        });
-        return;
-      }
-      
+      // 错误已在 syncVehicleWithToast 中处理
       console.error('新增查询入库失败:', error);
-      toast({
-        title: "操作失败",
-        description: error instanceof Error ? error.message : '未知错误，请稍后重试',
-        variant: "destructive"
-      });
     } finally {
       setAddAndSyncLoading(false);
       addAndSyncAbortControllerRef.current = null;
@@ -890,11 +641,9 @@ export default function VehicleTracking() {
 
   // 🔴 取消添加并同步函数
   const handleCancelAddAndSync = () => {
-    if (addAndSyncAbortControllerRef.current) {
-      addAndSyncAbortControllerRef.current.abort();
-      addAndSyncAbortControllerRef.current = null;
-      setAddAndSyncLoading(false);
-    }
+    cancelVehicleSync();
+    setAddAndSyncLoading(false);
+    addAndSyncAbortControllerRef.current = null;
   };
 
   // 🔴 取消定位功能
