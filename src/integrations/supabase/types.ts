@@ -4010,6 +4010,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tracking_token_cache: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          token_type: string
+          token_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          token_type: string
+          token_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          token_type?: string
+          token_value?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string
@@ -4222,6 +4249,39 @@ export type Database = {
         Update: {
           count?: number | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vehicle_tracking_id_mappings: {
+        Row: {
+          created_at: string | null
+          dept_id: string | null
+          external_tracking_id: string
+          id: string
+          last_synced_at: string | null
+          license_plate: string
+          updated_at: string | null
+          vehicle_desc: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dept_id?: string | null
+          external_tracking_id: string
+          id?: string
+          last_synced_at?: string | null
+          license_plate: string
+          updated_at?: string | null
+          vehicle_desc?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dept_id?: string | null
+          external_tracking_id?: string
+          id?: string
+          last_synced_at?: string | null
+          license_plate?: string
+          updated_at?: string | null
+          vehicle_desc?: string | null
         }
         Relationships: []
       }
@@ -4644,6 +4704,10 @@ export type Database = {
         Args: { p_chain_name: string; p_record_ids: string[] }
         Returns: Json
       }
+      batch_modify_chain_1126: {
+        Args: { p_chain_name: string; p_record_ids: string[] }
+        Returns: Json
+      }
       batch_modify_partner_cost: {
         Args: { p_new_amount: number; p_record_ids: string[] }
         Returns: Json
@@ -4706,6 +4770,10 @@ export type Database = {
         Returns: Json
       }
       batch_rollback_invoice_approval: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
+      }
+      batch_rollback_invoice_approval_1126: {
         Args: { p_request_ids: string[] }
         Returns: Json
       }
@@ -7646,6 +7714,14 @@ export type Database = {
           update_time: string
         }[]
       }
+      notify_driver_on_dispatch: {
+        Args: { p_order_id: string }
+        Returns: boolean
+      }
+      notify_driver_on_expense_review: {
+        Args: { p_application_id: string; p_approved: boolean }
+        Returns: boolean
+      }
       notify_drivers_on_payment_approval: {
         Args: { p_record_ids: string[]; p_request_id: string }
         Returns: number
@@ -7900,6 +7976,10 @@ export type Database = {
         Args: { p_invoice_data: Json }
         Returns: Json
       }
+      save_invoice_request_1126: {
+        Args: { p_invoice_data: Json }
+        Returns: Json
+      }
       save_invoice_request_no: {
         Args: { p_invoice_status?: string; p_record_ids: string[] }
         Returns: Json
@@ -8007,6 +8087,10 @@ export type Database = {
       sync_user_permissions_with_role:
         | { Args: never; Returns: undefined }
         | { Args: { role_name: string }; Returns: undefined }
+      sync_vehicle_tracking_ids: {
+        Args: { p_dept_id?: string; p_vehicle_mappings: Json }
+        Returns: Json
+      }
       test_payment_requests_filter: {
         Args: {
           p_driver_name?: string
@@ -8253,6 +8337,10 @@ export type Database = {
         Args: { p_request_ids: string[] }
         Returns: Json
       }
+      void_and_delete_invoice_requests_1126: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
+      }
       void_and_delete_payment_requests: {
         Args: { p_request_ids: string[] }
         Returns: Json
@@ -8265,7 +8353,15 @@ export type Database = {
         Args: { p_request_id: string; p_void_reason?: string }
         Returns: Json
       }
+      void_invoice_request_1126: {
+        Args: { p_request_id: string; p_void_reason?: string }
+        Returns: Json
+      }
       void_payment_for_request: {
+        Args: { p_cancel_reason?: string; p_request_id: string }
+        Returns: Json
+      }
+      void_payment_for_request_1126: {
         Args: { p_cancel_reason?: string; p_request_id: string }
         Returns: Json
       }

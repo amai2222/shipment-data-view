@@ -35,7 +35,7 @@ serve(async (req)=>{
     if (!anonKey) throw new Error("Missing anon key");
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: canView, error: permError } = await userClient.rpc<boolean>('is_finance_or_admin');
+    const { data: canView, error: permError } = await userClient.rpc('is_finance_or_admin') as { data: boolean | null; error: unknown };
     if (permError) throw new Error(`Permission check failed: ${(permError instanceof Error ? permError.message : String(permError))}`);
     if (!canView) {
       return new Response(JSON.stringify({ error: 'Forbidden: finance or admin only' }), {
@@ -90,9 +90,9 @@ serve(async (req)=>{
       }>;
     }
     
-    const { data: v2Data, error: rpcError } = await userClient.rpc<PaymentRequestDataV2>('get_payment_request_data_v2_1124', {
+    const { data: v2Data, error: rpcError } = await userClient.rpc('get_payment_request_data_v2_1124', {
       p_record_ids: ids,
-    });
+    }) as { data: PaymentRequestDataV2 | null; error: unknown };
     if (rpcError) throw new Error(`RPC get_payment_request_data_v2_1124 failed: ${(rpcError instanceof Error ? rpcError.message : String(rpcError))}`);
     const records = Array.isArray(v2Data?.records) ? v2Data.records : [];
 
@@ -448,9 +448,11 @@ serve(async (req)=>{
       }
     });
   } catch (error) {
-    console.error("[CRITICAL] Function crashed. Error:", error.stack || (error instanceof Error ? error.message : String(error)));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("[CRITICAL] Function crashed. Error:", errorStack || errorMessage);
     return new Response(JSON.stringify({
-      error: error?.message || "Unknown error"
+      error: errorMessage || "Unknown error"
     }), {
       status: 500,
       headers: {

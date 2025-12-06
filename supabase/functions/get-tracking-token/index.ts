@@ -1,5 +1,4 @@
 // 自动登录获取第三方平台 Token（使用共享模块）
-// @ts-expect-error - Edge Function运行在Deno环境，Deno类型在运行时可用
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getTokenWithInfo } from '../_shared/token-cache.ts';
 
