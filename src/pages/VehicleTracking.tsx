@@ -184,87 +184,294 @@ export default function VehicleTracking() {
   // 同步车辆ID映射：从drivers表获取车牌，处理不存在的
   const handleSyncVehicleIds = async () => {
     setSyncing(true);
-    setSyncProgress(null); // 先清空进度
+    // 立即显示进度窗口，显示检查状态
+    setSyncProgress({ 
+      current: 0, 
+      total: 0, 
+      results: [{
+        licensePlate: '系统',
+        success: true,
+        message: '正在检查drivers表和vehicle_tracking_id_mappings表...'
+      }]
+    });
 
     try {
-      // 显示加载提示
-      toast({
-        title: "正在检查",
-        description: "正在查询drivers表和vehicle_tracking_id_mappings表...",
+      // 使用RPC函数优化查询：在数据库层面一次性查询出需要处理的车牌号
+      // 使用LEFT JOIN在数据库层面完成对比，避免多次网络往返和客户端处理
+      console.log('🔍 [同步车辆ID] 开始查询需要处理的车牌号（使用RPC函数优化）...');
+      
+      setSyncProgress({
+        current: 0,
+        total: 0,
+        results: [{
+          licensePlate: '系统',
+          success: true,
+          message: '🔍 正在查询drivers表和vehicle_tracking_id_mappings表的差异...'
+        }]
       });
 
-      // 第一步：从drivers表获取所有车牌号（排除空值）
-      console.log('🔍 [同步车辆ID] 第一步：从drivers表获取所有车牌号');
-      const { data: drivers, error: driversError } = await supabase
-        .from('drivers')
-        .select('license_plate')
-        .not('license_plate', 'is', null);
+      const { data: platesToProcess, error: queryError } = await supabase
+        .rpc('get_plates_to_sync', {});
 
-      if (driversError) {
-        throw new Error(`获取司机列表失败: ${driversError.message}`);
-      }
+      if (queryError) {
+        // 如果RPC函数不存在或出错，使用备选方案
+        console.warn('⚠️ RPC函数调用失败，使用备选查询方案:', queryError);
+        
+        // 备选方案：分步查询（保持原有逻辑作为fallback）
+        const { data: drivers, error: driversError } = await supabase
+          .from('drivers')
+          .select('license_plate')
+          .not('license_plate', 'is', null);
 
-      if (!drivers || drivers.length === 0) {
-        toast({
-          title: "无需同步",
-          description: "drivers表中没有车牌号",
-          variant: "default"
-        });
-        setSyncing(false);
-        setSyncProgress(null);
-        return;
-      }
+        if (driversError) {
+          throw new Error(`获取司机列表失败: ${driversError.message}`);
+        }
 
-      // 提取所有车牌号并去重
-      const licensePlates: string[] = Array.from(new Set(
-        drivers
-          .map((d: { license_plate: string | null }) => d.license_plate)
-          .filter((plate): plate is string => !!plate && typeof plate === 'string' && plate.trim() !== '')
-          .map((plate: string) => plate.trim())
-      ));
+        if (!drivers || drivers.length === 0) {
+          setSyncProgress({
+            current: 1,
+            total: 1,
+            results: [{
+              licensePlate: '系统',
+              success: true,
+              message: '⚠️ drivers表中没有车牌号'
+            }]
+          });
+          setTimeout(() => {
+            setSyncing(false);
+            setSyncProgress(null);
+          }, 2000);
+          return;
+        }
 
-      console.log(`✅ [同步车辆ID] 第一步完成 - 从drivers表获取到 ${licensePlates.length} 个唯一车牌号`);
-
-      // 第二步：检查哪些车牌号在vehicle_tracking_id_mappings中不存在
-      console.log('🔍 [同步车辆ID] 第二步：检查vehicle_tracking_id_mappings表中已存在的车牌号');
-      const { data: existingMappings, error: mappingsError } = await supabase
-        .from('vehicle_tracking_id_mappings')
-        .select('license_plate')
-        .in('license_plate', licensePlates);
-
-      if (mappingsError) {
-        console.warn('⚠️ [同步车辆ID] 查询映射表失败，将处理所有车牌:', mappingsError);
-      }
-
-      // 构建已存在的车牌号集合
-      const existingPlatesSet = new Set<string>();
-      if (existingMappings && Array.isArray(existingMappings)) {
-        existingMappings.forEach((mapping: { license_plate: string }) => {
-          if (mapping.license_plate) {
-            existingPlatesSet.add(mapping.license_plate.trim());
+        // 提取并去重车牌号
+        const licensePlatesSet = new Set<string>();
+        drivers.forEach((d: { license_plate: string | null }) => {
+          if (d.license_plate && typeof d.license_plate === 'string') {
+            licensePlatesSet.add(d.license_plate.trim());
           }
         });
-      }
+        const licensePlates = Array.from(licensePlatesSet);
 
-      // 筛选出需要处理的车牌号（在drivers表中但不在vehicle_tracking_id_mappings表中）
-      const platesToProcess = licensePlates.filter((plate: string) => !existingPlatesSet.has(plate));
+        // 分批查询映射表
+        const BATCH_SIZE = 500;
+        const existingPlatesSet = new Set<string>();
+        const totalBatches = Math.ceil(licensePlates.length / BATCH_SIZE);
 
-      console.log(`✅ [同步车辆ID] 第二步完成 - 需要处理: ${platesToProcess.length} 个，已存在: ${existingPlatesSet.size} 个`);
+        for (let i = 0; i < licensePlates.length; i += BATCH_SIZE) {
+          const batch = licensePlates.slice(i, i + BATCH_SIZE);
+          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+          
+          setSyncProgress({
+            current: 0,
+            total: 0,
+            results: [{
+              licensePlate: '系统',
+              success: true,
+              message: `📦 备选方案：查询映射表批次 ${batchNum}/${totalBatches}...`
+            }]
+          });
+          
+          const { data: existingMappings } = await supabase
+            .from('vehicle_tracking_id_mappings')
+            .select('license_plate')
+            .in('license_plate', batch);
 
-      if (platesToProcess.length === 0) {
-        toast({
-          title: "无需处理",
-          description: "所有车牌号已在vehicle_tracking_id_mappings表中",
-          variant: "default"
+          if (existingMappings) {
+            existingMappings.forEach((mapping: { license_plate: string }) => {
+              if (mapping.license_plate) {
+                existingPlatesSet.add(mapping.license_plate.trim());
+              }
+            });
+          }
+        }
+
+        const platesArray = licensePlates.filter((plate: string) => !existingPlatesSet.has(plate));
+        // 继续使用platesArray
+        const finalPlatesArray = platesArray;
+        
+        console.log(`✅ [同步车辆ID] 备选方案查询完成 - 需要处理: ${finalPlatesArray.length} 个车牌号`);
+        
+        if (finalPlatesArray.length === 0) {
+          setSyncProgress({
+            current: 1,
+            total: 1,
+            results: [{
+              licensePlate: '系统',
+              success: true,
+              message: '✅ 所有车牌号已在vehicle_tracking_id_mappings表中，无需处理'
+            }]
+          });
+          setTimeout(() => {
+            setSyncing(false);
+            setSyncProgress(null);
+          }, 2000);
+          return;
+        }
+
+        // 更新进度窗口，开始处理
+        setSyncProgress({ 
+          current: 0, 
+          total: finalPlatesArray.length, 
+          results: [{
+            licensePlate: '系统',
+            success: true,
+            message: `✅ 查询完成，开始处理 ${finalPlatesArray.length} 个车牌号...`
+          }]
         });
-        setSyncing(false);
-        setSyncProgress(null);
+        console.log(`🚀 [同步车辆ID] 开始处理 ${finalPlatesArray.length} 个车牌号`);
+
+        const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+        const results: Array<{
+          licensePlate: string;
+          success: boolean;
+          message?: string;
+          addStatus?: string;
+          syncIdStatus?: string;
+          error?: string;
+        }> = [];
+
+        // 逐个处理每个车牌
+        for (let i = 0; i < finalPlatesArray.length; i++) {
+          const plate: string = finalPlatesArray[i];
+          const currentIndex = i + 1;
+          const total = finalPlatesArray.length;
+
+          console.log(`📋 [同步车辆ID] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
+
+          try {
+            const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+                'apikey': supabaseAnonKey
+              },
+              body: JSON.stringify({
+                licensePlate: plate.trim(),
+                loadWeight: '0',
+                syncId: true
+              })
+            });
+
+            if (!response.ok) {
+              let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+              try {
+                const errorBody = await response.json();
+                errorMessage = errorBody.message || errorBody.error || errorMessage;
+              } catch (e) {
+                // 忽略JSON解析错误
+              }
+              
+              const errorResult = {
+                licensePlate: plate.trim(),
+                success: false,
+                addStatus: 'failed',
+                syncIdStatus: 'skipped',
+                message: errorMessage,
+                error: errorMessage
+              };
+              results.push(errorResult);
+              setSyncProgress({
+                current: currentIndex,
+                total: total,
+                results: [...results]
+              });
+              continue;
+            }
+
+            const data = await response.json();
+            if (data?.results && Array.isArray(data.results) && data.results.length > 0) {
+              const result = data.results[0];
+              const resultItem = {
+                licensePlate: plate.trim(),
+                success: result.success,
+                addStatus: result.addStatus || (result.success ? 'created' : 'failed'),
+                syncIdStatus: result.syncIdStatus || (result.success ? 'synced' : 'skipped'),
+                message: result.message || (result.success ? '处理成功' : '处理失败'),
+                error: result.success ? undefined : (result.message || '处理失败')
+              };
+              results.push(resultItem);
+              setSyncProgress({
+                current: currentIndex,
+                total: total,
+                results: [...results]
+              });
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorResult = {
+              licensePlate: plate.trim(),
+              success: false,
+              addStatus: 'error',
+              syncIdStatus: 'skipped',
+              message: `处理异常: ${errorMessage}`,
+              error: errorMessage
+            };
+            results.push(errorResult);
+            setSyncProgress({
+              current: currentIndex,
+              total: total,
+              results: [...results]
+            });
+          }
+        }
+
+        // 最终更新进度
+        const successCount = results.filter(r => r.success).length;
+        const failedCount = results.length - successCount;
+        const summaryResult = {
+          licensePlate: '系统',
+          success: failedCount === 0,
+          message: `📊 处理完成 - 总数: ${finalPlatesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
+        };
+        setSyncProgress({
+          current: finalPlatesArray.length,
+          total: finalPlatesArray.length,
+          results: [...results, summaryResult]
+        });
+        setTimeout(() => {
+          setSyncProgress(null);
+        }, 10000);
         return;
       }
 
-      // 第三步：确认有需要处理的车牌后，再显示进度窗口
-      setSyncProgress({ current: 0, total: platesToProcess.length, results: [] });
-      console.log(`🚀 [同步车辆ID] 第三步：开始处理 ${platesToProcess.length} 个车牌号`);
+      // RPC函数成功返回，处理结果
+      const platesArray: string[] = (platesToProcess || [])
+        .map((item: { license_plate: string }) => item.license_plate)
+        .filter((plate: string) => plate && plate.trim() !== '');
+
+      console.log(`✅ [同步车辆ID] RPC函数查询完成 - 需要处理: ${platesArray.length} 个车牌号`);
+
+      if (platesArray.length === 0) {
+        setSyncProgress({
+          current: 1,
+          total: 1,
+          results: [{
+            licensePlate: '系统',
+            success: true,
+            message: '✅ 所有车牌号已在vehicle_tracking_id_mappings表中，无需处理'
+          }]
+        });
+        
+        setTimeout(() => {
+          setSyncing(false);
+          setSyncProgress(null);
+        }, 2000);
+        return;
+      }
+
+      // 更新进度窗口，开始处理
+      setSyncProgress({ 
+        current: 0, 
+        total: platesArray.length, 
+        results: [{
+          licensePlate: '系统',
+          success: true,
+          message: `✅ 查询完成，开始处理 ${platesArray.length} 个车牌号...`
+        }]
+      });
+      console.log(`🚀 [同步车辆ID] 开始处理 ${platesArray.length} 个车牌号`);
 
       const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
 
@@ -278,17 +485,10 @@ export default function VehicleTracking() {
       }> = [];
 
       // 逐个处理每个车牌
-      for (let i = 0; i < platesToProcess.length; i++) {
-        const plate: string = platesToProcess[i];
+      for (let i = 0; i < platesArray.length; i++) {
+        const plate: string = platesArray[i];
         const currentIndex = i + 1;
-        const total = platesToProcess.length;
-
-        // 更新进度
-        setSyncProgress({
-          current: currentIndex,
-          total: total,
-          results: [...results]
-        });
+        const total = platesArray.length;
 
         console.log(`📋 [同步车辆ID] 处理进度: ${currentIndex}/${total} - 车牌号: ${plate}`);
 
@@ -319,13 +519,20 @@ export default function VehicleTracking() {
             
             console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
             
-            results.push({
+            const errorResult = {
               licensePlate: plate.trim(),
               success: false,
               addStatus: 'failed',
               syncIdStatus: 'skipped',
               message: errorMessage,
               error: errorMessage
+            };
+            results.push(errorResult);
+            // 更新进度（包含最新的处理结果）
+            setSyncProgress({
+              current: currentIndex,
+              total: total,
+              results: [...results]
             });
             
             continue; // 跳过当前项，继续处理下一个
@@ -338,37 +545,58 @@ export default function VehicleTracking() {
             const result = data.results[0];
             if (result.success) {
               console.log(`✅ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理成功`);
-              results.push({
+              const successResult = {
                 licensePlate: plate.trim(),
                 success: true,
                 addStatus: result.addStatus || 'created',
                 syncIdStatus: result.syncIdStatus || 'synced',
                 message: result.message || '处理成功'
+              };
+              results.push(successResult);
+              // 更新进度（包含最新的处理结果）
+              setSyncProgress({
+                current: currentIndex,
+                total: total,
+                results: [...results]
               });
             } else {
               const errorMessage = result.message || '处理失败';
               console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
               
-              results.push({
+              const errorResult = {
                 licensePlate: plate.trim(),
                 success: false,
                 addStatus: result.addStatus || 'failed',
                 syncIdStatus: result.syncIdStatus || 'skipped',
                 message: errorMessage,
                 error: errorMessage
+              };
+              results.push(errorResult);
+              // 更新进度（包含最新的处理结果）
+              setSyncProgress({
+                current: currentIndex,
+                total: total,
+                results: [...results]
               });
             }
           } else {
             const errorMessage = data?.message || '处理失败：返回格式异常';
             console.error(`❌ [同步车辆ID] [${currentIndex}/${total}] ${plate} - 处理失败:`, errorMessage);
             
-            results.push({
+            const errorResult = {
               licensePlate: plate.trim(),
               success: false,
               addStatus: 'failed',
               syncIdStatus: 'skipped',
               message: errorMessage,
               error: errorMessage
+            };
+            results.push(errorResult);
+            // 更新进度（包含最新的处理结果）
+            setSyncProgress({
+              current: currentIndex,
+              total: total,
+              results: [...results]
             });
           }
         } catch (error) {
@@ -379,51 +607,66 @@ export default function VehicleTracking() {
             timestamp: new Date().toISOString()
           });
 
-          results.push({
+          const errorResult = {
             licensePlate: plate.trim(),
             success: false,
             addStatus: 'error',
             syncIdStatus: 'skipped',
             message: `处理异常: ${errorMessage}`,
             error: errorMessage
+          };
+          results.push(errorResult);
+          // 更新进度（包含最新的处理结果）
+          setSyncProgress({
+            current: currentIndex,
+            total: total,
+            results: [...results]
           });
         }
       }
 
       // 最终更新进度
-      setSyncProgress({
-        current: platesToProcess.length,
-        total: platesToProcess.length,
-        results: results
-      });
-
-      // 统计结果
       const successCount = results.filter(r => r.success).length;
       const failedCount = results.length - successCount;
 
-      console.log(`📊 [同步车辆ID] 处理完成 - 总数: ${platesToProcess.length}, 成功: ${successCount}, 失败: ${failedCount}`);
+      // 添加总结日志到结果列表
+      const summaryResult = {
+        licensePlate: '系统',
+        success: failedCount === 0,
+        message: `📊 处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
+      };
 
-      // 显示结果
-          toast({
-        title: failedCount === 0 ? "同步完成" : "同步部分完成",
-        description: `共处理 ${platesToProcess.length} 个车辆，成功 ${successCount} 个，失败 ${failedCount} 个`,
-        variant: failedCount === 0 ? 'default' : 'destructive',
-        duration: 10000
+      setSyncProgress({
+        current: platesArray.length,
+        total: platesArray.length,
+        results: [...results, summaryResult]
       });
 
-      // 延迟清除进度，让用户看到结果
+      console.log(`📊 [同步车辆ID] 处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
+
+      // 延迟清除进度，让用户看到结果（延长到10秒）
       setTimeout(() => {
         setSyncProgress(null);
-      }, 5000);
+      }, 10000);
 
     } catch (error) {
       console.error('同步车辆ID失败:', error);
-      toast({
-        title: "同步失败",
-        description: error instanceof Error ? error.message : '无法同步车辆ID',
-        variant: "destructive"
+      const errorMessage = error instanceof Error ? error.message : '无法同步车辆ID';
+      
+      setSyncProgress({
+        current: 0,
+        total: 0,
+        results: [{
+          licensePlate: '系统',
+          success: false,
+          message: `❌ 同步失败: ${errorMessage}`
+        }]
       });
-      setSyncProgress(null);
+
+      // 3秒后清除错误信息
+      setTimeout(() => {
+        setSyncProgress(null);
+      }, 3000);
     } finally {
       setSyncing(false);
     }
