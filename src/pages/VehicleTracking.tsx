@@ -31,12 +31,33 @@ type TrackingData = TrackingPoint[] | {
   [key: string]: unknown;
 };
 
+// 获取默认日期：开始时间为当月1日，结束时间为当月7日（如果当前时间不到7日，就是当前时间）
+const getDefaultDates = (): { startDate: string; endDate: string } => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = now.getDate();
+  
+  // 开始日期：当月1日
+  const startDate = `${year}-${month}-01`;
+  
+  // 结束日期：如果当前日期小于7日，使用当前日期；否则使用当月7日
+  const endDay = day < 7 ? String(day).padStart(2, '0') : '07';
+  const endDate = `${year}-${month}-${endDay}`;
+  
+  return { startDate, endDate };
+};
+
 export default function VehicleTracking() {
   const { toast } = useToast();
   const [licensePlate, setLicensePlate] = useState('');
   const [vehicleId, setVehicleId] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  
+  // 初始化默认日期
+  const defaultDates = getDefaultDates();
+  const [startDate, setStartDate] = useState(defaultDates.startDate);
+  const [endDate, setEndDate] = useState(defaultDates.endDate);
+  
   const [syncing, setSyncing] = useState(false);
   const [useVehicleId, setUseVehicleId] = useState(false);
   
@@ -73,7 +94,18 @@ export default function VehicleTracking() {
   const [batchInputDialogOpen, setBatchInputDialogOpen] = useState(false);
   const [batchInputText, setBatchInputText] = useState('');
   const [batchProcessing, setBatchProcessing] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; results: Array<{ licensePlate: string; success: boolean; message: string }> } | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ 
+    current: number; 
+    total: number; 
+    results: Array<{ 
+      licensePlate: string; 
+      success: boolean; 
+      message?: string; 
+      addStatus?: string; 
+      syncIdStatus?: string; 
+      error?: string; 
+    }> 
+  } | null>(null);
   
   // 定位相关状态
   const [locationInputText, setLocationInputText] = useState('');
@@ -250,12 +282,12 @@ export default function VehicleTracking() {
       return;
     }
 
-    // 验证日期范围不能太大（最多查询30天）
+    // 验证日期范围不能太大（最多查询7天）
     const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff > 30) {
+    if (daysDiff > 7) {
       toast({
         title: "日期范围过大",
-        description: `查询时间范围不能超过30天，当前为${daysDiff}天。请缩小日期范围后重试。`,
+        description: `查询时间范围不能超过7天，当前为${daysDiff}天。请缩小日期范围后重试。`,
         variant: "destructive"
       });
       return;
@@ -1705,7 +1737,32 @@ export default function VehicleTracking() {
                 id="startDate"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  const newStartDate = e.target.value;
+                  setStartDate(newStartDate);
+                  
+                  // 如果开始日期改变，检查结束日期是否超过开始日期+7天或早于开始日期
+                  if (newStartDate && endDate) {
+                    const start = new Date(newStartDate);
+                    const end = new Date(endDate);
+                    
+                    // 如果结束日期早于开始日期，设置为开始日期
+                    if (end < start) {
+                      setEndDate(newStartDate);
+                      return;
+                    }
+                    
+                    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    // 如果超过7天，自动调整为开始日期+7天
+                    if (daysDiff > 7) {
+                      const maxEndDate = new Date(start);
+                      maxEndDate.setDate(start.getDate() + 7);
+                      const maxEndDateStr = maxEndDate.toISOString().split('T')[0];
+                      setEndDate(maxEndDateStr);
+                    }
+                  }
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -1717,7 +1774,45 @@ export default function VehicleTracking() {
                 id="endDate"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  const newEndDate = e.target.value;
+                  
+                  // 如果结束日期改变，检查是否早于开始日期或超过开始日期+7天
+                  if (newEndDate && startDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(newEndDate);
+                    
+                    // 如果结束日期早于开始日期，设置为开始日期
+                    if (end < start) {
+                      setEndDate(startDate);
+                      toast({
+                        title: "日期范围已自动调整",
+                        description: "结束日期不能早于开始日期，已自动调整为开始日期",
+                        variant: "default"
+                      });
+                      return;
+                    }
+                    
+                    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    // 如果超过7天，自动调整为开始日期+7天
+                    if (daysDiff > 7) {
+                      const maxEndDate = new Date(start);
+                      maxEndDate.setDate(start.getDate() + 7);
+                      const maxEndDateStr = maxEndDate.toISOString().split('T')[0];
+                      setEndDate(maxEndDateStr);
+                      toast({
+                        title: "日期范围已自动调整",
+                        description: "结束日期不能超过开始日期后7天，已自动调整为开始日期+7天",
+                        variant: "default"
+                      });
+                    } else {
+                      setEndDate(newEndDate);
+                    }
+                  } else {
+                    setEndDate(newEndDate);
+                  }
+                }}
               />
             </div>
           </div>
@@ -2222,7 +2317,7 @@ export default function VehicleTracking() {
                           result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                         }`}
                       >
-                        <span className="font-medium">{result.licensePlate}:</span> {result.message}
+                        <span className="font-medium">{result.licensePlate}:</span> {result.message || (result.success ? '处理成功' : '处理失败')}
                       </div>
                     ))}
                   </div>

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -300,9 +300,36 @@ export function WaybillDetailDialog({ isOpen, onClose, record }: WaybillDetailDi
     try {
       // 转换日期：UTC转中国时区
       const startTime = convertUtcDateToChinaTimestamp(record.loading_date, false);
-      const endTime = record.unloading_date 
-        ? convertUtcDateToChinaTimestamp(record.unloading_date, true)
-        : Date.now();
+      
+      // 判断装货日期和卸货日期是否在同一天
+      let endTime: number;
+      if (record.unloading_date) {
+        // 将装货日期和卸货日期转换为中国时区的日期字符串进行比较
+        // 使用与 convertUtcDateToChinaTimestamp 相同的逻辑
+        const getChinaDateStr = (dateStr: string): string => {
+          const date = new Date(dateStr);
+          // 如果日期字符串不包含时间，假设是UTC 00:00:00，需要转换为中国时区
+          const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+          const year = chinaTime.getFullYear();
+          const month = String(chinaTime.getMonth() + 1).padStart(2, '0');
+          const day = String(chinaTime.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        
+        const loadingDateStr = getChinaDateStr(record.loading_date);
+        const unloadingDateStr = getChinaDateStr(record.unloading_date);
+        
+        // 如果装货日期和卸货日期在同一天，终点时间 = 起点时间 + 24小时
+        if (loadingDateStr === unloadingDateStr) {
+          endTime = startTime + 24 * 60 * 60 * 1000; // 起点时间 + 24小时
+        } else {
+          // 不是同一天，使用卸货日期的23:59:59
+          endTime = convertUtcDateToChinaTimestamp(record.unloading_date, true);
+        }
+      } else {
+        // 没有卸货日期，使用当前时间
+        endTime = Date.now();
+      }
 
       // 使用公共 Hook 查询轨迹
       await queryTrajectoryWithToast({
