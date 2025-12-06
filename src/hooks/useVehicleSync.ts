@@ -163,6 +163,32 @@ export function useVehicleSync(options?: UseVehicleSyncOptions) {
   // 带 Toast 提示的同步函数
   const syncVehicleWithToast = async (licensePlate: string, loadWeight: string = '0') => {
     try {
+      // 先检查本地数据库是否有该车牌号
+      const existingId = await getVehicleIdByLicensePlate(licensePlate.trim());
+      
+      if (existingId) {
+        // 如果已经在本地数据库中，直接提示，不需要继续处理
+        toast({
+          title: "操作完成",
+          description: `车辆 ${licensePlate} 已在本地数据库中（ID: ${existingId}），无需重复同步。`,
+          variant: 'default'
+        });
+        
+        const result: VehicleSyncResult = {
+          success: true,
+          message: `车辆 ${licensePlate} 已在本地数据库中（ID: ${existingId}），无需重复添加。`,
+          addStatus: 'existed',
+          syncIdStatus: 'synced'
+        };
+        
+        if (options?.onSuccess) {
+          options.onSuccess(result);
+        }
+        
+        return result;
+      }
+
+      // 如果本地不存在，才需要添加到第三方平台并同步ID
       toast({
         title: "正在处理",
         description: `正在将车辆 ${licensePlate} 添加到第三方平台并同步ID...`,
@@ -170,7 +196,7 @@ export function useVehicleSync(options?: UseVehicleSyncOptions) {
 
       const result = await syncVehicle(licensePlate, loadWeight);
 
-      // 显示结果
+      // 显示结果（只有在本地不存在时才会执行到这里）
       const addStatusMessage = result.addStatus === 'existed'
         ? `车辆 ${licensePlate} 已存在于第三方平台。`
         : `车辆 ${licensePlate} 已成功添加到第三方平台。`;

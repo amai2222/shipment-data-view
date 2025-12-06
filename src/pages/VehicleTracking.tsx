@@ -184,7 +184,7 @@ export default function VehicleTracking() {
   // 同步车辆ID映射：从drivers表获取车牌，处理不存在的
   const handleSyncVehicleIds = async () => {
     setSyncing(true);
-    setSyncProgress({ current: 0, total: 0, results: [] });
+    // 先不设置进度，等确认有需要处理的车牌后再显示
 
     try {
       // 第一步：从drivers表获取所有车牌号（排除空值）
@@ -256,7 +256,7 @@ export default function VehicleTracking() {
         return;
       }
 
-      // 第三步：逐个处理需要添加的车牌号
+      // 第三步：确认有需要处理的车牌后，再显示进度窗口
       setSyncProgress({ current: 0, total: platesToProcess.length, results: [] });
       console.log(`🚀 [同步车辆ID] 第三步：开始处理 ${platesToProcess.length} 个车牌号`);
 
@@ -1963,25 +1963,31 @@ export default function VehicleTracking() {
                   const newStartDate = e.target.value;
                   setStartDate(newStartDate);
                   
-                  // 如果开始日期改变，检查结束日期是否超过开始日期+7天或早于开始日期
-                  if (newStartDate && endDate) {
+                  // 如果开始日期改变，自动设置结束日期为开始日期+6天
+                  if (newStartDate) {
                     const start = new Date(newStartDate);
-                    const end = new Date(endDate);
+                    const defaultEndDate = new Date(start);
+                    defaultEndDate.setDate(start.getDate() + 6);
+                    const defaultEndDateStr = defaultEndDate.toISOString().split('T')[0];
                     
-                    // 如果结束日期早于开始日期，设置为开始日期
-                    if (end < start) {
-                      setEndDate(newStartDate);
-                      return;
-                    }
-                    
-                    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                    
-                    // 如果超过7天，自动调整为开始日期+7天
-                    if (daysDiff > 7) {
-                      const maxEndDate = new Date(start);
-                      maxEndDate.setDate(start.getDate() + 7);
-                      const maxEndDateStr = maxEndDate.toISOString().split('T')[0];
-                      setEndDate(maxEndDateStr);
+                    // 如果没有结束日期，或者结束日期需要调整，设置为开始日期+6天
+                    if (!endDate) {
+                      setEndDate(defaultEndDateStr);
+                    } else {
+                      const end = new Date(endDate);
+                      
+                      // 如果结束日期早于开始日期，设置为开始日期+6天
+                      if (end < start) {
+                        setEndDate(defaultEndDateStr);
+                        return;
+                      }
+                      
+                      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                      
+                      // 如果超过7天，自动调整为开始日期+6天
+                      if (daysDiff > 7) {
+                        setEndDate(defaultEndDateStr);
+                      }
                     }
                   }
                 }}
