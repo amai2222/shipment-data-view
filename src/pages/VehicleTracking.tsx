@@ -1219,36 +1219,71 @@ export default function VehicleTracking() {
 
         console.log(`🔄 开始处理第 ${batchNumber}/${totalBatches} 批次，包含 ${batch.length} 个车辆`);
 
-        // 🔴 优化2：使用 Promise.allSettled 确保所有结果都被记录（即使有失败）
+        // 🔴 优化：实时更新结果 - 每个请求完成后立即显示，不等待所有请求完成
+        // 使用 Map 跟踪每个车牌号的结果索引，支持实时更新
+        const batchResultMap = new Map<string, number>(); // 车牌号 -> 在 results 数组中的索引
+        
+        // 为每个车牌号预先创建占位结果（显示"查询中"状态）
+        batch.forEach(plate => {
+          const trimmedPlate = plate.trim();
+          const placeholderIndex = results.length;
+          results.push({
+            licensePlate: trimmedPlate,
+            success: false,
+            error: '查询中...'
+          });
+          batchResultMap.set(trimmedPlate, placeholderIndex);
+        });
+        
+        // 初始显示占位结果
+        setLocationResults([...results]);
+
+        // 🔴 优化2：并发查询，但每个完成后立即更新结果
         const batchPromises = batch.map(async (plate) => {
+          const trimmedPlate = plate.trim();
+          
           // 检查是否被中断
           if (abortSignal.aborted) {
-            return {
-              licensePlate: plate.trim(),
-              success: false,
-              error: '查询已中断'
-            };
+            const resultIndex = batchResultMap.get(trimmedPlate);
+            if (resultIndex !== undefined) {
+              results[resultIndex] = {
+                licensePlate: trimmedPlate,
+                success: false,
+                error: '查询已中断'
+              };
+              setLocationResults([...results]);
+            }
+            return;
           }
 
-          const vehicleId = vehicleIdMap.get(plate.trim());
+          const vehicleId = vehicleIdMap.get(trimmedPlate);
           if (!vehicleId) {
-            return {
-              licensePlate: plate.trim(),
-              success: false,
-              error: '未找到对应的车辆ID'
-            };
+            const resultIndex = batchResultMap.get(trimmedPlate);
+            if (resultIndex !== undefined) {
+              results[resultIndex] = {
+                licensePlate: trimmedPlate,
+                success: false,
+                error: '未找到对应的车辆ID'
+              };
+              setLocationResults([...results]);
+            }
+            return;
           }
 
           try {
-
             // 检查是否被中断
             if (abortSignal.aborted) {
-              return {
-                licensePlate: plate.trim(),
-                success: false,
-                vehicleId: vehicleId,
-                error: '查询已中断'
-              };
+              const resultIndex = batchResultMap.get(trimmedPlate);
+              if (resultIndex !== undefined) {
+                results[resultIndex] = {
+                  licensePlate: trimmedPlate,
+                  success: false,
+                  vehicleId: vehicleId,
+                  error: '查询已中断'
+                };
+                setLocationResults([...results]);
+              }
+              return;
             }
 
             // 2. 查询最近1小时的轨迹
@@ -1273,12 +1308,17 @@ export default function VehicleTracking() {
 
             // 检查是否被中断
             if (abortSignal.aborted) {
-              return {
-                licensePlate: plate.trim(),
-                success: false,
-                vehicleId: vehicleId,
-                error: '查询已中断'
-              };
+              const resultIndex = batchResultMap.get(trimmedPlate);
+              if (resultIndex !== undefined) {
+                results[resultIndex] = {
+                  licensePlate: trimmedPlate,
+                  success: false,
+                  vehicleId: vehicleId,
+                  error: '查询已中断'
+                };
+                setLocationResults([...results]);
+              }
+              return;
             }
 
             if (!response.ok) {
@@ -1291,12 +1331,18 @@ export default function VehicleTracking() {
                 finalErrorMessage = '服务器资源不足，请稍后重试';
               }
               
-              return {
-                licensePlate: plate.trim(),
-                success: false,
-                vehicleId: vehicleId,
-                error: finalErrorMessage
-              };
+              const resultIndex = batchResultMap.get(trimmedPlate);
+              if (resultIndex !== undefined) {
+                results[resultIndex] = {
+                  licensePlate: trimmedPlate,
+                  success: false,
+                  vehicleId: vehicleId,
+                  error: finalErrorMessage
+                };
+                // 🔴 实时更新：立即显示结果
+                setLocationResults([...results]);
+              }
+              return;
             }
 
             const data = await response.json();
@@ -1377,12 +1423,18 @@ export default function VehicleTracking() {
             }
 
             if (trackingPoints.length === 0) {
-              return {
-                licensePlate: plate.trim(),
-                success: false,
-                vehicleId: vehicleId,
-                error: '最近1小时内无轨迹数据'
-              };
+              const resultIndex = batchResultMap.get(trimmedPlate);
+              if (resultIndex !== undefined) {
+                results[resultIndex] = {
+                  licensePlate: trimmedPlate,
+                  success: false,
+                  vehicleId: vehicleId,
+                  error: '最近1小时内无轨迹数据'
+                };
+                // 🔴 实时更新：立即显示结果
+                setLocationResults([...results]);
+              }
+              return;
             }
 
             // 4. 找到离当前时间最近的点
@@ -1393,22 +1445,32 @@ export default function VehicleTracking() {
               return currentDiff < nearestDiff ? current : nearest;
             });
 
-            return {
-              licensePlate: plate.trim(),
-              success: true,
-              vehicleId: vehicleId,
-              location: nearestPoint
-            };
+            const resultIndex = batchResultMap.get(trimmedPlate);
+            if (resultIndex !== undefined) {
+              results[resultIndex] = {
+                licensePlate: trimmedPlate,
+                success: true,
+                vehicleId: vehicleId,
+                location: nearestPoint
+              };
+              // 🔴 实时更新：立即显示结果（哪个完成就显示哪个）
+              setLocationResults([...results]);
+            }
 
           } catch (error) {
             // 检查是否是中断错误
             if (error instanceof Error && error.name === 'AbortError') {
-              return {
-                licensePlate: plate.trim(),
-                success: false,
-                vehicleId: vehicleId,
-                error: '查询已中断'
-              };
+              const resultIndex = batchResultMap.get(trimmedPlate);
+              if (resultIndex !== undefined) {
+                results[resultIndex] = {
+                  licensePlate: trimmedPlate,
+                  success: false,
+                  vehicleId: vehicleId,
+                  error: '查询已中断'
+                };
+                setLocationResults([...results]);
+              }
+              return;
             }
 
             const errorMessage = error instanceof Error ? error.message : '查询失败';
@@ -1419,39 +1481,22 @@ export default function VehicleTracking() {
               finalErrorMessage = '服务器资源不足，请稍后重试';
             }
             
-            // 🔴 确保错误结果也包含 vehicleId，方便调试
-            return {
-              licensePlate: plate.trim(),
-              success: false,
-              vehicleId: vehicleId,
-              error: finalErrorMessage
-            };
+            const resultIndex = batchResultMap.get(trimmedPlate);
+            if (resultIndex !== undefined) {
+              results[resultIndex] = {
+                licensePlate: trimmedPlate,
+                success: false,
+                vehicleId: vehicleId,
+                error: finalErrorMessage
+              };
+              // 🔴 实时更新：立即显示结果
+              setLocationResults([...results]);
+            }
           }
         });
 
-        // 🔴 优化3：使用 Promise.allSettled 确保所有结果都被记录
-        const batchSettledResults = await Promise.allSettled(batchPromises);
-        
-        // 处理 settled 结果
-        const batchResults = batchSettledResults.map((settled, index) => {
-          if (settled.status === 'fulfilled') {
-            return settled.value;
-          } else {
-            // 如果 Promise 被拒绝，返回错误结果
-            const plate = batch[index];
-            return {
-              licensePlate: plate.trim(),
-              success: false,
-              error: settled.reason instanceof Error ? settled.reason.message : '查询失败'
-            };
-          }
-        });
-        
-        // 将批次结果添加到总结果中
-        results.push(...batchResults);
-        
-        // 实时更新结果（显示进度）- 查到几个就显示几个
-        setLocationResults([...results]);
+        // 🔴 优化3：等待所有请求完成（用于统计和最终检查）
+        await Promise.allSettled(batchPromises);
 
         // 检查是否被中断
         if (abortSignal.aborted) {

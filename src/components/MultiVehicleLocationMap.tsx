@@ -1,6 +1,7 @@
 // 多车辆位置地图组件（使用百度地图）
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
@@ -36,6 +37,9 @@ declare global {
         setMapType: (type: unknown) => void;
         setViewport: (points: { lng: number; lat: number }[]) => void;
         openInfoWindow: (infoWindow: unknown, point: { lng: number; lat: number }) => void;
+        closeInfoWindow: () => void;
+        addEventListener: (event: string, handler: () => void) => void;
+        panTo: (point: { lng: number; lat: number }) => void;
       };
       Point: new (lng: number, lat: number) => { lng: number; lat: number };
       Marker: new (point: { lng: number; lat: number }, options?: {
@@ -69,6 +73,14 @@ declare global {
         open: (map: unknown, point: { lng: number; lat: number }) => void;
         close: () => void;
       };
+      Label: new (content: string, options?: {
+        offset?: { x: number; y: number };
+        position?: { lng: number; lat: number };
+        style?: Record<string, string>;
+      }) => {
+        setStyle: (style: Record<string, string>) => void;
+        setPosition: (point: { lng: number; lat: number }) => void;
+      };
     };
     BMap_ANCHOR_TOP_LEFT?: unknown;
     BMap_ANCHOR_BOTTOM_LEFT?: unknown;
@@ -84,9 +96,11 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<unknown>(null);
   const markersRef = useRef<unknown[]>([]);
+  const markerDataRef = useRef<Map<string, { marker: unknown; point: { lng: number; lat: number }; color: string }>>(new Map());
   const scriptLoadingRef = useRef(false);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
 
   useEffect(() => {
     const container = mapContainerRef.current;
@@ -364,6 +378,57 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
         
         mapInstanceRef.current = map;
 
+        // 保存当前打开的信息窗口引用，用于关闭
+        let currentInfoWindow: unknown = null;
+
+        // 添加地图点击事件：点击地图其他地方时关闭信息窗口
+        // @ts-expect-error - 百度地图API方法在运行时可用
+        map.addEventListener('click', () => {
+          if (currentInfoWindow) {
+            // @ts-expect-error - 百度地图API方法在运行时可用
+            map.closeInfoWindow();
+            currentInfoWindow = null;
+          }
+        });
+
+        // 创建自定义图标的辅助函数
+        const createCustomIcon = (color: string): string => {
+          // 使用Canvas绘制一个醒目的圆形图标
+          const canvas = document.createElement('canvas');
+          canvas.width = 40;
+          canvas.height = 40;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) return '';
+          
+          // 绘制外圈阴影
+          ctx.beginPath();
+          ctx.arc(20, 20, 18, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+          ctx.fill();
+          
+          // 绘制主圆形（带颜色）
+          ctx.beginPath();
+          ctx.arc(20, 20, 16, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          
+          // 绘制白色边框
+          ctx.beginPath();
+          ctx.arc(20, 20, 16, 0, Math.PI * 2);
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          
+          // 绘制内部白色圆点
+          ctx.beginPath();
+          ctx.arc(20, 20, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          
+          return canvas.toDataURL();
+        };
+
         // 为每个车辆添加标记
         const allPoints: { lng: number; lat: number }[] = [];
         const markers: unknown[] = [];
@@ -376,41 +441,114 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
           const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c', '#0891b2', '#be123c'];
           const color = colors[index % colors.length];
           
-          // 创建标记（简化实现，不使用 Label，避免兼容性问题）
+          // 创建自定义图标
+          const iconUrl = createCustomIcon(color);
+          const iconSize = new window.BMap.Size(40, 40);
+          const icon = new window.BMap.Icon(iconUrl, iconSize, {
+            anchor: new window.BMap.Size(20, 20) // 图标锚点居中
+          });
+          
+          // 创建标记（使用自定义图标）
           const marker = new window.BMap.Marker(point, {
+            icon: icon,
             title: `${location.licensePlate} - ${location.address || '未知地址'}`
           });
+          
+          // 添加车牌号标签（显示在图标下方）
+          const label = new window.BMap.Label(location.licensePlate, {
+            offset: new window.BMap.Size(0, 25) // 标签位置在图标下方
+          });
+          
+          // 设置标签位置
+          label.setPosition(point);
+          
+          // 设置标签样式（更醒目的样式）
+          label.setStyle({
+            color: '#fff',
+            backgroundColor: color,
+            border: `2px solid ${color}`,
+            borderRadius: '4px',
+            padding: '4px 8px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+            zIndex: '1000',
+            cursor: 'pointer'
+          });
+          
+          // 将标签添加到地图（而不是标记）
+          map.addOverlay(label);
 
           // 添加信息窗口
+          // 格式化地址显示：如果有地址就显示，否则显示"地址查询中..."
+          const addressDisplay = location.address && location.address.trim() 
+            ? location.address.trim() 
+            : '地址查询中...';
+          
           const infoContent = `
-            <div style="padding: 8px; min-width: 200px;">
-              <div style="font-weight: bold; margin-bottom: 8px; color: ${color};">
+            <div style="padding: 12px; min-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+              <div style="font-weight: bold; margin-bottom: 10px; color: ${color}; font-size: 16px; border-bottom: 2px solid ${color}; padding-bottom: 6px;">
                 ${location.licensePlate}
               </div>
-              <div style="font-size: 12px; color: #666; line-height: 1.6;">
-                ${location.address ? `<div>地址：${location.address}</div>` : ''}
-                <div>坐标：${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
-                <div>时间：${new Date(location.time).toLocaleString('zh-CN')}</div>
-                ${location.speed !== undefined ? `<div>速度：${location.speed} km/h</div>` : ''}
+              <div style="font-size: 13px; color: #333; line-height: 1.8;">
+                <div style="margin-bottom: 6px;">
+                  <span style="color: #666;">地址：</span>
+                  <span style="color: #333; font-weight: 500;">${addressDisplay}</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                  <span style="color: #666;">坐标：</span>
+                  <span style="color: #333;">${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                  <span style="color: #666;">时间：</span>
+                  <span style="color: #333;">${new Date(location.time).toLocaleString('zh-CN')}</span>
+                </div>
+                ${location.speed !== undefined ? `
+                <div>
+                  <span style="color: #666;">速度：</span>
+                  <span style="color: #333; font-weight: 500;">${location.speed} km/h</span>
+                </div>
+                ` : ''}
               </div>
             </div>
           `;
           
+          // 移除 title，避免重复显示车牌号
           const infoWindow = new window.BMap.InfoWindow(infoContent, {
-            width: 250,
-            height: 'auto',
-            title: location.licensePlate
+            width: 260,
+            height: 'auto'
           });
 
           // 点击标记显示信息窗口
           // @ts-expect-error - 百度地图API方法在运行时可用
-          marker.addEventListener('click', () => {
+          marker.addEventListener('click', (e: { domEvent: { stopPropagation: () => void } }) => {
+            // 阻止事件冒泡，避免触发地图点击事件
+            if (e.domEvent && e.domEvent.stopPropagation) {
+              e.domEvent.stopPropagation();
+            }
+            
+            // 关闭之前的信息窗口
+            if (currentInfoWindow) {
+              // @ts-expect-error - 百度地图API方法在运行时可用
+              map.closeInfoWindow();
+            }
+            
+            // 打开新的信息窗口
             // @ts-expect-error - 百度地图API方法在运行时可用
             map.openInfoWindow(infoWindow, point);
+            currentInfoWindow = infoWindow;
           });
 
           map.addOverlay(marker);
           markers.push(marker);
+          
+          // 保存标记数据，用于定位功能
+          markerDataRef.current.set(location.licensePlate, {
+            marker,
+            point: { lng: location.lng, lat: location.lat },
+            color
+          });
         });
 
         markersRef.current = markers;
@@ -450,11 +588,90 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
         }
         mapInstanceRef.current = null;
         markersRef.current = [];
+        markerDataRef.current.clear();
       }
       scriptLoadingRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations]);
+
+  // 定位到指定车辆
+  const focusOnVehicle = (licensePlate: string) => {
+    const markerData = markerDataRef.current.get(licensePlate);
+    if (!markerData || !mapInstanceRef.current) {
+      console.warn(`未找到车牌号 ${licensePlate} 的标记数据`);
+      return;
+    }
+
+    const map = mapInstanceRef.current as {
+      centerAndZoom: (point: { lng: number; lat: number }, zoom: number) => void;
+      panTo: (point: { lng: number; lat: number }) => void;
+      openInfoWindow: (infoWindow: unknown, point: { lng: number; lat: number }) => void;
+    };
+
+    const point = new window.BMap.Point(markerData.point.lng, markerData.point.lat);
+    
+    // 设置选中状态
+    setSelectedVehicle(licensePlate);
+    
+    // 平滑移动到车辆位置，并设置合适的缩放级别
+    // @ts-expect-error - 百度地图API方法在运行时可用
+    map.panTo(point);
+    
+    // 延迟设置缩放级别，确保平移完成
+    setTimeout(() => {
+      // @ts-expect-error - 百度地图API方法在运行时可用
+      map.centerAndZoom(point, 15); // 15级缩放，比较接近
+    }, 300);
+    
+    // 打开信息窗口
+    const location = locations.find(loc => loc.licensePlate === licensePlate);
+    if (location) {
+      const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c', '#0891b2', '#be123c'];
+      const index = locations.findIndex(loc => loc.licensePlate === licensePlate);
+      const color = colors[index % colors.length];
+      
+      const addressDisplay = location.address && location.address.trim() 
+        ? location.address.trim() 
+        : '地址查询中...';
+      
+      const infoContent = `
+        <div style="padding: 12px; min-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+          <div style="font-weight: bold; margin-bottom: 10px; color: ${color}; font-size: 16px; border-bottom: 2px solid ${color}; padding-bottom: 6px;">
+            ${location.licensePlate}
+          </div>
+          <div style="font-size: 13px; color: #333; line-height: 1.8;">
+            <div style="margin-bottom: 6px;">
+              <span style="color: #666;">地址：</span>
+              <span style="color: #333; font-weight: 500;">${addressDisplay}</span>
+            </div>
+            <div style="margin-bottom: 6px;">
+              <span style="color: #666;">坐标：</span>
+              <span style="color: #333;">${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</span>
+            </div>
+            <div style="margin-bottom: 6px;">
+              <span style="color: #666;">时间：</span>
+              <span style="color: #333;">${new Date(location.time).toLocaleString('zh-CN')}</span>
+            </div>
+            ${location.speed !== undefined ? `
+            <div>
+              <span style="color: #666;">速度：</span>
+              <span style="color: #333; font-weight: 500;">${location.speed} km/h</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+      
+      const infoWindow = new window.BMap.InfoWindow(infoContent, {
+        width: 260,
+        height: 'auto'
+      });
+      
+      // @ts-expect-error - 百度地图API方法在运行时可用
+      map.openInfoWindow(infoWindow, point);
+    }
+  };
 
   return (
     <Card>
@@ -487,6 +704,37 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
             </div>
           )}
         </div>
+        
+        {/* 车牌按钮列表 */}
+        {locations.length > 0 && !mapLoading && !mapError && (
+          <div className="p-4 border-t bg-gray-50">
+            <div className="flex flex-wrap gap-2">
+              {locations.map((location) => {
+                const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c', '#0891b2', '#be123c'];
+                const index = locations.findIndex(loc => loc.licensePlate === location.licensePlate);
+                const color = colors[index % colors.length];
+                const isSelected = selectedVehicle === location.licensePlate;
+                
+                return (
+                  <Button
+                    key={location.licensePlate}
+                    onClick={() => focusOnVehicle(location.licensePlate)}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    style={{
+                      backgroundColor: isSelected ? color : undefined,
+                      borderColor: isSelected ? color : undefined,
+                      color: isSelected ? '#fff' : undefined
+                    }}
+                    className={isSelected ? 'font-bold' : ''}
+                  >
+                    {location.licensePlate}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
