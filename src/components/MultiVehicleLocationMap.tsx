@@ -69,12 +69,6 @@ declare global {
         open: (map: unknown, point: { lng: number; lat: number }) => void;
         close: () => void;
       };
-      Label: new (content: string, point: { lng: number; lat: number }, options?: {
-        offset?: { x: number; y: number };
-        style?: Record<string, string>;
-      }) => {
-        setStyle: (style: Record<string, string>) => void;
-      };
     };
     BMap_ANCHOR_TOP_LEFT?: unknown;
     BMap_ANCHOR_BOTTOM_LEFT?: unknown;
@@ -382,26 +376,10 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
           const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c', '#0891b2', '#be123c'];
           const color = colors[index % colors.length];
           
-          // 创建标记
+          // 创建标记（简化实现，不使用 Label，避免兼容性问题）
           const marker = new window.BMap.Marker(point, {
             title: `${location.licensePlate} - ${location.address || '未知地址'}`
           });
-
-          // 添加标签显示车牌号
-          const label = new window.BMap.Label(location.licensePlate, {
-            offset: new window.BMap.Size(0, -35)
-          });
-          label.setStyle({
-            color: '#fff',
-            backgroundColor: color,
-            border: 'none',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            whiteSpace: 'nowrap'
-          });
-          marker.setLabel(label);
 
           // 添加信息窗口
           const infoContent = `
