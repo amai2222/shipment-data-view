@@ -213,7 +213,7 @@ export default function VehicleTracking() {
     const abortSignal = syncAbortControllerRef.current.signal;
     
     setSyncing(true);
-    // 立即显示进度窗口，显示检查状态
+    // 🔴 清空之前的日志，重新开始
     setSyncProgress({ 
       current: 0, 
       total: 0, 
@@ -409,8 +409,10 @@ export default function VehicleTracking() {
           error: result.error
         }));
 
-        const successCount = data.totalSuccessCount || results.filter((r: { success: boolean }) => r.success).length;
-        const failedCount = data.totalFailedCount || results.length - successCount;
+        // 🔴 修复：只统计实际处理结果（排除系统日志）
+        const actualResults = results.filter((r: { licensePlate: string }) => r.licensePlate !== '系统');
+        const successCount = data.totalSuccessCount || actualResults.filter((r: { success: boolean }) => r.success).length;
+        const failedCount = data.totalFailedCount || actualResults.length - successCount;
 
         const stageLogs: Array<{ licensePlate: string; success: boolean; message?: string }> = [];
         
@@ -436,10 +438,11 @@ export default function VehicleTracking() {
           message: `📊 [总结] 处理完成 - 总数: ${finalPlatesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
         };
 
+        // 🔴 修复：进度条显示实际处理的数量，而不是包含系统日志的总数
         setSyncProgress({
-          current: finalPlatesArray.length,
+          current: actualResults.length,
           total: finalPlatesArray.length,
-          results: [...stageLogs, ...results, summaryResult]
+          results: [...stageLogs, ...actualResults, summaryResult]
         });
 
         console.log(`📊 [同步车辆ID] 并行处理完成（备选方案） - 总数: ${finalPlatesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
@@ -576,9 +579,10 @@ export default function VehicleTracking() {
         error: result.error
       }));
 
-      // 更新进度（实时显示所有结果）
-      const successCount = data.totalSuccessCount || results.filter((r: { success: boolean }) => r.success).length;
-      const failedCount = data.totalFailedCount || results.length - successCount;
+      // 🔴 修复：只统计实际处理结果（排除系统日志）
+      const actualResults = results.filter((r: { licensePlate: string }) => r.licensePlate !== '系统');
+      const successCount = data.totalSuccessCount || actualResults.filter((r: { success: boolean }) => r.success).length;
+      const failedCount = data.totalFailedCount || actualResults.length - successCount;
 
       // 添加阶段统计日志
       const stageLogs: Array<{ licensePlate: string; success: boolean; message?: string }> = [];
@@ -606,10 +610,11 @@ export default function VehicleTracking() {
         message: `📊 [总结] 处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`
       };
 
+      // 🔴 修复：进度条显示实际处理的数量，而不是包含系统日志的总数
       setSyncProgress({
-        current: platesArray.length,
+        current: actualResults.length,
         total: platesArray.length,
-        results: [...stageLogs, ...results, summaryResult]
+        results: [...stageLogs, ...actualResults, summaryResult]
       });
 
       console.log(`📊 [同步车辆ID] 并行处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
@@ -2111,10 +2116,10 @@ export default function VehicleTracking() {
                     <span>处理日志 ({syncProgress.results.length} 条)</span>
                     <div className="flex gap-2">
                       <span className="text-green-600">
-                        成功: {syncProgress.results.filter(r => r.success).length}
+                        成功: {syncProgress.results.filter(r => r.success && r.licensePlate !== '系统').length}
                       </span>
                       <span className="text-red-600">
-                        失败: {syncProgress.results.filter(r => !r.success).length}
+                        失败: {syncProgress.results.filter(r => !r.success && r.licensePlate !== '系统').length}
                       </span>
                     </div>
                   </div>
