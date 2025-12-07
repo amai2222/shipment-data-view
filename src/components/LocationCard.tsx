@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Truck, MapPin, Calendar, Route, Database, Loader2, Maximize2 } from 'lucide-react';
+import { Truck, MapPin, Calendar, Route, Database, Loader2, Maximize2, RefreshCw } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 
 interface LocationResult {
@@ -21,6 +21,8 @@ interface LocationResult {
 
 interface LocationCardProps {
   result: LocationResult;
+  onRetry?: (licensePlate: string) => void;
+  retrying?: boolean;
 }
 
 // 声明全局百度地图类型
@@ -46,7 +48,7 @@ declare global {
   }
 }
 
-export function LocationCard({ result }: LocationCardProps) {
+export function LocationCard({ result, onRetry, retrying = false }: LocationCardProps) {
   const [mapDialogOpen, setMapDialogOpen] = useState(false);
   const [baiduMapKey, setBaiduMapKey] = useState<string | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
@@ -278,7 +280,7 @@ export function LocationCard({ result }: LocationCardProps) {
 
   if (!result.success) {
     return (
-      <Card className="border-red-200 bg-red-50/50">
+      <Card className="border-red-200 bg-red-50/50 hover:shadow-md transition-shadow cursor-pointer" onClick={() => onRetry && !retrying && onRetry(result.licensePlate)}>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center justify-between">
             <span className="flex items-center gap-2">
@@ -289,9 +291,26 @@ export function LocationCard({ result }: LocationCardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-sm text-red-600">
-            <p className="font-medium">错误：</p>
-            <p className="text-muted-foreground">{result.error || '未知错误'}</p>
+          <div className="text-sm text-red-600 space-y-3">
+            <div>
+              <p className="font-medium">错误：</p>
+              <p className="text-muted-foreground">{result.error || '未知错误'}</p>
+            </div>
+            {onRetry && (
+              <div className="pt-2 border-t border-red-200">
+                {retrying ? (
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">正在重新查询...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-blue-600 hover:text-blue-700">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="text-sm font-medium">点击重新查询</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

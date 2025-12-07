@@ -97,6 +97,7 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
   const mapInstanceRef = useRef<unknown>(null);
   const markersRef = useRef<unknown[]>([]);
   const markerDataRef = useRef<Map<string, { marker: unknown; point: { lng: number; lat: number }; color: string }>>(new Map());
+  const vehicleColorMapRef = useRef<Map<string, string>>(new Map());
   const scriptLoadingRef = useRef(false);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -540,6 +541,31 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
             currentInfoWindow = infoWindow;
           });
 
+          // 鼠标悬停显示信息窗口
+          // @ts-expect-error - 百度地图API方法在运行时可用
+          marker.addEventListener('mouseover', () => {
+            // 关闭之前的信息窗口
+            if (currentInfoWindow) {
+              // @ts-expect-error - 百度地图API方法在运行时可用
+              map.closeInfoWindow();
+            }
+            
+            // 打开新的信息窗口
+            // @ts-expect-error - 百度地图API方法在运行时可用
+            map.openInfoWindow(infoWindow, point);
+            currentInfoWindow = infoWindow;
+          });
+
+          // 鼠标移开关闭信息窗口
+          // @ts-expect-error - 百度地图API方法在运行时可用
+          marker.addEventListener('mouseout', () => {
+            if (currentInfoWindow) {
+              // @ts-expect-error - 百度地图API方法在运行时可用
+              map.closeInfoWindow();
+              currentInfoWindow = null;
+            }
+          });
+
           map.addOverlay(marker);
           markers.push(marker);
           
@@ -549,6 +575,9 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
             point: { lng: location.lng, lat: location.lat },
             color
           });
+          
+          // 保存车牌号对应的颜色，用于按钮显示
+          vehicleColorMapRef.current.set(location.licensePlate, color);
         });
 
         markersRef.current = markers;
@@ -589,6 +618,7 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
         mapInstanceRef.current = null;
         markersRef.current = [];
         markerDataRef.current.clear();
+        vehicleColorMapRef.current.clear();
       }
       scriptLoadingRef.current = false;
     };
@@ -710,23 +740,24 @@ export function MultiVehicleLocationMap({ locations, loading }: MultiVehicleLoca
           <div className="p-4 border-t bg-gray-50">
             <div className="flex flex-wrap gap-2">
               {locations.map((location) => {
-                const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c', '#0891b2', '#be123c'];
-                const index = locations.findIndex(loc => loc.licensePlate === location.licensePlate);
-                const color = colors[index % colors.length];
+                // 从保存的颜色映射中获取颜色，如果不存在则使用默认颜色
+                const color = vehicleColorMapRef.current.get(location.licensePlate) || '#2563eb';
                 const isSelected = selectedVehicle === location.licensePlate;
                 
                 return (
                   <Button
                     key={location.licensePlate}
                     onClick={() => focusOnVehicle(location.licensePlate)}
-                    variant={isSelected ? "default" : "outline"}
+                    variant="outline"
                     size="sm"
                     style={{
-                      backgroundColor: isSelected ? color : undefined,
-                      borderColor: isSelected ? color : undefined,
-                      color: isSelected ? '#fff' : undefined
+                      backgroundColor: color,
+                      borderColor: color,
+                      color: '#fff',
+                      fontWeight: isSelected ? 'bold' : 'normal',
+                      opacity: isSelected ? 1 : 0.9
                     }}
-                    className={isSelected ? 'font-bold' : ''}
+                    className="hover:opacity-100 transition-opacity"
                   >
                     {location.licensePlate}
                   </Button>

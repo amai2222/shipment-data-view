@@ -31,10 +31,13 @@ import {
   Image as ImageIcon,
   ZoomIn,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Save
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
+import { useVehicleTracking, convertUtcDateToChinaTimestamp } from '@/hooks/useVehicleTracking';
 
 // 类型定义
 interface WaybillDetail {
@@ -105,6 +108,17 @@ export default function MobileInternalWaybillDetail() {
   
   // 用于存储创建的Object URL，以便清理
   const objectUrlsRef = useRef<string[]>([]);
+  
+  // 轨迹查询相关状态
+  const [showTrajectoryDialog, setShowTrajectoryDialog] = useState(false);
+  
+  // 轨迹查询
+  const { 
+    loading: trajectoryLoading, 
+    trackingData: trajectoryData, 
+    queryTrajectoryWithToast, 
+    cancelQuery: cancelTrajectoryQuery 
+  } = useVehicleTracking();
   
   // 清理Object URL
   useEffect(() => {
@@ -189,6 +203,70 @@ export default function MobileInternalWaybillDetail() {
       console.warn('日期格式化失败:', dateString, error);
       return dateString.includes('T') ? dateString.split('T')[0] : dateString;
     }
+  };
+
+  // 查看轨迹：从装货日期到卸货日期
+  const handleViewTrajectory = async () => {
+    if (!waybill?.license_plate || !waybill?.loading_date) {
+      toast({
+        title: '无法查看轨迹',
+        description: '缺少车牌号或装货日期信息',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setShowTrajectoryDialog(true);
+
+    try {
+      // 转换日期：UTC转中国时区
+      const startTime = convertUtcDateToChinaTimestamp(waybill.loading_date, false);
+      
+      // 判断装货日期和卸货日期是否在同一天
+      let endTime: number;
+      if (waybill.unloading_date) {
+        // 将装货日期和卸货日期转换为中国时区的日期字符串进行比较
+        const getChinaDateStr = (dateStr: string): string => {
+          const date = new Date(dateStr);
+          // 如果日期字符串不包含时间，假设是UTC 00:00:00，需要转换为中国时区
+          const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+          const year = chinaTime.getFullYear();
+          const month = String(chinaTime.getMonth() + 1).padStart(2, '0');
+          const day = String(chinaTime.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        
+        const loadingDateStr = getChinaDateStr(waybill.loading_date);
+        const unloadingDateStr = getChinaDateStr(waybill.unloading_date);
+        
+        // 如果装货日期和卸货日期在同一天，终点时间 = 起点时间 + 24小时
+        if (loadingDateStr === unloadingDateStr) {
+          endTime = startTime + 24 * 60 * 60 * 1000; // 起点时间 + 24小时
+        } else {
+          // 不是同一天，使用卸货日期的23:59:59
+          endTime = convertUtcDateToChinaTimestamp(waybill.unloading_date, true);
+        }
+      } else {
+        // 没有卸货日期，使用当前时间
+        endTime = Date.now();
+      }
+
+      // 使用公共 Hook 查询轨迹
+      await queryTrajectoryWithToast({
+        licensePlate: waybill.license_plate,
+        startTime,
+        endTime,
+        field: 'id'
+      });
+    } catch (error) {
+      // 错误已在 queryTrajectoryWithToast 中处理
+      console.error('查询轨迹失败:', error);
+    }
+  };
+
+  // 取消轨迹查询
+  const handleCancelTrajectory = () => {
+    cancelTrajectoryQuery();
   };
 
   // 选择文件（支持多图）
@@ -477,10 +555,21 @@ export default function MobileInternalWaybillDetail() {
         {/* 路线信息 */}
         <Card className="mx-4">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Route className="h-5 w-5" />
-              路线信息
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Route className="h-5 w-5" />
+                路线信息
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewTrajectory}
+                className="flex items-center gap-2"
+              >
+                <Route className="h-4 w-4" />
+                查看轨迹
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* 起点 */}
@@ -862,6 +951,50 @@ export default function MobileInternalWaybillDetail() {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* 轨迹查看对话框 */}
+        <Dialog open={showTrajectoryDialog} onOpenChange={setShowTrajectoryDialog}>
+          <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 flex flex-col">
+            <DialogHeader className="px-4 py-3 flex-shrink-0 border-b">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <Route className="h-5 w-5" />
+                  {waybill.license_plate} - 运输轨迹
+                </DialogTitle>
+                {trajectoryLoading && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleCancelTrajectory}
+                    className="h-8"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    取消查询
+                  </Button>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">
+                {waybill.loading_date && (
+                  <span>
+                    装货日期：{formatDate(waybill.loading_date, 'yyyy-MM-dd')}
+                  </span>
+                )}
+                {waybill.unloading_date && (
+                  <span className="ml-4">
+                    卸货日期：{formatDate(waybill.unloading_date, 'yyyy-MM-dd')}
+                  </span>
+                )}
+              </div>
+            </DialogHeader>
+            <div className="px-4 pb-4 flex-1 overflow-hidden">
+              <VehicleTrackingMap
+                trackingData={trajectoryData}
+                licensePlate={waybill.license_plate}
+                loading={trajectoryLoading}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </div>

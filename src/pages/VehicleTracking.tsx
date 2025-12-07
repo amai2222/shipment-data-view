@@ -142,6 +142,7 @@ export default function VehicleTracking() {
     error?: string;
   }>>([]);
   const locationAbortControllerRef = useRef<AbortController | null>(null);
+  const [retryingLicensePlate, setRetryingLicensePlate] = useState<string | null>(null);
   
   // 多车辆地图相关状态
   const [multiVehicleMapDialogOpen, setMultiVehicleMapDialogOpen] = useState(false);
@@ -1548,6 +1549,252 @@ export default function VehicleTracking() {
     }
   };
 
+  // 🔴 单独重新查询某个失败的车辆
+  const handleRetryLocation = async (licensePlate: string) => {
+    const trimmedPlate = licensePlate.trim();
+    
+    // 设置正在重新查询的状态
+    setRetryingLicensePlate(trimmedPlate);
+    
+    // 找到该车牌号在结果数组中的索引
+    const resultIndex = locationResults.findIndex(r => r.licensePlate === trimmedPlate);
+    if (resultIndex === -1) {
+      setRetryingLicensePlate(null);
+      toast({
+        title: "查询失败",
+        description: "未找到该车牌号的记录",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 更新该结果的状态为"查询中"
+    const updatedResults = [...locationResults];
+    updatedResults[resultIndex] = {
+      licensePlate: trimmedPlate,
+      success: false,
+      error: '查询中...'
+    };
+    setLocationResults(updatedResults);
+
+    try {
+      const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
+
+      // 1. 查询车辆ID
+      const { data: vehicleIdMapping, error: mappingError } = await supabase
+        .from('vehicle_tracking_id_mappings')
+        .select('external_tracking_id')
+        .eq('license_plate', trimmedPlate)
+        .maybeSingle();
+
+      if (mappingError || !vehicleIdMapping?.external_tracking_id) {
+        const finalResults = [...locationResults];
+        finalResults[resultIndex] = {
+          licensePlate: trimmedPlate,
+          success: false,
+          error: '未找到对应的车辆ID，请先同步车辆ID'
+        };
+        setLocationResults(finalResults);
+        setRetryingLicensePlate(null);
+        toast({
+          title: "查询失败",
+          description: "未找到对应的车辆ID，请先同步车辆ID",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const vehicleId = vehicleIdMapping.external_tracking_id;
+
+      // 2. 查询最近1小时的轨迹
+      const now = Date.now();
+      const oneHourAgo = now - 60 * 60 * 1000; // 1小时前
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/vehicle-tracking`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify({
+          vehicleId: vehicleId,
+          field: 'id',
+          startTime: oneHourAgo,
+          endTime: now
+        })
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const errorMessage = errorBody.message || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // 特殊处理资源不足错误
+        let finalErrorMessage = errorMessage;
+        if (errorMessage.includes('compute resources') || errorMessage.includes('资源不足') || response.status === 503) {
+          finalErrorMessage = '服务器资源不足，请稍后重试';
+        }
+        
+        const finalResults = [...locationResults];
+        finalResults[resultIndex] = {
+          licensePlate: trimmedPlate,
+          success: false,
+          vehicleId: vehicleId,
+          error: finalErrorMessage
+        };
+        setLocationResults(finalResults);
+        setRetryingLicensePlate(null);
+        toast({
+          title: "查询失败",
+          description: finalErrorMessage,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const data = await response.json();
+      
+      // 3. 解析轨迹数据，获取最近的时间点
+      let trackingPoints: Array<{
+        lat: number;
+        lng: number;
+        time: number;
+        address?: string;
+        speed?: number;
+      }> = [];
+
+      if (Array.isArray(data)) {
+        trackingPoints = data.map((point: unknown) => {
+          const p = point as Record<string, unknown>;
+          // 处理时间戳：可能是数字或字符串
+          let timeValue = 0;
+          if (typeof p.time === 'number') {
+            timeValue = p.time;
+          } else if (typeof p.time === 'string') {
+            timeValue = parseInt(p.time, 10) || 0;
+          }
+          
+          // 处理速度：根据 JT/T 808 部标协议，spd 字段采用 1/10 km/h 单位
+          let speedValue: number | undefined = undefined;
+          if (p.speed !== undefined) {
+            speedValue = typeof p.speed === 'number' ? p.speed : parseFloat(String(p.speed)) || undefined;
+          } else if (p.spd !== undefined) {
+            const spdNum = typeof p.spd === 'number' ? p.spd : parseFloat(String(p.spd));
+            if (!isNaN(spdNum) && spdNum >= 0) {
+              speedValue = spdNum / 10; // 转换为 km/h
+            }
+          }
+            
+          return {
+            lat: (p.lat as number) || 0,
+            lng: (p.lng as number) || 0,
+            time: timeValue,
+            address: p.address as string | undefined,
+            speed: speedValue
+          };
+        }).filter((p: { lat: number; lng: number; time: number }) => 
+          p.lat !== 0 && p.lng !== 0 && p.time > 0
+        );
+      } else if (data && typeof data === 'object') {
+        // 兼容其他可能的返回格式
+        if (Array.isArray(data.points)) {
+          trackingPoints = data.points.map((point: unknown) => {
+            const p = point as Record<string, unknown>;
+            return {
+              lat: (p.lat as number) || 0,
+              lng: (p.lng as number) || 0,
+              time: typeof p.time === 'number' ? p.time : (typeof p.time === 'string' ? parseInt(p.time, 10) : 0),
+              address: p.address as string | undefined,
+              speed: typeof p.speed === 'number' ? p.speed : (typeof p.speed === 'string' ? parseFloat(p.speed) : undefined)
+            };
+          }).filter((p: { lat: number; lng: number; time: number }) => 
+            p.lat !== 0 && p.lng !== 0 && p.time > 0
+          );
+        } else if (Array.isArray(data.data)) {
+          trackingPoints = data.data.map((point: unknown) => {
+            const p = point as Record<string, unknown>;
+            return {
+              lat: (p.lat as number) || 0,
+              lng: (p.lng as number) || 0,
+              time: typeof p.time === 'number' ? p.time : (typeof p.time === 'string' ? parseInt(p.time, 10) : 0),
+              address: p.address as string | undefined,
+              speed: typeof p.speed === 'number' ? p.speed : (typeof p.speed === 'string' ? parseFloat(p.speed) : undefined)
+            };
+          }).filter((p: { lat: number; lng: number; time: number }) => 
+            p.lat !== 0 && p.lng !== 0 && p.time > 0
+          );
+        }
+      }
+
+      if (trackingPoints.length === 0) {
+        const finalResults = [...locationResults];
+        finalResults[resultIndex] = {
+          licensePlate: trimmedPlate,
+          success: false,
+          vehicleId: vehicleId,
+          error: '最近1小时内无轨迹数据'
+        };
+        setLocationResults(finalResults);
+        setRetryingLicensePlate(null);
+        toast({
+          title: "查询完成",
+          description: "最近1小时内无轨迹数据",
+          variant: "default"
+        });
+        return;
+      }
+
+      // 4. 找到离当前时间最近的点
+      const nowTime = Date.now();
+      const nearestPoint = trackingPoints.reduce((nearest, current) => {
+        const nearestDiff = Math.abs(nearest.time - nowTime);
+        const currentDiff = Math.abs(current.time - nowTime);
+        return currentDiff < nearestDiff ? current : nearest;
+      });
+
+      // 更新结果
+      const finalResults = [...locationResults];
+      finalResults[resultIndex] = {
+        licensePlate: trimmedPlate,
+        success: true,
+        vehicleId: vehicleId,
+        location: nearestPoint
+      };
+      setLocationResults(finalResults);
+      setRetryingLicensePlate(null);
+
+      toast({
+        title: "查询成功",
+        description: `已成功查询 ${trimmedPlate} 的位置信息`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '查询失败';
+      
+      // 特殊处理资源不足错误
+      let finalErrorMessage = errorMessage;
+      if (errorMessage.includes('compute resources') || errorMessage.includes('资源不足')) {
+        finalErrorMessage = '服务器资源不足，请稍后重试';
+      }
+      
+      const finalResults = [...locationResults];
+      finalResults[resultIndex] = {
+        licensePlate: trimmedPlate,
+        success: false,
+        error: finalErrorMessage
+      };
+      setLocationResults(finalResults);
+      setRetryingLicensePlate(null);
+      
+      toast({
+        title: "查询失败",
+        description: finalErrorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
   // 🔴 解析批量输入的车牌号（支持空格、逗号、换行）
   const parseBatchLicensePlates = (text: string): string[] => {
     if (!text.trim()) return [];
@@ -2697,7 +2944,12 @@ export default function VehicleTracking() {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {locationResults.map((result, index) => (
-                      <LocationCard key={`${result.licensePlate}-${index}`} result={result} />
+                      <LocationCard 
+                        key={`${result.licensePlate}-${index}`} 
+                        result={result}
+                        onRetry={handleRetryLocation}
+                        retrying={retryingLicensePlate === result.licensePlate}
+                      />
                     ))}
                   </div>
                 </CardContent>
