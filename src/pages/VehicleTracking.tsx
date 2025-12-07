@@ -640,29 +640,6 @@ export default function VehicleTracking() {
       setTimeout(() => {
         setSyncProgress(null);
       }, 3000);
-    } catch (error) {
-      // 如果是取消操作，不显示错误
-      if (error instanceof Error && (error.name === 'AbortError' || error.message === '操作已取消')) {
-        return; // 取消操作已在handleCancelSyncVehicleIds中处理
-      }
-
-      console.error('同步车辆ID失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '无法同步车辆ID';
-      
-      setSyncProgress({
-        current: 0,
-        total: 0,
-        results: [{
-          licensePlate: '系统',
-          success: false,
-          message: `❌ 同步失败: ${errorMessage}`
-        }]
-      });
-
-      // 3秒后清除错误信息
-      setTimeout(() => {
-        setSyncProgress(null);
-      }, 3000);
     } finally {
       setSyncing(false);
       syncAbortControllerRef.current = null;
