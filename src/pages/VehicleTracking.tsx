@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X, FileText, Map } from 'lucide-react';
+import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X, FileText, Map as MapIcon } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 import { LocationCard } from '@/components/LocationCard';
 import { MultiVehicleLocationMap } from '@/components/MultiVehicleLocationMap';
@@ -2643,7 +2643,7 @@ export default function VehicleTracking() {
                         variant="outline"
                         size="sm"
                       >
-                        <Map className="mr-2 h-4 w-4" />
+                        <MapIcon className="mr-2 h-4 w-4" />
                         查看多车辆地图 ({locationResults.filter(r => r.success && r.location).length})
                       </Button>
                     )}
@@ -2894,7 +2894,7 @@ export default function VehicleTracking() {
         <DialogContent className="max-w-6xl w-full h-[90vh] p-0 flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <Map className="h-5 w-5" />
+              <MapIcon className="h-5 w-5" />
               多车辆位置地图
             </DialogTitle>
             <DialogDescription>
