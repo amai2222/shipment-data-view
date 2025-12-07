@@ -332,30 +332,111 @@ export default function Drivers() {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         let importedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
         interface ExcelRow {
           '司机姓名'?: string;
           '车牌号'?: string;
           '司机电话'?: string;
         }
-        for (const row of jsonData as ExcelRow[]) {
+
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i] as ExcelRow;
           const driverData = {
             name: String(row['司机姓名'] || '').trim(),
             licensePlate: String(row['车牌号'] || '').trim(),
             phone: String(row['司机电话'] || '').trim(),
           };
-          if (!driverData.name || !driverData.licensePlate) continue;
-          await SupabaseStorage.addDriver(driverData);
-          importedCount++;
+
+          // 跳过空行
+          if (!driverData.name || !driverData.licensePlate) {
+            skippedCount++;
+            continue;
+          }
+
+          try {
+            // 先查询司机是否已存在（根据姓名和车牌号）
+            const { data: existingDriver, error: queryError } = await supabase
+              .from('drivers')
+              .select('id, name, license_plate, phone')
+              .eq('name', driverData.name)
+              .eq('license_plate', driverData.licensePlate)
+              .single();
+
+            if (queryError && queryError.code !== 'PGRST116') {
+              // PGRST116 表示未找到记录，这是正常的
+              throw queryError;
+            }
+
+            if (existingDriver) {
+              // 司机已存在，更新信息（更新电话等字段）
+              const { error: updateError } = await supabase
+                .from('drivers')
+                .update({
+                  phone: driverData.phone || existingDriver.phone,
+                })
+                .eq('id', existingDriver.id);
+
+              if (updateError) {
+                throw updateError;
+              }
+
+              updatedCount++;
+            } else {
+              // 司机不存在，插入新记录
+              await SupabaseStorage.addDriver(driverData);
+              importedCount++;
+            }
+          } catch (error) {
+            errorCount++;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            errors.push(`第 ${i + 2} 行（${driverData.name}/${driverData.licensePlate}）: ${errorMessage}`);
+            console.error(`导入第 ${i + 2} 行失败:`, error);
+          }
         }
 
-        toast({
-          title: "导入完成",
-          description: `成功导入 ${importedCount} 个司机`,
-        });
+        // 显示导入结果
+        const totalProcessed = importedCount + updatedCount;
+        let description = '';
+        if (totalProcessed > 0) {
+          description = `成功处理 ${totalProcessed} 个司机`;
+          if (importedCount > 0) description += `（新增 ${importedCount} 个`;
+          if (updatedCount > 0) description += `${importedCount > 0 ? '，' : ''}更新 ${updatedCount} 个`;
+          if (importedCount > 0 || updatedCount > 0) description += '）';
+        }
+        if (skippedCount > 0) {
+          description += `，跳过 ${skippedCount} 个空行`;
+        }
+        if (errorCount > 0) {
+          description += `，失败 ${errorCount} 个`;
+        }
+
+        if (errorCount > 0) {
+          toast({
+            title: "导入完成（有错误）",
+            description: description,
+            variant: "destructive",
+          });
+          console.error('导入错误详情:', errors);
+        } else {
+          toast({
+            title: "导入完成",
+            description: description || '没有有效数据',
+          });
+        }
 
         await loadData(1, '');
       } catch (error) {
-        toast({ title: "导入失败", variant: "destructive" });
+        console.error('Excel导入失败:', error);
+        const errorMessage = error instanceof Error ? error.message : '未知错误';
+        toast({
+          title: "导入失败",
+          description: errorMessage,
+          variant: "destructive",
+        });
       }
     };
     reader.readAsArrayBuffer(file);

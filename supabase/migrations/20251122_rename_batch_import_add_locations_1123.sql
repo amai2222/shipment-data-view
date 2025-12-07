@@ -95,7 +95,31 @@ BEGIN
         
         BEGIN
             SELECT id INTO project_id_val FROM public.projects WHERE name = TRIM(record_data->>'project_name') LIMIT 1;
-            SELECT id INTO driver_id_val FROM public.drivers WHERE name = TRIM(record_data->>'driver_name') AND license_plate = TRIM(record_data->>'license_plate') LIMIT 1;
+            
+            -- ✅ 修复：查找或创建司机
+            SELECT id INTO driver_id_val 
+            FROM public.drivers 
+            WHERE name = TRIM(record_data->>'driver_name') 
+            AND license_plate = TRIM(record_data->>'license_plate') 
+            LIMIT 1;
+            
+            -- 如果司机不存在，创建新司机
+            IF driver_id_val IS NULL THEN
+                INSERT INTO public.drivers (name, license_plate, phone, user_id)
+                VALUES (
+                    TRIM(record_data->>'driver_name'),
+                    TRIM(record_data->>'license_plate'),
+                    TRIM(record_data->>'driver_phone'),
+                    auth.uid()
+                )
+                RETURNING id INTO driver_id_val;
+                
+                -- ✅ 关联司机到项目
+                INSERT INTO public.driver_projects (driver_id, project_id, user_id)
+                VALUES (driver_id_val, project_id_val, auth.uid())
+                ON CONFLICT (driver_id, project_id) DO NOTHING;
+            END IF;
+            
             SELECT id INTO chain_id_val FROM public.partner_chains WHERE chain_name = TRIM(record_data->>'chain_name') AND project_id = project_id_val LIMIT 1;
 
             -- ✅ 新增：查找或创建装货地点
