@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
-import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X, FileText } from 'lucide-react';
+import { Search, MapPin, Calendar, Truck, Route, Loader2, RefreshCw, Plus, Database, X, FileText, Map } from 'lucide-react';
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 import { LocationCard } from '@/components/LocationCard';
+import { MultiVehicleLocationMap } from '@/components/MultiVehicleLocationMap';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useVehicleSync } from '@/hooks/useVehicleSync';
@@ -141,6 +142,9 @@ export default function VehicleTracking() {
     error?: string;
   }>>([]);
   const locationAbortControllerRef = useRef<AbortController | null>(null);
+  
+  // 多车辆地图相关状态
+  const [multiVehicleMapDialogOpen, setMultiVehicleMapDialogOpen] = useState(false);
   
   // Token 刷新相关状态
   const [refreshingToken, setRefreshingToken] = useState(false);
@@ -2627,10 +2631,23 @@ export default function VehicleTracking() {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    定位结果 ({locationResults.length})
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      定位结果 ({locationResults.length})
+                    </CardTitle>
+                    {/* 多车辆地图按钮 - 只显示有成功定位结果的车辆 */}
+                    {locationResults.filter(r => r.success && r.location).length > 0 && (
+                      <Button
+                        onClick={() => setMultiVehicleMapDialogOpen(true)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Map className="mr-2 h-4 w-4" />
+                        查看多车辆地图 ({locationResults.filter(r => r.success && r.location).length})
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2869,6 +2886,37 @@ export default function VehicleTracking() {
               </>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 多车辆位置地图对话框 */}
+      <Dialog open={multiVehicleMapDialogOpen} onOpenChange={setMultiVehicleMapDialogOpen}>
+        <DialogContent className="max-w-6xl w-full h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Map className="h-5 w-5" />
+              多车辆位置地图
+            </DialogTitle>
+            <DialogDescription>
+              显示 {locationResults.filter(r => r.success && r.location).length} 个车辆的最后定位位置
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 flex-1 relative overflow-hidden">
+            <MultiVehicleLocationMap
+              locations={locationResults
+                .filter(r => r.success && r.location)
+                .map(r => ({
+                  licensePlate: r.licensePlate,
+                  lat: r.location!.lat,
+                  lng: r.location!.lng,
+                  time: r.location!.time,
+                  address: r.location!.address,
+                  speed: r.location!.speed,
+                  vehicleId: r.vehicleId
+                }))}
+              loading={locationLoading}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
