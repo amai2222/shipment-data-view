@@ -331,7 +331,7 @@ export async function getToken(type: 'add' | 'query'): Promise<string> {
   // 1. 检查内存缓存（单次调用内有效）
   const memoryCache = MEMORY_CACHE[internalType];
   if (memoryCache && Date.now() < memoryCache.expiresAt) {
-    console.log(`✅ [${internalType}] 使用内存缓存 Token`);
+    // 内存缓存命中：这是正常的优化行为，不需要记录日志
     return memoryCache.token;
   }
   

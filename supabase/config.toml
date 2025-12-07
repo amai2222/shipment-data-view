@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.amap-geocoding]
 verify_jwt = true
+
+[functions.process-vehicles-batch-parallel]
+verify_jwt = false

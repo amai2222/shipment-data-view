@@ -368,6 +368,7 @@ async function queryAndSyncVehicleId(licensePlate: string): Promise<{
 
 /**
  * 批量并行添加车辆（批次并发）
+ * @param onProgress 进度回调函数（用于实时更新前端进度，通过中间状态存储）
  */
 async function batchAddVehicles(
   licensePlates: string[],
@@ -376,6 +377,16 @@ async function batchAddVehicles(
 ): Promise<Array<{ licensePlate: string; success: boolean; message: string; status?: 'created' | 'existed' }>> {
   const results: Array<{ licensePlate: string; success: boolean; message: string; status?: 'created' | 'existed' }> = [];
   const total = licensePlates.length;
+  
+  // 🔴 关键优化：在批量处理开始前，先预热Token缓存（只获取一次）
+  // 这样所有并行进程都能使用内存缓存中的Token，避免重复获取
+  console.log('🔑 [批量添加] 预热Token缓存...');
+  try {
+    await getToken('add');
+    console.log('✅ [批量添加] Token缓存预热完成，后续并行进程将使用内存缓存');
+  } catch (error) {
+    console.warn(`⚠️ [批量添加] Token预热失败，但继续处理: ${error instanceof Error ? error.message : String(error)}`);
+  }
   
   // 将车牌号分成批次
   const batches: string[][] = [];
@@ -436,6 +447,16 @@ async function batchQueryAndSyncVehicleIds(
 ): Promise<Array<{ licensePlate: string; success: boolean; message: string; externalId?: string }>> {
   const results: Array<{ licensePlate: string; success: boolean; message: string; externalId?: string }> = [];
   const total = licensePlates.length;
+  
+  // 🔴 关键优化：在批量查询开始前，先预热Token缓存（只获取一次）
+  // 这样所有并行进程都能使用内存缓存中的Token，避免重复获取
+  console.log('🔑 [批量查询ID] 预热Token缓存...');
+  try {
+    await getToken('query');
+    console.log('✅ [批量查询ID] Token缓存预热完成，后续并行进程将使用内存缓存');
+  } catch (error) {
+    console.warn(`⚠️ [批量查询ID] Token预热失败，但继续处理: ${error instanceof Error ? error.message : String(error)}`);
+  }
   
   // 将车牌号分成批次
   const batches: string[][] = [];

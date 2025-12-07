@@ -199,9 +199,7 @@ export default function VehicleTracking() {
           message: '⏹️ 同步操作已取消'
         }]
       });
-      setTimeout(() => {
-        setSyncProgress(null);
-      }, 2000);
+      // 不再自动清除，用户可以手动关闭
     }
   };
 
@@ -330,14 +328,12 @@ export default function VehicleTracking() {
             results: [{
               licensePlate: '系统',
               success: true,
-              message: '✅ 所有车牌号已在vehicle_tracking_id_mappings表中，无需处理'
-            }]
-          });
-          setTimeout(() => {
-            setSyncing(false);
-            setSyncProgress(null);
-          }, 2000);
-          return;
+            message: '✅ 所有车牌号已在vehicle_tracking_id_mappings表中，无需处理'
+          }]
+        });
+        // 不再自动清除，用户可以手动关闭
+        setSyncing(false);
+        return;
         }
 
         // 备选方案也使用并行处理（与主流程保持一致）
@@ -472,10 +468,8 @@ export default function VehicleTracking() {
           }]
         });
         
-        setTimeout(() => {
-          setSyncing(false);
-          setSyncProgress(null);
-        }, 2000);
+        // 不再自动清除，用户可以手动关闭
+        setSyncing(false);
         return;
       }
 
@@ -494,6 +488,33 @@ export default function VehicleTracking() {
       const { supabaseUrl, supabaseAnonKey, authToken } = await getSupabaseConfig();
 
       // 调用并行批量处理的Edge Function，一次性发送所有车牌号
+      // 同时启动进度模拟，因为后端是批量处理，无法实时返回进度
+      const totalPlates = platesArray.length;
+      let progressSimulated = 0;
+      const progressInterval = setInterval(() => {
+        // 模拟进度：假设每个车辆平均需要2-3秒处理
+        // 添加阶段大约占总进度的50%，查询阶段占50%
+        if (progressSimulated < totalPlates * 0.5) {
+          progressSimulated += Math.max(1, Math.floor(totalPlates * 0.02)); // 每次增加2%
+        } else if (progressSimulated < totalPlates * 0.9) {
+          progressSimulated += Math.max(1, Math.floor(totalPlates * 0.01)); // 查询阶段稍慢
+        } else {
+          progressSimulated = Math.min(progressSimulated + 1, totalPlates - 1); // 接近完成时慢一点
+        }
+        
+        if (progressSimulated < totalPlates) {
+          setSyncProgress(prev => prev ? {
+            ...prev,
+            current: progressSimulated,
+            results: prev.results.length <= 1 ? [...prev.results, {
+              licensePlate: '系统',
+              success: true,
+              message: `🔄 正在处理中... (${progressSimulated}/${totalPlates})`
+            }] : prev.results
+          } : null);
+        }
+      }, 500); // 每500ms更新一次进度
+
       const response = await fetch(`${supabaseUrl}/functions/v1/process-vehicles-batch-parallel`, {
         method: 'POST',
         headers: {
@@ -507,6 +528,9 @@ export default function VehicleTracking() {
         }),
         signal: abortSignal
       });
+
+      // 清除进度模拟定时器
+      clearInterval(progressInterval);
 
       // 检查是否被取消
       if (abortSignal.aborted) {
@@ -590,11 +614,32 @@ export default function VehicleTracking() {
 
       console.log(`📊 [同步车辆ID] 并行处理完成 - 总数: ${platesArray.length}, 成功: ${successCount}, 失败: ${failedCount}`);
 
-      // 延迟清除进度，让用户看到结果（延长到10秒）
+      // 🔴 不再自动清除日志，让用户可以查看所有结果
+      // 用户可以通过关闭按钮手动关闭日志窗口
+
+    } catch (error) {
+      // 如果是取消操作，不显示错误
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === '操作已取消')) {
+        return; // 取消操作已在handleCancelSyncVehicleIds中处理
+      }
+
+      console.error('同步车辆ID失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '无法同步车辆ID';
+      
+      setSyncProgress({
+        current: 0,
+        total: 0,
+        results: [{
+          licensePlate: '系统',
+          success: false,
+          message: `❌ 同步失败: ${errorMessage}`
+        }]
+      });
+
+      // 3秒后清除错误信息
       setTimeout(() => {
         setSyncProgress(null);
-      }, 10000);
-
+      }, 3000);
     } catch (error) {
       // 如果是取消操作，不显示错误
       if (error instanceof Error && (error.name === 'AbortError' || error.message === '操作已取消')) {
@@ -2050,35 +2095,79 @@ export default function VehicleTracking() {
       {syncProgress && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5" />
-              同步进度
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                同步进度
+              </CardTitle>
+              {!syncing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSyncProgress(null)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>处理进度</span>
-                <span>{syncProgress.current} / {syncProgress.total}</span>
-              </div>
-              <div className="w-full bg-secondary rounded-full h-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${syncProgress.total > 0 ? (syncProgress.current / syncProgress.total) * 100 : 0}%` }}
-                />
-              </div>
-              {syncProgress.results.length > 0 && (
-                <div className="max-h-60 overflow-y-auto space-y-1 text-xs mt-4">
-                  {syncProgress.results.map((result, index) => (
+              {syncProgress.total > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>处理进度</span>
+                    <span>{syncProgress.current} / {syncProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
                     <div
-                      key={index}
-                      className={`p-2 rounded ${
-                        result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                      }`}
-                    >
-                      <span className="font-medium">{result.licensePlate}:</span> {result.message || (result.success ? '处理成功' : '处理失败')}
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </>
+              )}
+              {syncProgress.results.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                    <span>处理日志 ({syncProgress.results.length} 条)</span>
+                    <div className="flex gap-2">
+                      <span className="text-green-600">
+                        成功: {syncProgress.results.filter(r => r.success).length}
+                      </span>
+                      <span className="text-red-600">
+                        失败: {syncProgress.results.filter(r => !r.success).length}
+                      </span>
                     </div>
-                  ))}
+                  </div>
+                  <div className="max-h-96 overflow-y-auto space-y-1 text-xs border rounded-md p-2 bg-muted/30">
+                    {syncProgress.results.map((result, index) => (
+                      <div
+                        key={index}
+                        className={`p-2 rounded ${
+                          result.success 
+                            ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800' 
+                            : 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={result.success ? 'text-green-600' : 'text-red-600'}>
+                            {result.success ? '✅' : '❌'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{result.licensePlate}:</span>{' '}
+                            <span>{result.message || (result.success ? '处理成功' : '处理失败')}</span>
+                            {result.error && (
+                              <div className="mt-1 text-xs opacity-80 italic">
+                                错误详情: {result.error}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
