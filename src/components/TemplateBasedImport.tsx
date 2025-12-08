@@ -503,8 +503,8 @@ export default function TemplateBasedImport() {
   };
 
   // 执行导入
-  // 注意：此函数使用 batch_import_logistics_records 和 batch_update_logistics_records
-  // - 创建模式：使用 batch_import_logistics_records
+  // 注意：此函数使用 batch_import_logistics_records_1208 和 batch_update_logistics_records
+  // - 创建模式：使用 batch_import_logistics_records_1208
   // - 更新模式：使用 batch_update_logistics_records
   const executeImport = async () => {
     if (!importPreview) {
@@ -757,7 +757,7 @@ export default function TemplateBasedImport() {
       // 更新模式：也插入新记录
       if (formattedNewRecords.length > 0) {
         try {
-          const { data: insertData, error: insertError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records', {
+          const { data: insertData, error: insertError } = await supabase.rpc<BatchImportResult>('batch_import_logistics_records_1208', {
             p_records: formattedNewRecords
           });
           

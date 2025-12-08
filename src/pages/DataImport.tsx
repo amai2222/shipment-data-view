@@ -362,7 +362,7 @@ export default function DataImportWithDuplicateCheck() {
     addLog(`其中新记录 ${importPreview.new_records.length} 条，强制导入重复记录 ${approvedDuplicates.size} 条`);
 
     try {
-      const { data: result, error } = await supabase.rpc('batch_import_logistics_records', {
+      const { data: result, error } = await supabase.rpc('batch_import_logistics_records_1208', {
         p_records: finalRecordsToImport
       });
 

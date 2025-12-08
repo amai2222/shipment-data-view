@@ -266,7 +266,7 @@ export function useExcelImportWithUpdate(onImportSuccess: () => void) {
       + `${importMode === 'update' ? `将更新重复记录 ${approvedDuplicates.size} 条` : '重复记录已跳过'}`);
 
     try {
-      const { data: result, error } = await (supabase.rpc as any)('batch_import_logistics_records_with_update_1123', { 
+      const { data: result, error } = await (supabase.rpc as any)('batch_import_logistics_records_with_update_1208', { 
         p_records: recordsToImport,
         p_update_mode: importMode === 'update'
       } as any);

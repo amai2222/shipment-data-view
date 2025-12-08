@@ -4676,6 +4676,10 @@ export type Database = {
         Args: { p_records: Json }
         Returns: Json
       }
+      batch_import_logistics_records_1208: {
+        Args: { p_records: Json }
+        Returns: Json
+      }
       batch_import_logistics_records_1112: {
         Args: { p_records: Json }
         Returns: Json
@@ -4693,6 +4697,10 @@ export type Database = {
         Returns: Json
       }
       batch_import_logistics_records_with_update_1123: {
+        Args: { p_records: Json; p_update_mode?: boolean }
+        Returns: Json
+      }
+      batch_import_logistics_records_with_update_1208: {
         Args: { p_records: Json; p_update_mode?: boolean }
         Returns: Json
       }

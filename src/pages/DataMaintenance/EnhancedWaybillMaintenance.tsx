@@ -600,8 +600,8 @@ export default function EnhancedWaybillMaintenance() {
       
       progressManager.updateProgress(0, '准备导入数据...');
       
-      // ✅ 修复：使用与标准版相同的RPC函数，支持自动创建地点并关联项目
-      const { data: result, error } = await supabase.rpc('batch_import_logistics_records_with_update_1123', {
+      // ✅ 修复：使用与标准版相同的RPC函数，支持自动创建地点并关联项目，支持 billing_type_id
+      const { data: result, error } = await supabase.rpc('batch_import_logistics_records_with_update_1208', {
         p_records: recordsToImport,
         p_update_mode: false  // 增强版目前只支持创建模式
       });
