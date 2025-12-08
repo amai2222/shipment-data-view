@@ -601,37 +601,183 @@ export default function EnhancedWaybillMaintenance() {
       progressManager.updateProgress(0, '准备导入数据...');
       
       // ✅ 修复：使用与标准版相同的RPC函数，支持自动创建地点并关联项目，支持 billing_type_id
+      // ✅ 添加详细的请求日志，便于调试 500 错误
+      console.log('准备调用数据库函数 batch_import_logistics_records_with_update_1208', {
+        recordsCount: recordsToImport.length,
+        firstRecord: recordsToImport[0] ? {
+          project_name: recordsToImport[0].project_name,
+          driver_name: recordsToImport[0].driver_name,
+          license_plate: recordsToImport[0].license_plate,
+          loading_date: recordsToImport[0].loading_date,
+          loading_location: recordsToImport[0].loading_location,
+          unloading_location: recordsToImport[0].unloading_location
+        } : null
+      });
+      
       const { data: result, error } = await supabase.rpc('batch_import_logistics_records_with_update_1208', {
         p_records: recordsToImport,
         p_update_mode: false  // 增强版目前只支持创建模式
       });
 
-      if (error) throw error;
+      // ✅ 修复：详细记录错误信息，包括响应状态码和详细信息
+      if (error) {
+        console.error('数据库函数调用失败 - 完整错误信息:', {
+          error,
+          errorType: typeof error,
+          errorKeys: typeof error === 'object' && error !== null ? Object.keys(error) : [],
+          recordsCount: recordsToImport.length,
+          // 尝试提取更多信息
+          message: (error as any)?.message,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+          code: (error as any)?.code
+        });
+        throw error;
+      }
+
+      // ✅ 修复：检查 result 是否为 null 或 undefined
+      if (!result) {
+        throw new Error('数据库未返回结果，导入可能失败');
+      }
+
+      // ✅ 修复：检查是否有错误详情（即使没有抛出异常，也可能有部分记录失败）
+      if (result.error_count > 0 && result.error_details && Array.isArray(result.error_details) && result.error_details.length > 0) {
+        logger.warn('部分记录导入失败', { 
+          errorCount: result.error_count,
+          successCount: result.success_count,
+          errorDetails: result.error_details
+        });
+        
+        // 记录每条失败记录的详细信息
+        result.error_details.forEach((err: any, index: number) => {
+          const excelRow = (err.record_index ?? index) + 1;
+          logger.error(`Excel第 ${excelRow} 行导入失败`, {
+            errorMessage: err.error_message || '未知错误',
+            recordData: err.record_data
+          });
+        });
+      }
 
       progressManager.updateProgress(importPreview.new_records.length, '导入完成');
 
       const importResult = importResultProcessor.processImportResult(result);
       
-      logger.success('导入完成', importResult);
-      
-      toast({
-        title: "导入成功",
-        description: importResult.summary,
-        variant: "default"
-      });
+      // 根据导入结果显示不同的消息
+      if (result.error_count > 0) {
+        logger.warn('导入部分完成', importResult);
+        toast({
+          title: "导入部分完成",
+          description: `成功 ${result.success_count} 条，失败 ${result.error_count} 条。详情请查看导入日志。`,
+          variant: result.error_count > result.success_count ? "destructive" : "default",
+          duration: 9000
+        });
+      } else {
+        logger.success('导入完成', importResult);
+        toast({
+          title: "导入成功",
+          description: importResult.summary,
+          variant: "default"
+        });
+      }
 
       setImportStep('completed');
       loadWaybillCount();
 
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
-      logger.error('导入失败', { error: errorMessage });
-      progressManager.addError(errorMessage);
+      // ✅ 修复：详细提取错误信息，避免显示"未知错误"
+      let errorMessage = "导入失败";
+      let errorDetails = "";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        errorDetails = error.stack || "";
+      } else if (typeof error === 'object' && error !== null) {
+        // 处理 Supabase 错误对象
+        const supabaseError = error as { 
+          message?: string; 
+          details?: string; 
+          hint?: string; 
+          code?: string;
+          error?: string;
+          error_description?: string;
+          status?: number;
+          statusText?: string;
+        };
+        
+        // 提取错误消息
+        if (supabaseError.message) {
+          errorMessage = supabaseError.message;
+        } else if (supabaseError.error) {
+          errorMessage = supabaseError.error;
+        } else if (supabaseError.details) {
+          errorMessage = supabaseError.details;
+        } else if (supabaseError.hint) {
+          errorMessage = supabaseError.hint;
+        } else if (supabaseError.error_description) {
+          errorMessage = supabaseError.error_description;
+        }
+        
+        // 构建详细错误信息
+        const detailsParts: string[] = [];
+        if (supabaseError.status) {
+          detailsParts.push(`HTTP状态码: ${supabaseError.status}`);
+        }
+        if (supabaseError.statusText) {
+          detailsParts.push(`状态文本: ${supabaseError.statusText}`);
+        }
+        if (supabaseError.details) {
+          detailsParts.push(`详情: ${supabaseError.details}`);
+        }
+        if (supabaseError.hint) {
+          detailsParts.push(`提示: ${supabaseError.hint}`);
+        }
+        if (supabaseError.code) {
+          detailsParts.push(`错误代码: ${supabaseError.code}`);
+        }
+        
+        // 如果是 500 错误，添加特殊提示
+        if (supabaseError.status === 500) {
+          detailsParts.push('\n⚠️ 这是服务器内部错误，可能的原因：');
+          detailsParts.push('1. 数据库函数执行时遇到未捕获的异常');
+          detailsParts.push('2. 数据格式不正确（日期、数组等）');
+          detailsParts.push('3. 数据库约束违反（唯一性、外键等）');
+          detailsParts.push('4. 触发器或存储过程执行失败');
+          detailsParts.push('\n请检查浏览器控制台的详细错误信息，或联系管理员查看服务器日志。');
+        }
+        
+        errorDetails = detailsParts.join('\n');
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      // 记录完整错误信息到控制台，方便调试
+      console.error('导入失败 - 完整错误信息:', {
+        error,
+        errorType: typeof error,
+        errorKeys: typeof error === 'object' && error !== null ? Object.keys(error) : [],
+        errorMessage,
+        errorDetails,
+        recordsCount: recordsToImport.length,
+        firstRecord: recordsToImport[0] || null
+      });
+      
+      // 显示错误信息
+      const displayMessage = errorDetails 
+        ? `${errorMessage}\n\n${errorDetails}`
+        : errorMessage;
+      
+      logger.error('导入失败', { 
+        error: errorMessage,
+        details: errorDetails,
+        recordsCount: recordsToImport.length
+      });
+      progressManager.addError(displayMessage);
       
       toast({
         title: "导入失败",
-        description: errorMessage,
-        variant: "destructive"
+        description: errorMessage.length > 100 ? errorMessage.substring(0, 100) + '...' : errorMessage,
+        variant: "destructive",
+        duration: 10000 // 延长显示时间，让用户有时间阅读
       });
       
       setImportStep('preview');
