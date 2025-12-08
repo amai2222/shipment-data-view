@@ -20,38 +20,36 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
   // 处理Excel数字日期格式
   if (typeof excelDate === 'number' && excelDate > 0) {
     try {
-      // ✅ 修复：Excel日期序列号正确计算（按中国时区处理）
-      // Excel日期序列号：1900年1月1日为1
-      // Excel错误地认为1900年是闰年（实际上不是），所以1900年2月29日存在（但实际上不存在）
-      // 修正规则：
-      // - 如果序列号 >= 60（1900年2月29日），需要减去1天来修正
-      // - 如果序列号 < 60（1900年1月1日到2月28日），不需要修正
-      // 注意：Excel中的日期序列号代表的是中国时区的日期，所以我们需要按中国时区计算
-      const excelEpoch = new Date(1900, 0, 1); // 1900年1月1日（本地时区，即中国时区）
-      let daysToAdd = excelDate - 1; // 序列号1 = 1900-01-01，所以减去1
+      // ✅ 终极修复：使用UTC时间戳进行纯数学计算
+      // 彻底避开 "1900年上海LMT时区(+8:05:43)" 导致的 "少一天/23:54" 问题
       
-      // 如果序列号 >= 60（1900年2月29日），需要减去1天来修正Excel的闰年错误
+      // 1. 修正Excel的闰年错误 (Excel 错误地认为1900是闰年)
+      let daysToAdd = excelDate - 1; 
       if (excelDate >= 60) {
         daysToAdd = daysToAdd - 1;
       }
+
+      // 2. 核心修改：使用 UTC 时间戳作为绝对基准 (1900-01-01 00:00:00 UTC)
+      const excelEpochUTC = Date.UTC(1900, 0, 1); 
       
-      const date = new Date(excelEpoch);
-      date.setDate(date.getDate() + daysToAdd);
+      // 3. 计算目标日期的毫秒数 (一天的毫秒数 = 86400000)
+      // Math.floor 确保扔掉 Excel 可能自带的小数时间，只保留整天，防止时间干扰
+      const targetTimestamp = excelEpochUTC + (Math.floor(daysToAdd) * 24 * 60 * 60 * 1000);
       
-      if (isNaN(date.getTime())) {
-        console.warn('Excel数字日期转换失败:', excelDate);
-        return null;
-      }
+      // 4. 创建日期对象
+      const date = new Date(targetTimestamp);
+
+      // 5. ⚠️ 关键：必须使用 getUTC... 方法获取年月日
+      // 因为我们是在 UTC 轴上算的，必须按 UTC 取值拼成字符串
+      // 这样生成的 "2025-11-28" 就是纯粹的日期字符串，没有时区偏移
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
       
-      // ✅ 修复：使用本地时区方法获取年月日（因为Excel数据已经是中国时区）
-      // Excel数据已经是中国时区的日期，所以使用本地时区方法获取年月日
-      // 这样确保：Excel中的 "2025-11-13" → 返回 "2025-11-13" → 后端转换为 "2025-11-13 00:00:00+08:00" → 存储为 "2025-11-12 16:00:00+00" (UTC)
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
       const result = `${year}-${month}-${day}`;
-      console.log('Excel数字日期解析成功:', { excelDate, result });
+      console.log('Excel数字日期解析成功(UTC修正版):', { excelDate, result });
       return result;
+
     } catch (error) {
       console.error('Excel数字日期解析错误:', error);
       return null;
@@ -146,23 +144,12 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
       // ✅ 修复：尝试使用 new Date() 解析其他格式
       // 注意：new Date() 可能会因为时区问题导致日期偏移
       // 优先使用手动解析，避免时区问题
+      // 注意：这个逻辑应该与 parseExcelDate 保持一致，避免行为差异
       try {
-        // 尝试匹配更多格式：YYYY-M-D, YYYY-MM-D, YYYY-M-DD 等
-        const flexibleMatch = dateStr.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-        if (flexibleMatch) {
-          const year = parseInt(flexibleMatch[1], 10);
-          const month = parseInt(flexibleMatch[2], 10);
-          const day = parseInt(flexibleMatch[3], 10);
-          // 验证日期有效性
-          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-            const result = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            console.log('灵活格式日期解析成功:', { original: dateStr, result });
-            return result;
-          }
-        }
-        
         // 如果手动解析失败，尝试使用 new Date()（作为最后的备选方案）
         // 使用本地时区方法获取年月日（因为Excel数据是中国时区）
+        // ✅ 修复：与 parseExcelDate 保持一致，直接使用 new Date() 解析，不使用灵活匹配
+        // 这样可以确保与标准版行为一致
         const date = new Date(dateStr);
         if (!isNaN(date.getTime())) {
           // ✅ 使用本地时区方法获取年月日（因为Excel数据已经是中国时区）
