@@ -7,7 +7,7 @@
 // 3. 返回YYYY-MM-DD格式的字符串，代表中国时区的日期
 // 4. 后端会将此日期字符串转换为UTC存储
 
-export const parseExcelDateEnhanced = (excelDate: any): string | null => {
+export const parseExcelDateEnhanced = (excelDate: string | number | Date | null | undefined): string | null => {
   if (excelDate === null || excelDate === undefined || excelDate === '') return null;
   
   // 调试信息
@@ -181,7 +181,7 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
 export const validateDate = (dateStr: string): boolean => {
   if (!dateStr) return false;
   const date = new Date(dateStr);
-  return !isNaN(date.getTime()) && dateStr.match(/^\d{4}-\d{2}-\d{2}$/);
+  return !isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
 };
 
 // 格式化日期显示
