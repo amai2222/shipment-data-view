@@ -88,10 +88,21 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
     try {
       const dateStr = excelDate.split(' ')[0]; // 取日期部分，忽略时间
       
-      // 标准格式：2025-01-15
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        console.log('标准格式日期解析成功:', dateStr);
-        return dateStr;
+      // 标准格式：2025-01-15 或 2025-1-15（支持没有前导零）
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+        // 手动解析，避免 new Date() 的时区问题
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const year = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const day = parseInt(parts[2], 10);
+          // 验证日期有效性
+          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            const result = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            console.log('标准格式日期解析成功:', { original: dateStr, result });
+            return result;
+          }
+        }
       }
       
       // 斜杠格式：2025/1/15 或 2025/01/15
@@ -132,9 +143,26 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
         return result;
       }
       
-      // ✅ 修复：与标准版保持一致，尝试使用 new Date() 解析其他格式
-      // 使用本地时区方法获取年月日（因为Excel数据是中国时区）
+      // ✅ 修复：尝试使用 new Date() 解析其他格式
+      // 注意：new Date() 可能会因为时区问题导致日期偏移
+      // 优先使用手动解析，避免时区问题
       try {
+        // 尝试匹配更多格式：YYYY-M-D, YYYY-MM-D, YYYY-M-DD 等
+        const flexibleMatch = dateStr.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+        if (flexibleMatch) {
+          const year = parseInt(flexibleMatch[1], 10);
+          const month = parseInt(flexibleMatch[2], 10);
+          const day = parseInt(flexibleMatch[3], 10);
+          // 验证日期有效性
+          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            const result = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            console.log('灵活格式日期解析成功:', { original: dateStr, result });
+            return result;
+          }
+        }
+        
+        // 如果手动解析失败，尝试使用 new Date()（作为最后的备选方案）
+        // 使用本地时区方法获取年月日（因为Excel数据是中国时区）
         const date = new Date(dateStr);
         if (!isNaN(date.getTime())) {
           // ✅ 使用本地时区方法获取年月日（因为Excel数据已经是中国时区）
@@ -143,7 +171,7 @@ export const parseExcelDateEnhanced = (excelDate: any): string | null => {
           const month = String(date.getMonth() + 1).padStart(2, '0');
           const day = String(date.getDate()).padStart(2, '0');
           const result = `${year}-${month}-${day}`;
-          console.log('其他格式日期解析成功:', result);
+          console.log('其他格式日期解析成功（使用new Date）:', { original: dateStr, result });
           return result;
         }
       } catch (error) {
