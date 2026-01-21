@@ -2370,35 +2370,37 @@ export default function VehicleTracking() {
             )}
           </Button>
           {syncing && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>同步中...</span>
-            </div>
+            <>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>同步中...</span>
+              </div>
 
-            {/* 地图全屏弹窗 */}
-            <Dialog open={mapFullscreenOpen} onOpenChange={setMapFullscreenOpen}>
-              <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-2">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between">
-                    <span>轨迹地图全屏视图</span>
-                    <span className="text-xs text-muted-foreground">
-                      双击/滚轮可缩放，拖拽可平移
-                    </span>
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="w-full h-full">
-                  <VehicleTrackingMap
-                    trackingData={trackingData}
-                    licensePlate={useVehicleId ? undefined : licensePlate}
-                    loading={loading}
-                    showStops={showStops}
-                    minStopMinutes={minStopMinutes}
-                    stopSpeedThreshold={stopSpeedThreshold}
-                    height="80vh"
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
+              {/* 地图全屏弹窗 */}
+              <Dialog open={mapFullscreenOpen} onOpenChange={setMapFullscreenOpen}>
+                <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-2">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center justify-between">
+                      <span>轨迹地图全屏视图</span>
+                      <span className="text-xs text-muted-foreground">
+                        双击/滚轮可缩放，拖拽可平移
+                      </span>
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="w-full h-full">
+                    <VehicleTrackingMap
+                      trackingData={trackingData}
+                      licensePlate={useVehicleId ? undefined : licensePlate}
+                      loading={loading}
+                      showStops={showStops}
+                      minStopMinutes={minStopMinutes}
+                      stopSpeedThreshold={stopSpeedThreshold}
+                      height="80vh"
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </div>
       </div>
