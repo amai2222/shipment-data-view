@@ -18,6 +18,16 @@ interface VehicleTrackingMapProps {
   trackingData: unknown;
   licensePlate?: string;
   loading?: boolean;
+  // 是否显示停留信息（默认由上层控制，默认关闭）
+  showStops?: boolean;
+  // 最小停留时长（分钟），用于过滤短暂停留
+  minStopMinutes?: number;
+  // 停留速度阈值（km/h），低于等于此速度视为停留
+  stopSpeedThreshold?: number;
+  // 地图高度，可以是像素或 CSS 高度字符串（例如 '80vh'）
+  height?: number | string;
+  // 请求全屏显示地图的回调（由上层页面处理）
+  onRequestFullscreen?: () => void;
 }
 
 // 声明全局百度地图类型
@@ -54,7 +64,16 @@ declare global {
   }
 }
 
-export function VehicleTrackingMap({ trackingData, licensePlate, loading }: VehicleTrackingMapProps) {
+export function VehicleTrackingMap({
+  trackingData,
+  licensePlate,
+  loading,
+  showStops = false,
+  minStopMinutes = 10,
+  stopSpeedThreshold = 3,
+  height = '600px',
+  onRequestFullscreen
+}: VehicleTrackingMapProps) {
   // 🔴 组件渲染时立即打印日志
   console.log('🚀 VehicleTrackingMap 组件渲染');
   console.log('🚀 Props:', { trackingData, licensePlate, loading });
@@ -63,6 +82,8 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   console.log('🚀 trackingData 是否为 null:', trackingData === null);
   console.log('🚀 trackingData 是否为 undefined:', trackingData === undefined);
   
+  const resolvedHeight = typeof height === 'number' ? `${height}px` : height;
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<unknown>(null);
   const scriptLoadingRef = useRef(false); // 🔴 跟踪脚本是否正在加载
@@ -684,7 +705,11 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           console.warn('⚠️ 没有有效的轨迹点可以绘制');
         }
 
-        // ✅ 检测并标记停留点
+        // ✅ 检测并标记停留点（可配置开关）
+        // 如果未开启显示停留信息，则跳过检测
+        if (!showStops) {
+          console.log('ℹ️ 未开启显示停留信息开关，跳过停留点检测和标记');
+        } else {
         interface StopInfo {
           lat: number;
           lng: number;
@@ -695,9 +720,11 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
 
         const detectStops = (points: TrackingPoint[]): StopInfo[] => {
           const stops: StopInfo[] = [];
-          const STOP_SPEED_THRESHOLD = 5; // 速度阈值：5 km/h 以下视为停留
+          // 使用可配置的速度阈值（默认 3 km/h 以下视为停留）
+          const STOP_SPEED_THRESHOLD = stopSpeedThreshold;
           const STOP_DISTANCE_THRESHOLD = 0.001; // 距离阈值：约100米内视为同一停留点
-          const MIN_STOP_DURATION = 3; // 最小停留时长：3分钟（过滤掉短暂停留）
+          // 使用可配置的最小停留时长（分钟，默认 10 分钟）
+          const MIN_STOP_DURATION = minStopMinutes;
 
           let currentStopStart: TrackingPoint | null = null;
           let currentStopPoints: TrackingPoint[] = [];
@@ -833,6 +860,7 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           map.addOverlay(stopLabel);
           console.log(`✅ 停留点 ${index + 1} 已添加: 位置(${stop.lat}, ${stop.lng}), 时长${stop.duration}分钟`);
         });
+        }
 
         // 🔴 添加起点标记 - 使用过滤后的有效点的第一个点，确保与轨迹线一致
         if (validPoints.length > 0) {
@@ -905,12 +933,26 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
   return (
     <Card>
       <CardContent className="p-0">
-        <div className="relative w-full h-96 rounded-lg overflow-hidden" style={{ minHeight: '400px' }}>
+        {/* 使用可配置高度，提升可视范围 */}
+        <div
+          className="relative w-full rounded-lg overflow-hidden"
+          style={{ minHeight: resolvedHeight, height: resolvedHeight }}
+        >
+          {/* 全屏查看按钮（可选） */}
+          {onRequestFullscreen && (
+            <button
+              type="button"
+              onClick={onRequestFullscreen}
+              className="absolute right-3 top-3 z-20 bg-white/80 hover:bg-white text-xs px-2 py-1 rounded shadow border border-gray-200"
+            >
+              全屏查看
+            </button>
+          )}
           {/* 地图容器 - 始终渲染 */}
           <div 
             ref={mapContainerRef} 
             className="w-full h-full"
-            style={{ minHeight: '400px' }}
+            style={{ minHeight: resolvedHeight }}
           />
           
           {/* 加载遮罩层 */}

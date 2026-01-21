@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { useVehicleSync } from '@/hooks/useVehicleSync';
 import { useVehicleTracking, convertDateToChinaTimestamp } from '@/hooks/useVehicleTracking';
+import { Switch } from '@/components/ui/switch';
 
 interface TrackingPoint {
   lat: number;
@@ -151,6 +152,15 @@ export default function VehicleTracking() {
   const [refreshingToken, setRefreshingToken] = useState(false);
   const [tokenType, setTokenType] = useState<'add' | 'query'>('query');
   const [refreshingAllTokens, setRefreshingAllTokens] = useState(false);
+
+  // 是否显示停留信息（默认关闭）
+  const [showStops, setShowStops] = useState(false);
+  // 最小停留分钟数（默认 10 分钟）
+  const [minStopMinutes, setMinStopMinutes] = useState<number>(10);
+  // 停留速度阈值（默认 3 km/h）
+  const [stopSpeedThreshold, setStopSpeedThreshold] = useState<number>(3);
+  // 地图全屏弹窗
+  const [mapFullscreenOpen, setMapFullscreenOpen] = useState(false);
 
   // 🔴 取消操作相关状态
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -2364,6 +2374,31 @@ export default function VehicleTracking() {
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>同步中...</span>
             </div>
+
+            {/* 地图全屏弹窗 */}
+            <Dialog open={mapFullscreenOpen} onOpenChange={setMapFullscreenOpen}>
+              <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-2">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center justify-between">
+                    <span>轨迹地图全屏视图</span>
+                    <span className="text-xs text-muted-foreground">
+                      双击/滚轮可缩放，拖拽可平移
+                    </span>
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="w-full h-full">
+                  <VehicleTrackingMap
+                    trackingData={trackingData}
+                    licensePlate={useVehicleId ? undefined : licensePlate}
+                    loading={loading}
+                    showStops={showStops}
+                    minStopMinutes={minStopMinutes}
+                    stopSpeedThreshold={stopSpeedThreshold}
+                    height="80vh"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
       </div>
@@ -2479,6 +2514,57 @@ export default function VehicleTracking() {
             >
               车辆ID查询
             </Button>
+          </div>
+
+          {/* 轨迹显示配置 */}
+          <div className="mt-4 flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-stops-switch"
+                checked={showStops}
+                onCheckedChange={setShowStops}
+              />
+              <Label htmlFor="show-stops-switch" className="text-sm text-muted-foreground">
+                显示停留信息
+              </Label>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="min-stop-minutes" className="text-sm text-muted-foreground">
+                最少停留分钟数
+              </Label>
+              <Input
+                id="min-stop-minutes"
+                type="number"
+                className="w-24"
+                min={1}
+                value={minStopMinutes}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (Number.isNaN(value)) return;
+                  setMinStopMinutes(value <= 0 ? 1 : value);
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="stop-speed-threshold" className="text-sm text-muted-foreground">
+                停留速度阈值 (km/h)
+              </Label>
+              <Input
+                id="stop-speed-threshold"
+                type="number"
+                className="w-24"
+                min={0}
+                step={0.1}
+                value={stopSpeedThreshold}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (Number.isNaN(value)) return;
+                  setStopSpeedThreshold(value < 0 ? 0 : value);
+                }}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2693,6 +2779,11 @@ export default function VehicleTracking() {
                 trackingData={trackingData} 
                 licensePlate={useVehicleId ? undefined : licensePlate}
                 loading={loading}
+                showStops={showStops}
+                minStopMinutes={minStopMinutes}
+                stopSpeedThreshold={stopSpeedThreshold}
+                height={600}
+                onRequestFullscreen={() => setMapFullscreenOpen(true)}
               />
               
               {/* 轨迹数据详情（可折叠） */}
