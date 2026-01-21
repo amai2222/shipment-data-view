@@ -41,14 +41,28 @@ export function convertUtcDateToChinaTimestamp(dateStr: string, isEndTime: boole
 }
 
 /**
- * 将日期字符串转换为中国时区的时间戳（简化版本，直接使用日期字符串）
- * @param dateStr 日期字符串（如 "2025-01-15"）
- * @param isEndTime 是否为结束时间
- * @returns 时间戳（毫秒）
+ * 将日期时间字符串转换为北京时间的时间戳
+ * @param dateTimeStr 日期时间字符串（datetime-local 输入框返回的值，如 "2025-01-15T10:30:00"）
+ *   - 如果只包含日期（如 "2025-01-15"），会根据 isEndTime 自动添加时间
+ *   - 如果包含日期和时间，直接当作北京时间处理（加上 +08:00）
+ * @param isEndTime 是否为结束时间（仅在日期字符串不包含时间时使用）
+ * @returns 时间戳（毫秒，北京时间 UTC+8）
  */
-export function convertDateToChinaTimestamp(dateStr: string, isEndTime: boolean = false): number {
-  const timeStr = isEndTime ? 'T23:59:59+08:00' : 'T00:00:00+08:00';
-  return new Date(`${dateStr}${timeStr}`).getTime();
+export function convertDateToChinaTimestamp(dateTimeStr: string, isEndTime: boolean = false): number {
+  // 检查是否包含时间部分（格式：YYYY-MM-DDTHH:mm:ss 或 YYYY-MM-DDTHH:mm）
+  if (dateTimeStr.includes('T')) {
+    // datetime-local 返回的值（如 "2025-01-15T10:30:00"）直接当作北京时间
+    // 确保有秒数部分，如果没有则补上 :00
+    const normalizedStr = dateTimeStr.includes(':') && dateTimeStr.split(':').length === 2 
+      ? `${dateTimeStr}:00` 
+      : dateTimeStr;
+    // 直接加上 +08:00 时区标识，当作北京时间
+    return new Date(`${normalizedStr}+08:00`).getTime();
+  } else {
+    // 只有日期部分，根据 isEndTime 添加默认时间（北京时间）
+    const timeStr = isEndTime ? 'T23:59:59+08:00' : 'T00:00:00+08:00';
+    return new Date(`${dateTimeStr}${timeStr}`).getTime();
+  }
 }
 
 export function useVehicleTracking(options?: VehicleTrackingOptions) {

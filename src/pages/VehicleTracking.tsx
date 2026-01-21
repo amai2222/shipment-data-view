@@ -32,21 +32,21 @@ type TrackingData = TrackingPoint[] | {
   [key: string]: unknown;
 };
 
-// 获取默认日期：开始时间为当月1日，结束时间为当月7日（如果当前时间不到7日，就是当前时间）
-const getDefaultDates = (): { startDate: string; endDate: string } => {
+// 获取默认日期时间：开始时间为当月1日00:00:00，结束时间为当月7日23:59:59（北京时间）
+const getDefaultDateTimes = (): { startDateTime: string; endDateTime: string } => {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = now.getDate();
   
-  // 开始日期：当月1日
-  const startDate = `${year}-${month}-01`;
+  // 开始日期时间：当月1日 00:00:00（北京时间）
+  const startDateTime = `${year}-${month}-01T00:00:00`;
   
-  // 结束日期：如果当前日期小于7日，使用当前日期；否则使用当月7日
+  // 结束日期时间：如果当前日期小于7日，使用当前日期23:59:59；否则使用当月7日23:59:59
   const endDay = day < 7 ? String(day).padStart(2, '0') : '07';
-  const endDate = `${year}-${month}-${endDay}`;
+  const endDateTime = `${year}-${month}-${endDay}T23:59:59`;
   
-  return { startDate, endDate };
+  return { startDateTime, endDateTime };
 };
 
 export default function VehicleTracking() {
@@ -54,10 +54,10 @@ export default function VehicleTracking() {
   const [licensePlate, setLicensePlate] = useState('');
   const [vehicleId, setVehicleId] = useState('');
   
-  // 初始化默认日期
-  const defaultDates = getDefaultDates();
-  const [startDate, setStartDate] = useState(defaultDates.startDate);
-  const [endDate, setEndDate] = useState(defaultDates.endDate);
+  // 初始化默认日期时间（北京时间）
+  const defaultDateTimes = getDefaultDateTimes();
+  const [startDateTime, setStartDateTime] = useState(defaultDateTimes.startDateTime);
+  const [endDateTime, setEndDateTime] = useState(defaultDateTimes.endDateTime);
   
   const [syncing, setSyncing] = useState(false);
   const [useVehicleId, setUseVehicleId] = useState(false);
@@ -676,42 +676,41 @@ export default function VehicleTracking() {
       return;
     }
 
-    if (!startDate || !endDate) {
+    if (!startDateTime || !endDateTime) {
       toast({
-        title: "请选择日期范围",
-        description: "请选择开始日期和结束日期",
+        title: "请选择时间范围",
+        description: "请选择开始时间和结束时间",
         variant: "destructive"
       });
       return;
     }
 
-    // 验证日期范围
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (start > end) {
+    // 验证时间范围
+    const startTime = convertDateToChinaTimestamp(startDateTime, false);
+    const endTime = convertDateToChinaTimestamp(endDateTime, false);
+    
+    if (startTime > endTime) {
       toast({
-        title: "日期范围错误",
-        description: "开始日期不能晚于结束日期",
+        title: "时间范围错误",
+        description: "开始时间不能晚于结束时间",
         variant: "destructive"
       });
       return;
     }
 
-    // 验证日期范围不能太大（最多查询7天）
-    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    // 验证时间范围不能太大（最多查询7天）
+    const timeRangeMs = endTime - startTime;
+    const daysDiff = Math.ceil(timeRangeMs / (1000 * 60 * 60 * 24));
     if (daysDiff > 7) {
       toast({
-        title: "日期范围过大",
-        description: `查询时间范围不能超过7天，当前为${daysDiff}天。请缩小日期范围后重试。`,
+        title: "时间范围过大",
+        description: `查询时间范围不能超过7天，当前为${daysDiff}天。请缩小时间范围后重试。`,
         variant: "destructive"
       });
       return;
     }
 
     try {
-      // 转换日期为时间戳
-      const startTime = convertDateToChinaTimestamp(startDate, false);
-      const endTime = convertDateToChinaTimestamp(endDate, true);
 
       // 使用公共 Hook 查询轨迹
       await queryTrajectoryWithToast({
@@ -2527,42 +2526,58 @@ export default function VehicleTracking() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="startDate" className="flex items-center gap-2">
+              <Label htmlFor="startDateTime" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                开始日期
+                开始时间（北京时间）
               </Label>
               <Input
-                id="startDate"
-                type="date"
-                value={startDate}
+                id="startDateTime"
+                type="datetime-local"
+                value={startDateTime}
                 onChange={(e) => {
-                  const newStartDate = e.target.value;
-                  setStartDate(newStartDate);
+                  const newStartDateTime = e.target.value;
+                  setStartDateTime(newStartDateTime);
                   
-                  // 如果开始日期改变，自动设置结束日期为开始日期+6天
-                  if (newStartDate) {
-                    const start = new Date(newStartDate);
-                    const defaultEndDate = new Date(start);
-                    defaultEndDate.setDate(start.getDate() + 6);
-                    const defaultEndDateStr = defaultEndDate.toISOString().split('T')[0];
+                  // 如果开始时间改变，检查并调整结束时间
+                  if (newStartDateTime) {
+                    const startTime = convertDateToChinaTimestamp(newStartDateTime, false);
                     
-                    // 如果没有结束日期，或者结束日期需要调整，设置为开始日期+6天
-                    if (!endDate) {
-                      setEndDate(defaultEndDateStr);
+                    // 如果没有结束时间，或者结束时间需要调整
+                    if (!endDateTime) {
+                      // 默认设置为开始时间+6天23:59:59
+                      const startDate = new Date(startTime);
+                      const defaultEndDate = new Date(startDate);
+                      defaultEndDate.setDate(startDate.getDate() + 6);
+                      const year = defaultEndDate.getFullYear();
+                      const month = String(defaultEndDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(defaultEndDate.getDate()).padStart(2, '0');
+                      setEndDateTime(`${year}-${month}-${day}T23:59:59`);
                     } else {
-                      const end = new Date(endDate);
+                      const endTime = convertDateToChinaTimestamp(endDateTime, false);
                       
-                      // 如果结束日期早于开始日期，设置为开始日期+6天
-                      if (end < start) {
-                        setEndDate(defaultEndDateStr);
+                      // 如果结束时间早于开始时间，设置为开始时间+6天23:59:59
+                      if (endTime < startTime) {
+                        const startDate = new Date(startTime);
+                        const defaultEndDate = new Date(startDate);
+                        defaultEndDate.setDate(startDate.getDate() + 6);
+                        const year = defaultEndDate.getFullYear();
+                        const month = String(defaultEndDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(defaultEndDate.getDate()).padStart(2, '0');
+                        setEndDateTime(`${year}-${month}-${day}T23:59:59`);
                         return;
                       }
                       
-                      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                      
-                      // 如果超过7天，自动调整为开始日期+6天
+                      // 如果超过7天，自动调整为开始时间+6天23:59:59
+                      const timeRangeMs = endTime - startTime;
+                      const daysDiff = Math.ceil(timeRangeMs / (1000 * 60 * 60 * 24));
                       if (daysDiff > 7) {
-                        setEndDate(defaultEndDateStr);
+                        const startDate = new Date(startTime);
+                        const defaultEndDate = new Date(startDate);
+                        defaultEndDate.setDate(startDate.getDate() + 6);
+                        const year = defaultEndDate.getFullYear();
+                        const month = String(defaultEndDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(defaultEndDate.getDate()).padStart(2, '0');
+                        setEndDateTime(`${year}-${month}-${day}T23:59:59`);
                       }
                     }
                   }
@@ -2570,51 +2585,55 @@ export default function VehicleTracking() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endDate" className="flex items-center gap-2">
+              <Label htmlFor="endDateTime" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                结束日期
+                结束时间（北京时间）
               </Label>
               <Input
-                id="endDate"
-                type="date"
-                value={endDate}
+                id="endDateTime"
+                type="datetime-local"
+                value={endDateTime}
                 onChange={(e) => {
-                  const newEndDate = e.target.value;
+                  const newEndDateTime = e.target.value;
                   
-                  // 如果结束日期改变，检查是否早于开始日期或超过开始日期+7天
-                  if (newEndDate && startDate) {
-                    const start = new Date(startDate);
-                    const end = new Date(newEndDate);
+                  // 如果结束时间改变，检查是否早于开始时间或超过开始时间+7天
+                  if (newEndDateTime && startDateTime) {
+                    const startTime = convertDateToChinaTimestamp(startDateTime, false);
+                    const endTime = convertDateToChinaTimestamp(newEndDateTime, false);
                     
-                    // 如果结束日期早于开始日期，设置为开始日期
-                    if (end < start) {
-                      setEndDate(startDate);
+                    // 如果结束时间早于开始时间，设置为开始时间
+                    if (endTime < startTime) {
+                      setEndDateTime(startDateTime);
                       toast({
-                        title: "日期范围已自动调整",
-                        description: "结束日期不能早于开始日期，已自动调整为开始日期",
+                        title: "时间范围已自动调整",
+                        description: "结束时间不能早于开始时间，已自动调整为开始时间",
                         variant: "default"
                       });
                       return;
                     }
                     
-                    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                    
-                    // 如果超过7天，自动调整为开始日期+7天
+                    // 如果超过7天，自动调整为开始时间+7天23:59:59
+                    const timeRangeMs = endTime - startTime;
+                    const daysDiff = Math.ceil(timeRangeMs / (1000 * 60 * 60 * 24));
                     if (daysDiff > 7) {
-                      const maxEndDate = new Date(start);
-                      maxEndDate.setDate(start.getDate() + 7);
-                      const maxEndDateStr = maxEndDate.toISOString().split('T')[0];
-                      setEndDate(maxEndDateStr);
+                      const startDate = new Date(startTime);
+                      const maxEndDate = new Date(startDate);
+                      maxEndDate.setDate(startDate.getDate() + 7);
+                      const year = maxEndDate.getFullYear();
+                      const month = String(maxEndDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(maxEndDate.getDate()).padStart(2, '0');
+                      const maxEndDateTime = `${year}-${month}-${day}T23:59:59`;
+                      setEndDateTime(maxEndDateTime);
                       toast({
-                        title: "日期范围已自动调整",
-                        description: "结束日期不能超过开始日期后7天，已自动调整为开始日期+7天",
+                        title: "时间范围已自动调整",
+                        description: "结束时间不能超过开始时间后7天，已自动调整为开始时间+7天23:59:59",
                         variant: "default"
                       });
                     } else {
-                      setEndDate(newEndDate);
+                      setEndDateTime(newEndDateTime);
                     }
                   } else {
-                    setEndDate(newEndDate);
+                    setEndDateTime(newEndDateTime);
                   }
                 }}
               />

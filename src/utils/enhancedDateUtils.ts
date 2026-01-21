@@ -28,7 +28,7 @@ export const parseExcelDateEnhanced = (excelDate: string | number | Date | null 
       if (excelDate >= 60) {
         daysToAdd = daysToAdd - 1;
       }
-
+      
       // 2. 核心修改：使用 UTC 时间戳作为绝对基准 (1900-01-01 00:00:00 UTC)
       const excelEpochUTC = Date.UTC(1900, 0, 1); 
       

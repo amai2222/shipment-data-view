@@ -684,6 +684,156 @@ export function VehicleTrackingMap({ trackingData, licensePlate, loading }: Vehi
           console.warn('⚠️ 没有有效的轨迹点可以绘制');
         }
 
+        // ✅ 检测并标记停留点
+        interface StopInfo {
+          lat: number;
+          lng: number;
+          startTime: number;
+          endTime: number;
+          duration: number; // 停留时长（分钟）
+        }
+
+        const detectStops = (points: TrackingPoint[]): StopInfo[] => {
+          const stops: StopInfo[] = [];
+          const STOP_SPEED_THRESHOLD = 5; // 速度阈值：5 km/h 以下视为停留
+          const STOP_DISTANCE_THRESHOLD = 0.001; // 距离阈值：约100米内视为同一停留点
+          const MIN_STOP_DURATION = 3; // 最小停留时长：3分钟（过滤掉短暂停留）
+
+          let currentStopStart: TrackingPoint | null = null;
+          let currentStopPoints: TrackingPoint[] = [];
+
+          for (let i = 0; i < points.length; i++) {
+            const point = points[i];
+            const speed = point.speed ?? 0;
+            const isStopped = speed <= STOP_SPEED_THRESHOLD;
+
+            if (isStopped) {
+              if (!currentStopStart) {
+                // 开始新的停留
+                currentStopStart = point;
+                currentStopPoints = [point];
+              } else {
+                // 检查是否仍在同一停留区域内
+                const distance = Math.sqrt(
+                  Math.pow(point.lat - currentStopStart.lat, 2) +
+                  Math.pow(point.lng - currentStopStart.lng, 2)
+                );
+
+                if (distance <= STOP_DISTANCE_THRESHOLD) {
+                  // 仍在同一停留区域
+                  currentStopPoints.push(point);
+                } else {
+                  // 位置变化较大，结束当前停留，开始新停留
+                  if (currentStopPoints.length > 0) {
+                    const stopDuration = (currentStopPoints[currentStopPoints.length - 1].time - currentStopPoints[0].time) / (1000 * 60); // 转换为分钟
+                    if (stopDuration >= MIN_STOP_DURATION) {
+                      stops.push({
+                        lat: currentStopStart.lat,
+                        lng: currentStopStart.lng,
+                        startTime: currentStopPoints[0].time,
+                        endTime: currentStopPoints[currentStopPoints.length - 1].time,
+                        duration: Math.round(stopDuration)
+                      });
+                    }
+                  }
+                  currentStopStart = point;
+                  currentStopPoints = [point];
+                }
+              }
+            } else {
+              // 车辆在移动，结束当前停留（如果有）
+              if (currentStopStart && currentStopPoints.length > 0) {
+                const stopDuration = (currentStopPoints[currentStopPoints.length - 1].time - currentStopPoints[0].time) / (1000 * 60); // 转换为分钟
+                if (stopDuration >= MIN_STOP_DURATION) {
+                  stops.push({
+                    lat: currentStopStart.lat,
+                    lng: currentStopStart.lng,
+                    startTime: currentStopPoints[0].time,
+                    endTime: currentStopPoints[currentStopPoints.length - 1].time,
+                    duration: Math.round(stopDuration)
+                  });
+                }
+              }
+              currentStopStart = null;
+              currentStopPoints = [];
+            }
+          }
+
+          // 处理最后一个停留（如果轨迹以停留结束）
+          if (currentStopStart && currentStopPoints.length > 0) {
+            const stopDuration = (currentStopPoints[currentStopPoints.length - 1].time - currentStopPoints[0].time) / (1000 * 60);
+            if (stopDuration >= MIN_STOP_DURATION) {
+              stops.push({
+                lat: currentStopStart.lat,
+                lng: currentStopStart.lng,
+                startTime: currentStopPoints[0].time,
+                endTime: currentStopPoints[currentStopPoints.length - 1].time,
+                duration: Math.round(stopDuration)
+              });
+            }
+          }
+
+          console.log(`检测到 ${stops.length} 个停留点`);
+          return stops;
+        };
+
+        const stops = detectStops(validPoints);
+
+        // ✅ 在地图上添加停留点标记和标签
+        stops.forEach((stop, index) => {
+          const stopPoint = new window.BMap.Point(stop.lng, stop.lat);
+
+          // 创建停留点图标（蓝色圆形，带"停"字）
+          // 使用Label类创建带样式的标记
+          // @ts-expect-error - 百度地图API Label类在运行时可用
+          const stopIconLabel = new window.BMap.Label('停', {
+            position: stopPoint,
+            offset: new window.BMap.Size(-12, -12)
+          });
+          
+          // 设置停留点图标样式（蓝色圆形背景，白色"停"字）
+          stopIconLabel.setStyle({
+            color: '#fff',
+            backgroundColor: '#3b82f6',
+            border: '2px solid #fff',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            lineHeight: '20px',
+            textAlign: 'center',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+            cursor: 'pointer'
+          });
+
+          map.addOverlay(stopIconLabel);
+
+          // 创建停留时长标签（蓝色椭圆形标签）
+          // @ts-expect-error - 百度地图API Label类在运行时可用
+          const stopLabel = new window.BMap.Label(`停留${stop.duration}分钟`, {
+            position: stopPoint,
+            offset: new window.BMap.Size(15, -10)
+          });
+          
+          // 设置标签样式（蓝色背景，白色文字，圆角）
+          stopLabel.setStyle({
+            color: '#fff',
+            backgroundColor: '#3b82f6',
+            border: 'none',
+            borderRadius: '12px',
+            padding: '4px 8px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          });
+
+          map.addOverlay(stopLabel);
+          console.log(`✅ 停留点 ${index + 1} 已添加: 位置(${stop.lat}, ${stop.lng}), 时长${stop.duration}分钟`);
+        });
+
         // 🔴 添加起点标记 - 使用过滤后的有效点的第一个点，确保与轨迹线一致
         if (validPoints.length > 0) {
           const startPoint = validPoints[0];

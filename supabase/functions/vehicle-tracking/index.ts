@@ -453,9 +453,10 @@ serve(async (req) => {
       }
 
       // 转换时间：gtm 格式 "YYYYMMDD/HHMMSS" 转换为时间戳
+      // ⚠️ 重要：gtm 字段本身就是北京时间（UTC+8），需要明确指定时区
       let timestamp: number | string = tracePoint.time || tracePoint.gtm || '';
       if (tracePoint.gtm && typeof tracePoint.gtm === 'string') {
-        // 解析 "20251202/044548" 格式
+        // 解析 "20251202/044548" 格式（北京时间）
         const [datePart, timePart] = tracePoint.gtm.split('/');
         if (datePart && timePart) {
           const year = datePart.substring(0, 4);
@@ -464,7 +465,8 @@ serve(async (req) => {
           const hour = timePart.substring(0, 2);
           const minute = timePart.substring(2, 4);
           const second = timePart.substring(4, 6);
-          const dateStr = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+          // ✅ 明确指定为北京时间（UTC+8），避免时区转换错误
+          const dateStr = `${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`;
           timestamp = new Date(dateStr).getTime();
         }
       }
