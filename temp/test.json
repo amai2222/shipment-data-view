@@ -1,0 +1,598 @@
+{
+  "version": 1,
+  "pageTitle": "报表",
+  "theme": "light",
+  "headerText": "",
+  "footerText": "",
+  "spacing": "normal",
+  "blocks": [
+    {
+      "id": "blk_muktwxgv_1_4uw",
+      "type": "quick",
+      "title": "快捷操作",
+      "subtitle": "",
+      "note": "",
+      "showTitle": false,
+      "columns": 3,
+      "span": 12,
+      "order": 1,
+      "items": [
+        {
+          "id": "qi_muktwxgv_2_31q",
+          "label": "快速建单",
+          "icon": "plus",
+          "url": "/zkzy/applets/shipping_order_custom_create/index.html",
+          "color": "#1890ff"
+        },
+        {
+          "id": "qi_muktwxgv_3_56k",
+          "label": "批量签收",
+          "icon": "check-square",
+          "url": "/zkzy/applets/shipping_orders_batch/index.html",
+          "color": "#00b42a"
+        },
+        {
+          "id": "qi_muktwxgv_4_600",
+          "label": "地址簿",
+          "icon": "book",
+          "url": "/zkzy/applets/shipping_order_address_book/index.html",
+          "color": "#722ed1"
+        }
+      ]
+    },
+    {
+      "id": "blk_muktwxgv_a_3a1",
+      "type": "stat",
+      "title": "财务统计",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 3,
+      "span": 12,
+      "order": 2,
+      "items": [
+        {
+          "id": "si_muktwxgv_b_2u4",
+          "label": "已完成总额",
+          "value": 98286093.84,
+          "unit": "元",
+          "color": "#1890ff",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 6.8,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_muktwxgv_d_2re",
+          "label": "已支付总额",
+          "value": 80909670.58,
+          "unit": "元",
+          "color": "#00b42a",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 0,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_muktwxgv_c_yc",
+          "label": "待支付总额",
+          "value": 17376423.26,
+          "unit": "元",
+          "color": "#ff7d00",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 0,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        }
+      ]
+    },
+    {
+      "id": "blk_project_finance_done",
+      "type": "rank",
+      "title": "项目已完成总额",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 1,
+      "span": 4,
+      "order": 3,
+      "items": [
+        {
+          "id": "si_mul1p73j_2s_1wo",
+          "name": "中石油",
+          "value": 3258374.89
+        },
+        {
+          "id": "si_mulcefy5_61_7ke",
+          "name": "寰亚-龙瓖",
+          "value": 17308223.02
+        },
+        {
+          "id": "si_mulcgl5o_64_3hz",
+          "name": "中粮",
+          "value": 2134665.65
+        },
+        {
+          "id": "si_add_gsbh_1",
+          "name": "国粟北大荒",
+          "value": 337079.7
+        },
+        {
+          "id": "si_mul2eynm_o0_1lu",
+          "name": "供销",
+          "value": 18602805.4
+        },
+        {
+          "id": "si_mul1rcdz_2u_78z",
+          "name": "融通",
+          "value": 16541930.45
+        },
+        {
+          "id": "si_add_lx_1",
+          "name": "利兴粮油",
+          "value": 8257579.1
+        },
+        {
+          "id": "si_add_hbd_1",
+          "name": "哈尔滨正大",
+          "value": 6257186.15
+        },
+        {
+          "id": "si_add_zny_1",
+          "name": "中能灏业",
+          "value": 128927
+        },
+        {
+          "id": "si_add_wlrd_1",
+          "name": "万里润达",
+          "value": 2714549.5
+        },
+        {
+          "id": "si_add_zxc_1",
+          "name": "纸箱厂",
+          "value": 6475817.27
+        },
+        {
+          "id": "si_add_shyz_1",
+          "name": "绥化邮政",
+          "value": 180678.51
+        },
+        {
+          "id": "si_add_zx_1",
+          "name": "喆轩",
+          "value": 10726659.76
+        },
+        {
+          "id": "si_add_dcd_1",
+          "name": "稻城道",
+          "value": 526064.64
+        }
+      ]
+    },
+    {
+      "id": "blk_project_finance_paid",
+      "type": "rank",
+      "title": "项目已回款总额",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 1,
+      "span": 4,
+      "order": 4,
+      "items": [
+        {
+          "id": "si_mul2civh_m6_4zw",
+          "name": "中石油",
+          "value": 0
+        },
+        {
+          "id": "si_mulcfim4_62_52i",
+          "name": "寰亚-龙瓖",
+          "value": 14335919.16
+        },
+        {
+          "id": "si_mulch50w_65_1ez",
+          "name": "中粮",
+          "value": 1966764.47
+        },
+        {
+          "id": "si_add_gsbh_2",
+          "name": "国粟北大荒",
+          "value": 0
+        },
+        {
+          "id": "si_mul2fu2k_o1_7ja",
+          "name": "供销",
+          "value": 12826451.56
+        },
+        {
+          "id": "si_mul2adfa_m4_1zz",
+          "name": "融通",
+          "value": 12527336.66
+        },
+        {
+          "id": "si_add_lx_2",
+          "name": "利兴粮油",
+          "value": 8257579.1
+        },
+        {
+          "id": "si_add_hbd_2",
+          "name": "哈尔滨正大",
+          "value": 6257186.15
+        },
+        {
+          "id": "si_add_zny_2",
+          "name": "中能灏业",
+          "value": 128927
+        },
+        {
+          "id": "si_add_wlrd_2",
+          "name": "万里润达",
+          "value": 2714549.5
+        },
+        {
+          "id": "si_add_zxc_2",
+          "name": "纸箱厂",
+          "value": 6475817.27
+        },
+        {
+          "id": "si_add_shyz_2",
+          "name": "绥化邮政",
+          "value": 180678.51
+        },
+        {
+          "id": "si_add_zx_2",
+          "name": "喆轩",
+          "value": 10726659.76
+        },
+        {
+          "id": "si_add_dcd_2",
+          "name": "稻城道",
+          "value": 526064.64
+        }
+      ]
+    },
+    {
+      "id": "blk_project_finance_unpaid",
+      "type": "rank",
+      "title": "项目未回款总额",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 1,
+      "span": 4,
+      "order": 5,
+      "items": [
+        {
+          "id": "si_mul1r06t_2t_6i9",
+          "name": "中石油",
+          "value": 3258374.89
+        },
+        {
+          "id": "si_mulcfwvd_63_4v",
+          "name": "寰亚-龙瓖",
+          "value": 2972303.86
+        },
+        {
+          "id": "si_mulchq77_66_5es",
+          "name": "中粮",
+          "value": 167901.18
+        },
+        {
+          "id": "si_add_gsbh_3",
+          "name": "国粟北大荒",
+          "value": 337079.7
+        },
+        {
+          "id": "si_mul2gf91_o2_2aj",
+          "name": "供销",
+          "value": 5776353.84
+        },
+        {
+          "id": "si_mul2bc64_m5_1ky",
+          "name": "融通",
+          "value": 4014593.79
+        },
+        {
+          "id": "si_add_lx_3",
+          "name": "利兴粮油",
+          "value": 0
+        },
+        {
+          "id": "si_add_hbd_3",
+          "name": "哈尔滨正大",
+          "value": 0
+        },
+        {
+          "id": "si_add_zny_3",
+          "name": "中能灏业",
+          "value": 0
+        },
+        {
+          "id": "si_add_wlrd_3",
+          "name": "万里润达",
+          "value": 0
+        },
+        {
+          "id": "si_add_zxc_3",
+          "name": "纸箱厂",
+          "value": 0
+        },
+        {
+          "id": "si_add_shyz_3",
+          "name": "绥化邮政",
+          "value": 0
+        },
+        {
+          "id": "si_add_zx_3",
+          "name": "喆轩",
+          "value": 0
+        },
+        {
+          "id": "si_add_dcd_3",
+          "name": "稻城道",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "blk_muktwxgv_5_7gl",
+      "type": "stat",
+      "title": "运单统计",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 6,
+      "span": 12,
+      "order": 6,
+      "items": [
+        {
+          "id": "si_muktwxgv_6_6s0",
+          "label": "总运单数",
+          "value": 6538,
+          "unit": "单",
+          "color": "#1890ff",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 4.5,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_muktwxgv_7_52q",
+          "label": "待发车",
+          "value": 3,
+          "unit": "车",
+          "color": "#ff7d00",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 8.3,
+          "trendLabel": "环比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_muktwxgv_8_77c",
+          "label": "在途",
+          "value": 5,
+          "unit": "车",
+          "color": "#faad14",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 0,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_muktwxgv_9_l0",
+          "label": "待签收",
+          "value": 182,
+          "unit": "车",
+          "color": "#00b42a",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 0,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_mukunpz1_19_g0",
+          "label": "待开票",
+          "value": 2938,
+          "unit": "单",
+          "color": "#1890ff",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 0,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        },
+        {
+          "id": "si_mukuo0lx_1a_7ip",
+          "label": "已开票",
+          "value": 6023,
+          "unit": "单",
+          "color": "#1890ff",
+          "alert": false,
+          "trendType": "",
+          "trendValue": 0,
+          "trendLabel": "同比",
+          "target": 0,
+          "spark": []
+        }
+      ]
+    },
+    {
+      "id": "blk_muktwxgv_f_18z",
+      "type": "chart",
+      "title": "年度发车趋势",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 1,
+      "span": 4,
+      "order": 7,
+      "chartType": "line",
+      "categories": [
+        "1月",
+        "2月",
+        "3月",
+        "4月",
+        "5月",
+        "6月",
+        "7月",
+        "8月",
+        "9月"
+      ],
+      "series": [
+        {
+          "id": "sr_muktwxgv_g_4a0",
+          "name": "发车量",
+          "color": "#1890ff",
+          "data": [
+            3,
+            5,
+            4,
+            14,
+            10,
+            9,
+            8,
+            12,
+            10,
+            14
+          ]
+        },
+        {
+          "id": "sr_muktwxgv_h_3k2",
+          "name": "签收量",
+          "color": "#00b42a",
+          "data": [
+            2,
+            4,
+            4,
+            14,
+            10,
+            8,
+            7,
+            10,
+            9,
+            12
+          ]
+        }
+      ],
+      "smooth": true,
+      "showLegend": true,
+      "chartHeight": 300,
+      "pieRing": false,
+      "pieLabel": true,
+      "stack": false,
+      "area": true,
+      "rose": false,
+      "badge": "本月",
+      "showLabel": false,
+      "markValue": 0,
+      "markText": "",
+      "markColor": "#f5222d",
+      "cumulative": false,
+      "radarMax": 100,
+      "pieCenter": "",
+      "treeData": []
+    },
+    {
+      "id": "blk_muktwxgv_i_13d",
+      "type": "rank",
+      "title": "区域运单量排行",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 1,
+      "span": 4,
+      "order": 8,
+      "items": [
+        {
+          "id": "rk_muktwxgv_j_3ba",
+          "name": "华东大区",
+          "value": 326
+        },
+        {
+          "id": "rk_muktwxgv_k_516",
+          "name": "华南大区",
+          "value": 289
+        },
+        {
+          "id": "rk_muktwxgv_l_2yd",
+          "name": "华北大区",
+          "value": 245
+        },
+        {
+          "id": "rk_muktwxgv_m_24u",
+          "name": "西南大区",
+          "value": 178
+        },
+        {
+          "id": "rk_muktwxgv_n_ui",
+          "name": "东北大区",
+          "value": 132
+        }
+      ]
+    },
+    {
+      "id": "blk_muktwxgv_s_su",
+      "type": "chart",
+      "title": "货物类型占比",
+      "subtitle": "",
+      "note": "",
+      "showTitle": true,
+      "columns": 2,
+      "span": 4,
+      "order": 9,
+      "chartType": "pie",
+      "categories": [
+        "粮食",
+        "冷链",
+        "普货",
+        "生鲜"
+      ],
+      "series": [
+        {
+          "id": "sr_mukvi51u_1hx_3j1",
+          "name": "占比",
+          "color": "#1890ff",
+          "data": [
+            56,
+            18,
+            15,
+            11
+          ]
+        }
+      ],
+      "smooth": true,
+      "showLegend": true,
+      "chartHeight": 300,
+      "pieRing": true,
+      "pieLabel": true,
+      "stack": false,
+      "area": false,
+      "rose": false,
+      "badge": "本月",
+      "showLabel": false,
+      "markValue": 0,
+      "markText": "",
+      "markColor": "#f5222d",
+      "cumulative": false,
+      "radarMax": 100,
+      "pieCenter": "货物类型统计",
+      "treeData": []
+    }
+  ]
+}
