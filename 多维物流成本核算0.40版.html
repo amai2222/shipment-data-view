@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>多维物流成本与税务 0.40版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
+        body { background: #f4f7fd; color: #1a1a1a; height: 100vh; overflow: hidden; }
+        
+        .app-container { display: grid; grid-template-columns: 38% 62%; width: 100%; height: 100%; }
+        
+        .sidebar { background: #ffffff; border-right: 1px solid #e0e6ed; display: flex; flex-direction: column; height: 100%; box-shadow: 2px 0 10px rgba(0,0,0,0.03); z-index: 10; overflow-y: auto; padding: 24px; }
+        .sidebar h1 { font-size: 20px; font-weight: 600; color: #0b1a33; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        
+        .form-group { border: 1px solid #e9eef5; border-radius: 16px; padding: 16px; margin-bottom: 20px; background: #fafcff; }
+        .form-group-title { font-size: 15px; font-weight: 600; color: #1f3a6b; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        
+        .grid-settings { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: center; }
+        .input-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: #3d4d6a; }
+        .input-row input[type="number"], .input-row input[type="text"] { width: 85px; padding: 6px; border: 1px solid #cdd5e0; border-radius: 8px; font-size: 14px; text-align: center; font-weight: 600; color: #0b1a33; }
+        
+        .highlight-linked { background-color: #eaf7ee !important; border-color: #a3e0b8 !important; }
+
+        .list-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; background: white; padding: 10px; border-radius: 10px; border: 1px solid #e9eef5; flex-wrap: wrap; }
+        .list-row input.name-input { width: 100px; padding: 6px; border: 1px solid #cdd5e0; border-radius: 6px; }
+        .list-row input.num-input { width: 65px; padding: 6px; border: 1px solid #cdd5e0; border-radius: 6px; text-align: center; }
+        
+        .btn-toggle { padding: 6px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; }
+        .btn-gray { background: #f0f2f5; color: #5a6f8a; }
+        .btn-green { background: #eaf7ee; color: #1a7a4a; }
+        .btn-blue { background: #e8f3fa; color: #0078D7; }
+        .btn-red { background: #fce8e8; color: #d32f2f; }
+        .btn-purple { background: #f5eefc; color: #7b2cbf; }
+        .btn-stamp { background: #fcf5ee; color: #a6591e; min-width: 90px; }
+        .btn-add { width: 100%; padding: 10px; border: 1px dashed #b5c4d6; background: transparent; border-radius: 10px; font-size: 14px; font-weight: 600; color: #5a6f8a; cursor: pointer; margin-top: 5px; }
+        .btn-add:hover { background: #f4f7fd; border-color: #0078D7; color: #0078D7; }
+        .btn-del { background: transparent; border: none; font-size: 16px; color: #b5c4d6; cursor: pointer; padding: 4px; margin-left: auto; }
+        .btn-del:hover { color: #d32f2f; }
+
+        /* 右侧报表区 */
+        .report-view { padding: 20px; overflow-y: auto; background: #f4f7fd; display: flex; justify-content: center; }
+        .card { max-width: 1100px; width: 100%; background: white; border-radius: 32px; box-shadow: 0 20px 40px -10px rgba(0,20,40,0.1); padding: 28px 30px 32px; height: fit-content; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid #e9eef5; padding-bottom: 14px; }
+        .card-header h2 { font-size: 22px; font-weight: 600; color: #0b1a33; display: flex; align-items: center; gap: 12px; }
+        .order-badge { background: #eef4ff; padding: 6px 18px; border-radius: 60px; font-size: 14px; color: #1d3b6f; font-weight: 500; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .order-badge .tag { background: white; padding: 2px 12px; border-radius: 40px; font-weight: 500; color: #1d3b6f; }
+        .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 10px 0 20px; }
+
+        .strip-block { margin: 0 0 14px; }
+        .strip-head { font-size: 12px; font-weight: 600; color: #6b7c93; margin-bottom: 6px; letter-spacing: 0.4px; }
+        .tax-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+            gap: 8px;
+        }
+        .tax-chip {
+            background: #fbf6ef;
+            border: 1px solid #ead9c4;
+            border-radius: 14px;
+            padding: 10px 12px;
+            min-width: 0;
+        }
+        .tax-chip.base { background: #f4f8fc; border-color: #d3e0ee; }
+        .tax-chip .k { font-size: 12px; color: #7a5a1a; font-weight: 600; letter-spacing: 0.2px; }
+        .tax-chip.base .k { color: #1f3a6b; }
+        .tax-chip .lines { margin: 6px 0 4px; }
+        .tax-chip .line { font-size: 11px; color: #3d4d6a; font-weight: 400; line-height: 1.5; word-break: break-word; margin-bottom: 4px; }
+        .tax-chip .d { font-size: 11px; color: #6b7280; font-weight: 400; margin-top: 2px; line-height: 1.5; word-break: break-word; }
+        .tax-chip .v { font-size: 18px; font-weight: 700; color: #2c2418; font-variant-numeric: tabular-nums; margin-top: 4px; }
+        .tax-chip.base .v { color: #0b1a33; }
+        .tax-chip .v.neg { color: #b45309; }
+        .panel { background: #fafcff; border-radius: 20px; padding: 18px 18px 20px; border: 1px solid #e6ecf7; box-shadow: 0 4px 8px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+        .panel-title { font-size: 17px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px dashed #d2ddea; padding-bottom: 10px; flex-shrink: 0; }
+        .panel-title .badge { font-size: 12px; background: #dce5f5; padding: 2px 14px; border-radius: 30px; font-weight: 500; color: #1f3a6b; }
+        .panel-cash .panel-title { color: #0b3b5c; } .panel-tax .panel-title { color: #7a4a1a; }
+        
+        .block-positive { background: #eaf7ee; border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; border-left: 4px solid #1f8b4a; }
+        .block-positive .block-label { font-size: 13px; font-weight: 600; color: #1a6b3a; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .block-negative { background: #f7eeee; border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; border-left: 4px solid #b13e3e; }
+        .block-negative .block-label { font-size: 13px; font-weight: 600; color: #8a2e2e; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .block-tax { background: #f7f0e8; border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; border-left: 4px solid #b88a3e; }
+        .block-tax .block-label { font-size: 13px; font-weight: 600; color: #7a5a1a; margin-bottom: 4px; letter-spacing: 0.3px; }
+        
+        .block-result { background: #e8eefa; border-radius: 14px; padding: 10px 14px; border-left: 4px solid #2b6bb0; margin-top: auto; }
+        .block-result .block-label { font-size: 13px; font-weight: 600; color: #1f3d66; margin-bottom: 4px; letter-spacing: 0.3px; }
+        
+        .row-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14.5px; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .row-item:last-of-type { border-bottom: none; }
+        .row-label { color: #3d4d6a; font-weight: 400; flex: 0 0 auto; min-width: 90px; }
+        .row-detail { color: #6b7280; font-size: 13px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; }
+        .row-value { font-weight: 400; font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 70px; text-align: right; color: #3d4d6a; }
+        .row-value.big { font-size: 17px; font-weight: 700; }
+        
+        .row-value.positive { color: #1a7a4a; }
+        .row-value.negative { color: #d32f2f !important; }
+        .row-value.green { color: #1b7b44; }
+
+        /* 拆项：灰黑、不加粗 */
+        .row-line, .sub-row { padding-left: 20px; font-size: 13.5px; color: #3d4d6a; border-left: 2px solid #d0ddea; margin-left: 4px; font-weight: 400; }
+        .row-line .row-label, .sub-row .row-label { font-weight: 400; color: #3d4d6a; min-width: 80px; }
+        .row-line .row-value, .sub-row .row-value,
+        .row-line .row-value.positive, .sub-row .row-value.positive,
+        .row-line .row-value.negative, .sub-row .row-value.negative,
+        .row-line .row-value.sub-val, .sub-row .row-value.sub-val {
+            color: #3d4d6a !important;
+            font-weight: 400 !important;
+            font-size: 13.5px !important;
+        }
+
+        /* 分项合计：比总合计小一号 */
+        .row-subtotal { font-size: 13.5px; }
+        .row-subtotal .row-label { font-weight: 600; font-size: 13.5px; }
+        .row-subtotal .row-value {
+            font-weight: 600 !important;
+            font-size: 14px !important;
+        }
+        .row-subtotal .row-value.positive { color: #1a7a4a !important; }
+        .row-subtotal .row-value.negative { color: #d32f2f !important; }
+        .row-subtotal .row-value.total-tax { color: #a6591e !important; }
+
+        /* 总项合计 */
+        .row-total { font-size: 14.5px; }
+        .row-total .row-label { font-weight: 600; color: #0b1a33; }
+        .row-total .row-value { font-weight: 700 !important; font-size: 15px !important; }
+        .row-total .row-value.positive { color: #1a7a4a !important; }
+        .row-total .row-value.negative { color: #d32f2f !important; }
+        .row-total .row-value.total-tax { color: #a6591e !important; }
+        .row-total .row-value.green { color: #1b7b44 !important; }
+        .row-total .row-value.big { font-size: 17px !important; }
+
+        .hl-bold { font-weight: 600; color: #0b1a33; }
+
+        .border-top-thin { border-top: 1px solid #dbb8b8; margin: 4px 0 2px; }
+        .border-top-tax { border-top: 1px solid #dbb89e; margin: 4px 0 2px; }
+
+        .result-area { background: #f0f5fe; border-radius: 18px; padding: 16px 22px; margin: 18px 0 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; border-left: 6px solid #2b6bb0; }
+        .result-item { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+        .result-item .label { font-size: 15px; color: #1f3d66; font-weight: 500; }
+        .result-item .number { font-size: 22px; font-weight: 700; color: #0b2b50; letter-spacing: -0.2px; }
+        .result-item .number.green { color: #1b7b44; }
+        .result-item .number.red { color: #d32f2f; }
+        .check-mark { padding: 6px 18px; border-radius: 60px; font-size: 14px; font-weight: 500; }
+        .check-mark.success { background: #d3e6d6; color: #0d4823; }
+        .check-mark.error { background: #fce8e8; color: #d32f2f; }
+        
+        .footnote { margin-top: 20px; font-size: 13px; color: #5b6f8e; background: #f4f8ff; padding: 12px 20px; border-radius: 40px; display: flex; flex-wrap: wrap; gap: 8px 24px; border: 1px solid #e0e9f5; }
+        .footnote span { font-weight: 500; color: #1f3b61; }
+
+        @media (max-width: 900px) {
+            body { height: auto; overflow: visible; }
+            .app-container { display: flex; flex-direction: column; }
+            .sidebar { border-right: none; border-bottom: 2px solid #e0e6ed; padding: 16px; overflow: visible; box-shadow: none; }
+            .report-view { padding: 12px; overflow: visible; }
+            .card { padding: 20px 16px; border-radius: 24px; }
+            .split-panel { grid-template-columns: 1fr; gap: 20px; }
+            .tax-strip { grid-template-columns: repeat(2, 1fr); }
+            .grid-settings { grid-template-columns: 1fr; gap: 10px; }
+            .input-row { width: 100%; }
+            .list-row { gap: 8px; justify-content: space-between; }
+            .list-row input.name-input { flex-grow: 1; min-width: 80px; width: auto; }
+            .btn-toggle { flex-grow: 1; min-width: unset; padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="sidebar" id="sidebar">
+        <h1>⚙️ 成本与税务引擎</h1>
+        
+        <div class="form-group">
+            <div class="form-group-title">🎛 全局配置</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: center;">
+                <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" style="flex: 1; white-space: nowrap;">⬜ 关闭代扣代缴模式</button>
+                <div class="input-row highlight-linked" id="wrapPlatRate" style="flex: 1; display: none;">
+                    <span>代扣税率:</span><input type="number" id="platRate" value="0.075" step="0.005" oninput="syncPlatRate(this.value)">
+                </div>
+                <div class="input-row highlight-linked" style="flex: 1;">
+                    <span>上游税点:</span><input type="number" id="upstreamRate" value="0.09" step="0.01" oninput="syncUpstreamRate(this.value)">
+                </div>
+            </div>
+            <div class="grid-settings">
+                <div class="input-row"><span>业务倍数:</span><input type="number" id="qty" value="1" oninput="render()"></div>
+                <div class="input-row"><span>附加税率:</span><input type="number" id="surchargeRate" value="0.06" step="0.01" oninput="render()"></div>
+                <div class="input-row"><span>所得税率:</span><input type="number" id="incomeRate" value="0.05" step="0.01" oninput="render()"></div>
+                <div class="input-row"><span>印花税率:</span><input type="number" id="stampRate" value="0.0003" step="0.0001" oninput="render()"></div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-group-title"><span>💰 营业收入项</span></div>
+            <div id="revContainer"></div>
+            <button class="btn-add" onclick="addRevRow()">➕ 添加收入项</button>
+        </div>
+
+        <div class="form-group">
+            <div class="form-group-title">
+                <span>💸 运营支出项</span>
+                <button onclick="showBreakeven(event)" style="background: #eaf7ee; color: #1a7a4a; border: 1px solid #cde8d5; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;">
+                    ⚖️ 保本测算
+                </button>
+            </div>
+            <div id="costContainer"></div>
+            <button class="btn-add" onclick="addCostRow()">➕ 添加支出项</button>
+        </div>
+    </div>
+
+    <div class="report-view" id="reportView"></div>
+</div>
+
+<script>
+    let state = {
+        usePlatform: false,
+        revs: [ { id: 1, name: "主营结算", amt: 55, rate: 0.09, inc: true, stamp: true } ],
+        costs: [
+            { id: 1, name: "外包运费", amt: 40, rate: 0.01, ticket: 1, stamp: true },
+            { id: 2, name: "居间服务", amt: 10, rate: 0.01, ticket: 2, stamp: true }
+        ],
+        nextId: 10
+    };
+
+    function dRound(num) {
+        return Math.round((parseFloat(num) + Number.EPSILON) * 100) / 100;
+    }
+
+    // 应缴增值税与未抵扣进项：销项不够抵时差额转入成本，不退税
+    function vatSettle(outVat, inVat) {
+        return {
+            payVat: dRound(Math.max(0, outVat - inVat)),
+            unusedVat: dRound(Math.max(0, inVat - outVat))
+        };
+    }
+
+    function chipHtml(kind, title, lines, detail, value, neg) {
+        let lineHtml = (lines && lines.length)
+            ? `<div class="lines">${lines.map(s => `<div class="line">${s}</div>`).join('')}</div>`
+            : '';
+        let dHtml = detail ? `<div class="d">${detail}</div>` : '';
+        return `<div class="tax-chip ${kind}">
+                        <div class="k">${title}</div>
+                        ${lineHtml}${dHtml}
+                        <div class="v${neg ? ' neg' : ''}">${value}</div>
+                    </div>`;
+    }
+    
+    function getVal(id) { return parseFloat(document.getElementById(id).value) || 0; }
+    
+    function syncUpstreamRate(val) {
+        let rate = parseFloat(val) || 0;
+        if (state.revs.length > 0) { state.revs[0].rate = rate; }
+        buildForms(); render();
+    }
+
+    function syncPlatRate(val) {
+        let rate = parseFloat(val) || 0;
+        state.costs.forEach(c => {
+            if (c.ticket === 3) {
+                c.rate = rate;
+            }
+        });
+        buildForms(); render();
+    }
+
+    function updateVal(type, id, field, val) {
+        let arr = type === 'rev' ? state.revs : state.costs;
+        let item = arr.find(x => x.id === id);
+        item[field] = field === 'name' ? val : parseFloat(val) || 0;
+        
+        if (type === 'rev' && field === 'rate' && state.revs.length > 0 && id === state.revs[0].id) {
+            document.getElementById('upstreamRate').value = item.rate;
+        }
+        render();
+    }
+
+    function togglePlatform() {
+        state.usePlatform = !state.usePlatform;
+        const btn = document.getElementById('btnPlatform');
+        const wrap = document.getElementById('wrapPlatRate');
+        
+        if (state.usePlatform) {
+            btn.className = 'btn-toggle btn-purple';
+            btn.innerHTML = '✅ 启用代扣代缴模式';
+            wrap.style.display = 'flex';
+            
+            if (state.costs.length > 0) {
+                state.costs[0].ticket = 3;
+                state.costs[0].rate = getVal('platRate') || 0.075;
+            }
+        } else {
+            btn.className = 'btn-toggle btn-gray';
+            btn.innerHTML = '⬜ 关闭代扣代缴模式';
+            wrap.style.display = 'none';
+            
+            state.costs.forEach(c => { if(c.ticket === 3) { c.ticket = 1; c.rate = 0.01; } });
+        }
+        buildForms();
+        render();
+    }
+
+    function toggleRevInc(id) {
+        let r = state.revs.find(x => x.id === id);
+        r.inc = !r.inc;
+        r.rate = r.inc ? getVal('upstreamRate') : 0;
+        buildForms(); render();
+    }
+    
+    function toggleStamp(type, id) {
+        let arr = type === 'rev' ? state.revs : state.costs;
+        let item = arr.find(x => x.id === id);
+        item.stamp = !item.stamp;
+        buildForms(); render();
+    }
+
+    function toggleCostTicket(id) {
+        let c = state.costs.find(x => x.id === id);
+        let maxState = state.usePlatform ? 4 : 3;
+        c.ticket = (c.ticket + 1) % maxState;
+        
+        if(c.ticket === 0) c.rate = 0;
+        else if(c.ticket === 1) c.rate = 0.01;
+        else if(c.ticket === 2) c.rate = 0.09;
+        else if(c.ticket === 3) c.rate = getVal('platRate') || 0.075;
+        
+        buildForms(); render();
+    }
+
+    function addRevRow() {
+        let upRate = getVal('upstreamRate') || 0.09;
+        state.revs.push({ id: state.nextId++, name: "新增收入", amt: 0, rate: upRate, inc: true, stamp: true });
+        buildForms(); render();
+    }
+    
+    function addCostRow() {
+        state.costs.push({ id: state.nextId++, name: "新增支出", amt: 0, rate: 0.01, ticket: 1, stamp: true });
+        buildForms(); render();
+    }
+    
+    function delRow(type, id) {
+        if(type === 'rev') state.revs = state.revs.filter(x => x.id !== id);
+        else state.costs = state.costs.filter(x => x.id !== id);
+        buildForms(); render();
+    }
+
+    function reverseCalcCost(id) {
+        let c = state.costs.find(x => x.id === id);
+        let targetNet = prompt(`【正向倒推含税支出】\n当前支出项：${c.name}\n\n请输入司机要求的【实际净到手现金】:`, c.amt);
+        if (targetNet && !isNaN(targetNet)) {
+            let grossAmt = dRound(parseFloat(targetNet));
+            if(confirm(`司机要求净到手: ${targetNet} 元\n👉 系统测算需录入的含税支出金额: ${grossAmt} 元\n\n是否自动填入表单？`)) {
+                updateVal('cost', id, 'amt', grossAmt);
+                buildForms();
+            }
+        }
+    }
+
+    function getBreakevenRev() {
+        let qty = getVal('qty') || 1;
+        let surRate = getVal('surchargeRate');
+        let incRate = getVal('incomeRate');
+        let stampRate = getVal('stampRate');
+        let upRate = getVal('upstreamRate') || 0.09;
+
+        let inVat = 0, taxDeduct = 0, stampBaseCost = 0, cashCost = 0;
+        let pRate = getVal('platRate');
+
+        state.costs.forEach(c => {
+            let cash = dRound(c.amt * qty);
+            let iv = 0, td = 0, stampAmt = 0;
+
+            if(c.ticket === 3) {
+                let actual = dRound(cash / (1 - pRate));
+                let excl = dRound(actual / 1.09);
+                iv = dRound(actual - excl);
+                td = excl;
+                stampAmt = excl;
+                cashCost += actual;
+            } else {
+                if(c.ticket === 2) {
+                    let excl = c.rate > 0 ? dRound(cash / (1 + c.rate)) : cash;
+                    iv = dRound(cash - excl);
+                    td = excl;
+                    stampAmt = excl;
+                } else if(c.ticket === 1) {
+                    td = cash;
+                    stampAmt = cash;
+                } else {
+                    td = 0;
+                    stampAmt = cash;
+                }
+                cashCost += cash;
+            }
+            taxDeduct += td;
+            inVat += iv;
+            if(c.stamp) stampBaseCost += stampAmt;
+        });
+
+        if (cashCost === 0) return { noInvoice: 0, withInvoice: 0, rate: upRate };
+
+        function findMinRev(invoiceRate) {
+            let lowCents = Math.max(0, Math.floor(cashCost * 100) - 500);
+            let highCents = Math.ceil(cashCost * 300);
+            let bestCents = highCents;
+
+            while (lowCents <= highCents) {
+                let midCents = Math.floor((lowCents + highCents) / 2);
+                let R = midCents / 100;
+                let r_excl, out_vat;
+                if (invoiceRate > 0) {
+                    r_excl = dRound(R / (1 + invoiceRate));
+                    out_vat = dRound(R - r_excl);
+                } else {
+                    r_excl = dRound(R);
+                    out_vat = 0;
+                }
+                let vat = vatSettle(out_vat, inVat);
+                let payVat = vat.payVat;
+                let deduct = dRound(taxDeduct + vat.unusedVat);
+                let sur = dRound(payVat * surRate);
+                let stampRev = (state.revs.length > 0 && state.revs[0].stamp) ? r_excl : 0;
+                let stamp = dRound((stampBaseCost + stampRev) * stampRate);
+                let taxableInc = dRound(r_excl - deduct - sur - stamp);
+                let incTax = dRound(Math.max(0, taxableInc * incRate));
+                let totalTax = dRound(payVat + sur + stamp + incTax);
+                let netProfit = dRound(dRound(R - cashCost) - totalTax);
+
+                if (netProfit >= 0) {
+                    bestCents = midCents;
+                    highCents = midCents - 1;
+                } else {
+                    lowCents = midCents + 1;
+                }
+            }
+            return bestCents / 100;
+        }
+
+        return {
+            noInvoice: findMinRev(0),
+            withInvoice: findMinRev(upRate),
+            rate: upRate
+        };
+    }
+
+    function showBreakeven(e) {
+        let res = getBreakevenRev();
+        let tip = document.getElementById('be-tip');
+        if(!tip) {
+            tip = document.createElement('div');
+            tip.id = 'be-tip';
+            e.target.style.position = 'relative';
+            e.target.appendChild(tip);
+        }
+        tip.style.cssText = "position:absolute; background:#1a2b4c; color:white; padding:12px 18px; border-radius:10px; font-size:14px; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,0.25); transform:translateY(-110%); left:50%; margin-left:-160px; z-index:999; pointer-events:none; white-space:nowrap; opacity:0; transition: opacity 0.2s; line-height:1.7; text-align:left;";
+        let invExcl = res.rate > 0 ? dRound(res.withInvoice / (1 + res.rate)) : res.withInvoice;
+        tip.innerHTML = `⚖️ 保本测算<br>`
+            + `<span style="color:#cbd5e1; font-weight:400;">货主不开票付给你</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.noInvoice.toFixed(2)}</span> 元<br>`
+            + `<span style="color:#cbd5e1; font-weight:400;">向货主开票含税</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.withInvoice.toFixed(2)}</span> 元<br>`
+            + `<span style="font-size:12px; color:#94a3b8; font-weight:400;">开票不含税货款 ${invExcl.toFixed(2)} 元 ＝ 开票含税 ÷（1＋税点 ${Math.round(res.rate * 100)}%）</span>`;
+        tip.style.opacity = '1';
+        setTimeout(() => { if(tip) tip.style.opacity = '0'; }, 4000);
+    }
+
+    function buildForms() {
+        let revHtml = '';
+        state.revs.forEach((r, idx) => {
+            let incClass = r.inc ? "btn-green" : "btn-gray";
+            let incText = r.inc ? "✅ 含税" : "⬜ 不含税";
+            let stpClass = r.stamp ? "btn-stamp" : "btn-gray";
+            let stpText = r.stamp ? "📄 计印花税" : "🚫 免印花税";
+            let rateHighlightClass = idx === 0 ? "num-input highlight-linked" : "num-input";
+
+            revHtml += `
+                <div class="list-row">
+                    <input class="name-input" type="text" value="${r.name}" oninput="updateVal('rev', ${r.id}, 'name', this.value)">
+                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)">
+                    <input class="${rateHighlightClass}" type="number" value="${r.rate}" step="0.01" ${r.inc?'':'readonly'} oninput="updateVal('rev', ${r.id}, 'rate', this.value)">
+                    <button class="btn-toggle ${incClass}" onclick="toggleRevInc(${r.id})">${incText}</button>
+                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('rev', ${r.id})">${stpText}</button>
+                    <button class="btn-del" onclick="delRow('rev', ${r.id})">✖</button>
+                </div>`;
+        });
+        document.getElementById('revContainer').innerHTML = revHtml;
+
+        let costHtml = '';
+        state.costs.forEach((c, idx) => {
+            let tClass, tText = "";
+            if(c.ticket === 0) { tClass = "btn-red"; tText = "🚫 没票"; }
+            else if(c.ticket === 1) { tClass = "btn-blue"; tText = "✅ 普票"; }
+            else if(c.ticket === 2) { tClass = "btn-green"; tText = "✅ 专票"; }
+            else { tClass = "btn-purple"; tText = "🏢 代扣"; }
+            
+            let stpClass = c.stamp ? "btn-stamp" : "btn-gray";
+            let stpText = c.stamp ? "📄 计印花税" : "🚫 免印花税";
+            let costRateHighlight = (c.ticket === 3) ? "num-input highlight-linked" : "num-input";
+            
+            costHtml += `
+                <div class="list-row">
+                    <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)">
+                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" title="双击此框：已知司机净到手价，正向倒推含税支出总额">
+                    <input class="${costRateHighlight}" type="number" value="${c.ticket===3 ? getVal('platRate') : c.rate}" step="0.01" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)">
+                    <button class="btn-toggle ${tClass}" onclick="toggleCostTicket(${c.id})">${tText}</button>
+                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})">${stpText}</button>
+                    <button class="btn-del" onclick="delRow('cost', ${c.id})">✖</button>
+                </div>`;
+        });
+        document.getElementById('costContainer').innerHTML = costHtml;
+    }
+
+    function render() {
+        let qty = getVal('qty') || 1;
+        let pRate = getVal('platRate');
+        let surRate = getVal('surchargeRate');
+        let incRate = getVal('incomeRate');
+        let stampRate = getVal('stampRate');
+
+        let totals = {
+            cashRev: 0, revExcl: 0, outVat: 0,
+            cashCost: 0, costExcl: 0, taxDeduct: 0, inVat: 0,
+            stampBase: 0,
+            revsHtml: '', revExclHtml: '', outVatHtml: '',
+            costHtml: '', costExclHtml: '', inVatHtml: '',
+            revCashStrs: [], revExclStrs: [], revExclHows: [], outVatStrs: [],
+            costCashStrs: [], costExclStrs: [], costExclHows: [], inVatStrs: [],
+            stampBaseStrs: [], taxDeductHows: []
+        };
+
+        state.revs.forEach(r => {
+            let amt = r.amt * qty;
+            let cash, excl, outVat;
+            if(r.inc) {
+                cash = dRound(amt);
+                excl = r.rate > 0 ? dRound(cash / (1 + r.rate)) : cash;
+                outVat = dRound(cash - excl);
+            } else {
+                excl = dRound(amt);
+                outVat = dRound(excl * r.rate);
+                cash = dRound(excl + outVat);
+            }
+            totals.cashRev += cash;
+            totals.revExcl += excl;
+            totals.outVat += outVat;
+            if(r.stamp) {
+                totals.stampBase += excl;
+                totals.stampBaseStrs.push(`${r.name}不含税 ${excl.toFixed(2)}`);
+            }
+
+            totals.revCashStrs.push(`${r.name} ${cash.toFixed(2)}`);
+            totals.revExclStrs.push(`${r.name} ${excl.toFixed(2)}`);
+            totals.revExclHows.push(r.inc && r.rate > 0
+                ? `${r.name}：含税收入 ${cash.toFixed(2)} ÷（1＋税率 ${(r.rate*100).toFixed(0)}%）＝ ${excl.toFixed(2)}`
+                : `${r.name}：不含税等于实收 ${cash.toFixed(2)}`);
+            totals.outVatStrs.push(r.rate > 0
+                ? `${r.name}：含税收入 ${cash.toFixed(2)} − 不含税收入 ${excl.toFixed(2)}`
+                : `${r.name}：税率为 0，无销项`);
+
+            totals.revsHtml += `
+                <div class="row-item sub-row">
+                    <span class="row-label">📥 ${r.name}</span>
+                    <span class="row-detail">${r.inc ? '含税开票' : '不开票不含税'}</span>
+                    <span class="row-value positive">+${cash.toFixed(2)}</span>
+                </div>`;
+            totals.revExclHtml += `
+                <div class="row-item sub-row">
+                    <span class="row-label">${r.name}不含税</span>
+                    <span class="row-detail">${r.inc && r.rate > 0 ? `含税收入 ${cash.toFixed(2)} ÷（1＋税率 ${(r.rate*100).toFixed(0)}%）` : `不含税等于实收 ${cash.toFixed(2)}`}</span>
+                    <span class="row-value sub-val">${excl.toFixed(2)}</span>
+                </div>`;
+            totals.outVatHtml += `
+                <div class="row-item sub-row">
+                    <span class="row-label">${r.name}销项</span>
+                    <span class="row-detail">${r.inc ? `含税收入 ${cash.toFixed(2)} − 不含税收入 ${excl.toFixed(2)}` : `不含税收入 ${excl.toFixed(2)} × 税率 ${(r.rate*100).toFixed(0)}%`}</span>
+                    <span class="row-value sub-val">${outVat.toFixed(2)}</span>
+                </div>`;
+        });
+
+        state.costs.forEach(c => {
+            let cash, excl, inVat, costDeduct, taxDeduct;
+            let ticketStr = "含税 · 专票", subDetail = "";
+            
+            if(c.ticket === 3) {
+                let actual = (c.amt * qty) / (1 - pRate);
+                cash = dRound(actual);
+                excl = dRound(cash / 1.09);
+                inVat = dRound(cash - excl);
+                costDeduct = excl; taxDeduct = excl;
+                totals.costHtml += `
+                    <div class="row-item sub-row">
+                        <span class="row-label">🚛 ${c.name}</span><span class="row-detail">含税实付</span><span class="row-value negative">−${cash.toFixed(2)}</span>
+                    </div>
+                    <div class="row-item sub-row">
+                        <span class="row-label">代扣代缴</span><span class="row-detail">不含税净价 ${c.amt} ÷（1 − 代扣税率 ${(pRate*100).toFixed(0)}%）</span><span class="row-value sub-val">${(c.amt/(1-pRate)).toFixed(2)}</span>
+                    </div>`;
+                subDetail = `含税实付 ${cash.toFixed(2)} − 不含税 ${excl.toFixed(2)}`;
+            } else {
+                cash = dRound(c.amt * qty);
+                if(c.ticket === 2) {
+                    excl = c.rate > 0 ? dRound(cash / (1 + c.rate)) : cash;
+                    inVat = dRound(cash - excl);
+                    costDeduct = excl; taxDeduct = excl;
+                    subDetail = `含税支出 ${cash.toFixed(2)} − 不含税 ${excl.toFixed(2)}（含税 ÷（1＋进项税率 ${(c.rate*100).toFixed(0)}%））`;
+                } else if (c.ticket === 1) {
+                    ticketStr = "含税 · 普票"; subDetail = "全额计成本，无进项";
+                    excl = cash; inVat = 0; costDeduct = cash; taxDeduct = cash;
+                } else {
+                    ticketStr = "无票支出"; subDetail = "无发票，不可税前扣除";
+                    excl = cash; inVat = 0; costDeduct = cash; taxDeduct = 0;
+                }
+                totals.costHtml += `
+                    <div class="row-item sub-row">
+                        <span class="row-label">🤝 ${c.name}</span><span class="row-detail">${ticketStr}</span><span class="row-value negative">−${cash.toFixed(2)}</span>
+                    </div>`;
+            }
+
+            totals.cashCost += cash;
+            totals.costExcl += costDeduct;
+            totals.inVat += inVat;
+            totals.taxDeduct += taxDeduct;
+            if(c.stamp) {
+                totals.stampBase += costDeduct;
+                totals.stampBaseStrs.push(`${c.name}不含税 ${costDeduct.toFixed(2)}`);
+            }
+
+            let exclDetail = (inVat > 0 && c.rate > 0)
+                ? `含税支出 ${cash.toFixed(2)} ÷（1＋进项税率 ${(c.rate*100).toFixed(0)}%）`
+                : (inVat > 0
+                    ? `含税支出 ${cash.toFixed(2)} − 进项税 ${inVat.toFixed(2)}`
+                    : `无进项，不含税成本等于含税支出 ${cash.toFixed(2)}`);
+            totals.costExclHtml += `
+                <div class="row-item sub-row">
+                    <span class="row-label">${c.name}不含税成本</span><span class="row-detail">${exclDetail}</span><span class="row-value sub-val">${costDeduct.toFixed(2)}</span>
+                </div>`;
+            if(inVat > 0) {
+                totals.inVatHtml += `
+                    <div class="row-item sub-row">
+                        <span class="row-label">${c.name}进项</span><span class="row-detail">${subDetail}</span><span class="row-value sub-val">${inVat.toFixed(2)}</span>
+                    </div>`;
+            } else {
+                totals.inVatHtml += `
+                    <div class="row-item sub-row">
+                        <span class="row-label">${c.name}无进项</span><span class="row-detail">${c.ticket === 1 ? '普票不能抵进项' : '没票不能抵进项'}</span><span class="row-value sub-val">0.00</span>
+                    </div>`;
+            }
+            totals.costCashStrs.push(`${c.name} ${cash.toFixed(2)}`);
+            totals.costExclStrs.push(`${c.name} ${costDeduct.toFixed(2)}`);
+            totals.costExclHows.push(
+                c.ticket === 3
+                    ? `${c.name}：含税实付 ${cash.toFixed(2)} ÷（1＋9%）＝ ${costDeduct.toFixed(2)}`
+                    : (inVat > 0 && c.rate > 0
+                        ? `${c.name}：含税支出 ${cash.toFixed(2)} ÷（1＋进项税率 ${(c.rate*100).toFixed(0)}%）＝ ${costDeduct.toFixed(2)}`
+                        : `${c.name}：${c.ticket === 1 ? '普票' : '没票'}无进项，等于含税支出 ${cash.toFixed(2)}`)
+            );
+            totals.inVatStrs.push(inVat > 0
+                ? `${c.name}：含税支出 ${cash.toFixed(2)} − 不含税成本 ${excl.toFixed(2)}`
+                : `${c.name}：${c.ticket === 1 ? '普票' : '没票'}无进项`);
+            if (taxDeduct > 0) {
+                totals.taxDeductHows.push(c.ticket === 2 || c.ticket === 3
+                    ? `${c.name}：专票按不含税成本 ${excl.toFixed(2)}`
+                    : `${c.name}：普票按含税全额 ${cash.toFixed(2)}`);
+            }
+        });
+
+        totals.cashRev = dRound(totals.cashRev); totals.revExcl = dRound(totals.revExcl); totals.outVat = dRound(totals.outVat);
+        totals.cashCost = dRound(totals.cashCost); totals.costExcl = dRound(totals.costExcl); totals.taxDeduct = dRound(totals.taxDeduct);
+        totals.inVat = dRound(totals.inVat); totals.stampBase = dRound(totals.stampBase);
+
+        // 销项不够抵进项时：未抵扣进项转入成本（不能当成利润）
+        let vat = vatSettle(totals.outVat, totals.inVat);
+        let unusedVat = vat.unusedVat;
+        let payVat = vat.payVat;
+        if (unusedVat > 0) {
+            totals.taxDeduct = dRound(totals.taxDeduct + unusedVat);
+            totals.costExcl = dRound(totals.costExcl + unusedVat);
+            totals.costExclStrs.push(`未抵扣进项 ${unusedVat.toFixed(2)}`);
+            totals.costExclHows.push(`未抵扣进项：进项税额 − 销项税额 ＝ ${unusedVat.toFixed(2)}`);
+            totals.taxDeductHows.push(`未抵扣进项：进项税额 − 销项税额 ＝ ${unusedVat.toFixed(2)}`);
+            totals.costExclHtml += `
+                <div class="row-item sub-row">
+                    <span class="row-label">未抵扣进项转入成本</span>
+                    <span class="row-detail">进项税额 ${totals.inVat.toFixed(2)} − 销项税额 ${totals.outVat.toFixed(2)}，多出来转入成本</span>
+                    <span class="row-value sub-val">${unusedVat.toFixed(2)}</span>
+                </div>`;
+        }
+        let sur = dRound(payVat * surRate);
+        let stamp = dRound(totals.stampBase * stampRate);
+        let taxableInc = dRound(totals.revExcl - totals.taxDeduct - sur - stamp);
+        let incTax = dRound(Math.max(0, taxableInc * incRate));
+        let totalTax = dRound(payVat + sur + stamp + incTax);
+        let otherTax = dRound(sur + stamp + incTax);
+
+        let cashMargin = dRound(totals.cashRev - totals.cashCost);
+        let netProfit = dRound(cashMargin - totalTax);
+        let f2Profit = dRound(totals.revExcl - totals.costExcl - otherTax);
+        let vatPayDetail = unusedVat > 0
+            ? `销项税额 ${totals.outVat.toFixed(2)} − 进项税额 ${totals.inVat.toFixed(2)}，不够抵按 0`
+            : `销项税额 ${totals.outVat.toFixed(2)} − 进项税额 ${totals.inVat.toFixed(2)}`;
+        let compTaxRate = totals.cashRev > 0 ? ((totalTax / totals.cashRev) * 100).toFixed(2) : "0.00";
+        let costExclStr = totals.costExclStrs.join(' ＋ ') || '无';
+        let revCashStr = totals.revCashStrs.join(' ＋ ') || '无';
+        let revExclStr = totals.revExclStrs.join(' ＋ ') || '无';
+        let costCashStr = totals.costCashStrs.join(' ＋ ') || '无';
+        let otherTaxStr = `附加税 ${sur.toFixed(2)} ＋ 印花税 ${stamp.toFixed(2)} ＋ 企业所得税 ${incTax.toFixed(2)}`;
+        let totalTaxStr = `应缴增值税 ${payVat.toFixed(2)} ＋ 附加税 ${sur.toFixed(2)} ＋ 印花税 ${stamp.toFixed(2)} ＋ 企业所得税 ${incTax.toFixed(2)}`;
+        let cashMarginStr = `收入合计 ${totals.cashRev.toFixed(2)} − 成本支出合计 ${totals.cashCost.toFixed(2)}`;
+        let cashProfitStr = `账面现金毛利 ${cashMargin.toFixed(2)} − 税费总计 ${totalTax.toFixed(2)}`;
+        let pnlProfitStr = `不含税收入合计 ${totals.revExcl.toFixed(2)} − 不含税成本合计 ${totals.costExcl.toFixed(2)} − 其他税费合计 ${otherTax.toFixed(2)}`;
+        let deductDiffers = Math.abs(totals.taxDeduct - totals.costExcl) >= 0.01;
+        let incTaxBaseStr = deductDiffers
+            ? `不含税收入 ${totals.revExcl.toFixed(2)} − 税前扣除 ${totals.taxDeduct.toFixed(2)}（没票 ${dRound(totals.costExcl - totals.taxDeduct).toFixed(2)} 不可扣） − 附加税 ${sur.toFixed(2)} − 印花税 ${stamp.toFixed(2)}`
+            : `不含税收入 ${totals.revExcl.toFixed(2)} − 不含税成本 ${totals.costExcl.toFixed(2)} − 附加税 ${sur.toFixed(2)} − 印花税 ${stamp.toFixed(2)}`;
+        let incTaxStr = taxableInc > 0
+            ? `${incTaxBaseStr}，再 × 所得税率 ${(incRate*100).toFixed(0)}%`
+            : `${incTaxBaseStr}，所得为负不征所得税`;
+
+        let unusedChip = unusedVat > 0
+            ? chipHtml('tax', '未抵扣进项', [], '进项税额 − 销项税额，多出来转入成本、不退税', unusedVat.toFixed(2), false)
+            : '';
+        let deductChip = deductDiffers
+            ? chipHtml('base', '税前扣除', totals.taxDeductHows, '有没票支出，企业所得税不能按不含税成本全额扣', totals.taxDeduct.toFixed(2), false)
+            : '';
+        let baseStrip = `
+                <div class="strip-block">
+                    <div class="strip-head">基础模块 · 不含税口径只算一次</div>
+                    <div class="tax-strip">
+                        ${chipHtml('base', '不含税收入', totals.revExclHows, '含税收入 ÷（1＋销项税率）', totals.revExcl.toFixed(2), false)}
+                        ${chipHtml('base', '不含税成本', totals.costExclHows, '专票剔进项，普票/没票等于含税支出', totals.costExcl.toFixed(2), false)}
+                        ${deductChip}
+                    </div>
+                </div>`;
+        let taxStrip = `
+                <div class="strip-block">
+                    <div class="strip-head">税费模块 · 引用上方结果</div>
+                    <div class="tax-strip">
+                        ${chipHtml('tax', '销项税额', totals.outVatStrs, '含税收入 − 不含税收入', totals.outVat.toFixed(2), false)}
+                        ${chipHtml('tax', '进项税额', totals.inVatStrs, '含税支出 − 不含税成本（仅专票）', totals.inVat.toFixed(2), false)}
+                        ${chipHtml('tax', '应缴增值税', [], vatPayDetail, payVat.toFixed(2), true)}
+                        ${unusedChip}
+                        ${chipHtml('tax', '附加税', [], `应缴增值税 ${payVat.toFixed(2)} × 附加税率 ${(surRate*100).toFixed(0)}%`, sur.toFixed(2), true)}
+                        ${chipHtml('tax', '印花税', totals.stampBaseStrs, `勾选项目不含税合计 ${totals.stampBase.toFixed(2)} × 印花税率 ${(stampRate*10000).toFixed(0)}‱`, stamp.toFixed(2), true)}
+                        ${chipHtml('tax', '企业所得税', [], incTaxStr, incTax.toFixed(2), true)}
+                    </div>
+                </div>`;
+
+        let reportHtml = `
+            <div class="card">
+                <div class="card-header">
+                    <h2>📋 成本核算（现金流 VS 利润表）</h2>
+                    <div class="order-badge">
+                        <span class="tag">数量 ${qty}</span>
+                        <span class="tag">附加税 ${(surRate*100).toFixed(0)}%</span>
+                        <span class="tag">所得税 ${(incRate*100).toFixed(0)}%</span>
+                        <span class="tag">印花税 ${(stampRate*10000).toFixed(0)}‱</span>
+                    </div>
+                </div>
+                ${baseStrip}
+                ${taxStrip}
+                <div class="split-panel">
+                    <div class="panel panel-cash">
+                        <div class="panel-title">💰 含税现金流 <span class="badge">实际收付</span></div>
+                        <div class="block-positive">
+                            <div class="block-label">⬆ 收入</div>
+                            ${totals.revsHtml}
+                            <div class="row-item row-total">
+                                <span class="row-label">收入合计</span>
+                                <span class="row-detail" style="font-size:12px">${revCashStr}</span>
+                                <span class="row-value positive">+${totals.cashRev.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="block-negative">
+                            <div class="block-label">⬇ 成本支出</div>
+                            ${totals.costHtml}
+                            <div class="row-item row-total">
+                                <span class="row-label">成本支出合计</span>
+                                <span class="row-detail" style="font-size:12px">${costCashStr}</span>
+                                <span class="row-value negative">−${totals.cashCost.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="block-tax">
+                            <div class="block-label">⬇ 税费</div>
+                            <div class="row-item row-total" style="border-bottom: none;">
+                                <span class="row-label">税费总计</span>
+                                <span class="row-detail" style="font-size:12px">${totalTaxStr}</span>
+                                <span class="row-value total-tax">−${totalTax.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="block-result">
+                            <div class="block-label">📊 结果 · 净利</div>
+                            <div class="row-item row-line">
+                                <span class="row-label">账面现金毛利</span>
+                                <span class="row-detail">${cashMarginStr}</span>
+                                <span class="row-value">${cashMargin>=0?'+':''}${cashMargin.toFixed(2)}</span>
+                            </div>
+                            <div class="row-item row-total" style="border-bottom: none;">
+                                <span class="row-label">① 现金流净利</span>
+                                <span class="row-detail">${cashProfitStr}</span>
+                                <span class="row-value big ${netProfit>=0?'green':'negative'}">${netProfit>=0?'+':''}${netProfit.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel panel-tax">
+                        <div class="panel-title">🧾 不含税利润表 <span class="badge">计税基础</span></div>
+                        <div class="block-positive">
+                            <div class="block-label">⬆ 不含税收入</div>
+                            ${totals.revExclHtml}
+                            <div class="row-item row-total">
+                                <span class="row-label">不含税收入合计</span>
+                                <span class="row-detail" style="font-size:12px">${revExclStr}</span>
+                                <span class="row-value positive">${totals.revExcl.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="block-negative">
+                            <div class="block-label">⬇ 不含税成本</div>
+                            ${totals.costExclHtml}
+                            <div class="row-item row-total">
+                                <span class="row-label">📦 不含税成本合计</span><span class="row-detail" style="font-size:12px">${costExclStr}</span><span class="row-value negative">−${totals.costExcl.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="block-tax">
+                            <div class="block-label">⬇ 其他税费</div>
+                            <div class="row-item row-total" style="border-bottom: none;">
+                                <span class="row-label">其他税费合计</span>
+                                <span class="row-detail" style="font-size:12px">${otherTaxStr}</span>
+                                <span class="row-value total-tax">−${otherTax.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="block-result">
+                            <div class="block-label">📊 结果 · 净利</div>
+                            <div class="row-item row-total" style="border-bottom: none;">
+                                <span class="row-label">② 利润表净利</span>
+                                <span class="row-detail">${pnlProfitStr}</span>
+                                <span class="row-value big ${f2Profit>=0?'green':'negative'}">${f2Profit>=0?'+':''}${f2Profit.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="result-area">
+                    <div class="result-item">
+                        <span class="label">✅ 交叉验证</span>
+                        <span class="number ${netProfit>=0?'green':'red'}">${netProfit.toFixed(2)}</span>
+                        <span style="color:#2a4f77; font-weight:500;">= ${f2Profit.toFixed(2)}</span>
+                        <span class="check-mark ${Math.abs(netProfit - f2Profit)<0.01 ? 'success':'error'}">${Math.abs(netProfit - f2Profit)<0.01 ? '✔ 两项净利一致':'❌ 数据有误差'}</span>
+                    </div>
+                </div>
+                <div class="footnote">
+                    <span>📌 含税收入 ${totals.cashRev.toFixed(2)}</span><span>📌 不含税收入 ${totals.revExcl.toFixed(2)}</span>
+                    <span>📌 含税成本 ${totals.cashCost.toFixed(2)}</span><span>📌 不含税成本 ${totals.costExcl.toFixed(2)}</span>
+                    <span style="margin-left: auto;">📊 综合税负 ${compTaxRate}%</span>
+                </div>
+            </div>`;
+        document.getElementById('reportView').innerHTML = reportHtml;
+    }
+
+    buildForms();
+    render();
+</script>
+</body>
+</html>
