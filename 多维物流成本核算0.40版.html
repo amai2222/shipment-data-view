@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>多维物流成本与税务 0.40版</title>
+    <title>多维物流成本与税务 0.40版 · 一般纳税人</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
         body { background: #f4f7fd; color: #1a1a1a; height: 100vh; overflow: hidden; }
@@ -65,8 +65,11 @@
         .tax-chip .k { font-size: 12px; color: #7a5a1a; font-weight: 600; letter-spacing: 0.2px; }
         .tax-chip.base .k { color: #1f3a6b; }
         .tax-chip .lines { margin: 6px 0 4px; }
-        .tax-chip .line { font-size: 11px; color: #3d4d6a; font-weight: 400; line-height: 1.5; word-break: break-word; margin-bottom: 4px; }
-        .tax-chip .d { font-size: 11px; color: #6b7280; font-weight: 400; margin-top: 2px; line-height: 1.5; word-break: break-word; }
+        .tax-chip .d-cn { font-size: 11px; color: #6b7280; font-weight: 400; margin-top: 4px; line-height: 1.45; }
+        .tax-chip .d-num { font-size: 12px; color: #2c2418; font-weight: 500; margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; word-break: break-word; }
+        .tax-chip .line { display: flex; flex-direction: column; gap: 1px; }
+        .tax-chip .line .nm { font-size: 11px; color: #6b7280; }
+        .tax-chip .line .num { font-size: 12px; color: #2c2418; font-variant-numeric: tabular-nums; }
         .tax-chip .v { font-size: 18px; font-weight: 700; color: #2c2418; font-variant-numeric: tabular-nums; margin-top: 4px; }
         .tax-chip.base .v { color: #0b1a33; }
         .tax-chip .v.neg { color: #b45309; }
@@ -88,7 +91,9 @@
         .row-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14.5px; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.04); }
         .row-item:last-of-type { border-bottom: none; }
         .row-label { color: #3d4d6a; font-weight: 400; flex: 0 0 auto; min-width: 90px; }
-        .row-detail { color: #6b7280; font-size: 13px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; }
+        .row-detail { color: #6b7280; font-size: 13px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.35; }
+        .f-cn { font-size: 11px; color: #6b7280; font-weight: 400; }
+        .f-num { font-size: 12px; color: #3d4d6a; font-weight: 500; font-variant-numeric: tabular-nums; }
         .row-value { font-weight: 400; font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 70px; text-align: right; color: #3d4d6a; }
         .row-value.big { font-size: 17px; font-weight: 700; }
         
@@ -167,23 +172,23 @@
 
 <div class="app-container">
     <div class="sidebar" id="sidebar">
-        <h1>⚙️ 成本与税务引擎</h1>
+        <h1>⚙️ 成本与税务引擎 · 一般纳税人</h1>
         
         <div class="form-group">
             <div class="form-group-title">🎛 全局配置</div>
             <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: center;">
                 <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" style="flex: 1; white-space: nowrap;">⬜ 关闭代扣代缴模式</button>
                 <div class="input-row highlight-linked" id="wrapPlatRate" style="flex: 1; display: none;">
-                    <span>代扣税率:</span><input type="number" id="platRate" value="0.075" step="0.005" oninput="syncPlatRate(this.value)">
+                    <span>代扣税率:</span><input type="number" id="platRate" value="0.075" step="0.005" oninput="syncPlatRate(this.value)" title="金额栏请填司机净价，系统还原含税实付">
                 </div>
                 <div class="input-row highlight-linked" style="flex: 1;">
-                    <span>上游税点:</span><input type="number" id="upstreamRate" value="0.09" step="0.01" oninput="syncUpstreamRate(this.value)">
+                    <span title="主营开票销项税率；代扣代缴拆进项也用此税率">上游税点:</span><input type="number" id="upstreamRate" value="0.09" step="0.01" oninput="syncUpstreamRate(this.value)" title="主营开票销项税率；代扣代缴拆进项也用此税率">
                 </div>
             </div>
             <div class="grid-settings">
                 <div class="input-row"><span>业务倍数:</span><input type="number" id="qty" value="1" oninput="render()"></div>
                 <div class="input-row"><span>附加税率:</span><input type="number" id="surchargeRate" value="0.06" step="0.01" oninput="render()"></div>
-                <div class="input-row"><span>所得税率:</span><input type="number" id="incomeRate" value="0.05" step="0.01" oninput="render()"></div>
+                <div class="input-row"><span title="按你的实际税负填写，参与测算">所得税率:</span><input type="number" id="incomeRate" value="0.05" step="0.01" oninput="render()" title="按你的实际税负填写，参与测算"></div>
                 <div class="input-row"><span>印花税率:</span><input type="number" id="stampRate" value="0.0003" step="0.0001" oninput="render()"></div>
             </div>
         </div>
@@ -232,19 +237,81 @@
         };
     }
 
-    function chipHtml(kind, title, lines, detail, value, neg) {
-        let lineHtml = (lines && lines.length)
-            ? `<div class="lines">${lines.map(s => `<div class="line">${s}</div>`).join('')}</div>`
-            : '';
-        let dHtml = detail ? `<div class="d">${detail}</div>` : '';
+    // 按税率把含税拆成不含税和税额
+    function vatSplit(cash, rate) {
+        cash = dRound(cash);
+        if (rate > 0) {
+            let excl = dRound(cash / (1 + rate));
+            return { excl: excl, vat: dRound(cash - excl) };
+        }
+        return { excl: cash, vat: 0 };
+    }
+
+    function splitRev(r, qty) {
+        let amt = r.amt * qty;
+        let cash, excl, outVat;
+        if (r.inc) {
+            cash = dRound(amt);
+            let split = vatSplit(cash, r.rate);
+            excl = split.excl;
+            outVat = split.vat;
+        } else {
+            excl = dRound(amt);
+            outVat = dRound(excl * r.rate);
+            cash = dRound(excl + outVat);
+        }
+        return { cash: cash, excl: excl, outVat: outVat };
+    }
+
+    // 代扣进项按上游税点拆；普票不能抵进项，但印花税按不含税价款
+    function splitCost(c, qty, pRate, upRate) {
+        if (c.ticket === 3) {
+            let net = dRound(c.amt * qty);
+            let cash = (pRate > 0 && pRate < 1) ? dRound(net / (1 - pRate)) : net;
+            let split = vatSplit(cash, upRate);
+            return { cash: cash, excl: split.excl, inVat: split.vat, costDeduct: split.excl, taxDeduct: split.excl, stampExcl: split.excl };
+        }
+        let cash = dRound(c.amt * qty);
+        if (c.ticket === 2) {
+            let split = vatSplit(cash, c.rate);
+            return { cash: cash, excl: split.excl, inVat: split.vat, costDeduct: split.excl, taxDeduct: split.excl, stampExcl: split.excl };
+        }
+        if (c.ticket === 1) {
+            let split = vatSplit(cash, c.rate);
+            return { cash: cash, excl: split.excl, inVat: 0, costDeduct: cash, taxDeduct: cash, stampExcl: split.excl };
+        }
+        return { cash: cash, excl: cash, inVat: 0, costDeduct: cash, taxDeduct: 0, stampExcl: cash };
+    }
+
+    function dual(cn, num) {
+        return `<span class="f-cn">${cn}</span><span class="f-num">${num}</span>`;
+    }
+
+    function chipHtml(kind, title, cnText, numText, value, neg, items) {
+        let lineHtml = '';
+        if (items && items.length) {
+            lineHtml = `<div class="lines">${items.map(it =>
+                `<div class="line"><span class="nm">${it.name}</span><span class="num">${it.num}</span></div>`
+            ).join('')}</div>`;
+        }
+        let dCn = cnText ? `<div class="d-cn">${cnText}</div>` : '';
+        let dNum = numText ? `<div class="d-num">${numText}</div>` : '';
         return `<div class="tax-chip ${kind}">
                         <div class="k">${title}</div>
-                        ${lineHtml}${dHtml}
+                        ${dCn}${lineHtml}${dNum}
                         <div class="v${neg ? ' neg' : ''}">${value}</div>
                     </div>`;
     }
     
     function getVal(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+    function getQty() {
+        let el = document.getElementById('qty');
+        if (!el || el.value === '' || el.value === null) return 1;
+        let n = parseFloat(el.value);
+        if (isNaN(n) || n < 0) return 1;
+        return n;
+    }
     
     function syncUpstreamRate(val) {
         let rate = parseFloat(val) || 0;
@@ -344,62 +411,76 @@
 
     function reverseCalcCost(id) {
         let c = state.costs.find(x => x.id === id);
-        let targetNet = prompt(`【正向倒推含税支出】\n当前支出项：${c.name}\n\n请输入司机要求的【实际净到手现金】:`, c.amt);
-        if (targetNet && !isNaN(targetNet)) {
-            let grossAmt = dRound(parseFloat(targetNet));
-            if(confirm(`司机要求净到手: ${targetNet} 元\n👉 系统测算需录入的含税支出金额: ${grossAmt} 元\n\n是否自动填入表单？`)) {
-                updateVal('cost', id, 'amt', grossAmt);
+        if (!c) return;
+        if (c.ticket === 3) {
+            let pRate = getVal('platRate');
+            let upRate = getVal('upstreamRate');
+            let raw = prompt(`【代扣倒推】\n当前支出项：${c.name}\n\n请输入司机要求的【净到手现金】：`, c.amt);
+            if (raw === null || raw === '' || isNaN(raw)) return;
+            let net = parseFloat(raw);
+            if (pRate < 0 || pRate >= 1) {
+                alert('代扣税率必须在 0 到 1 之间');
+                return;
+            }
+            let gross = dRound(net / (1 - pRate));
+            let excl = vatSplit(gross, upRate).excl;
+            if (confirm(`净到手 ${dRound(net).toFixed(2)} 元\n含税实付 ${gross.toFixed(2)} ＝ 净到手 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按上游税点 ${(upRate*100).toFixed(0)}% 拆进项，不含税 ${excl.toFixed(2)} 元\n\n金额栏填入净价 ${dRound(net).toFixed(2)} 元？`)) {
+                updateVal('cost', id, 'amt', dRound(net));
                 buildForms();
             }
+            return;
+        }
+        let raw = prompt(`【倒推含税支出】\n当前支出项：${c.name}\n\n请输入不含税金额，系统按该项税率还原含税支出：`, c.amt);
+        if (raw === null || raw === '' || isNaN(raw)) return;
+        let excl = parseFloat(raw);
+        let rate = c.ticket === 0 ? 0 : (c.rate || 0);
+        let gross = rate > 0 ? dRound(excl * (1 + rate)) : dRound(excl);
+        if (confirm(`不含税 ${dRound(excl).toFixed(2)} 元\n含税支出 ${gross.toFixed(2)} ＝ 不含税 ×（1＋税率 ${(rate*100).toFixed(0)}%）\n\n是否填入含税支出？`)) {
+            updateVal('cost', id, 'amt', gross);
+            buildForms();
         }
     }
 
     function getBreakevenRev() {
-        let qty = getVal('qty') || 1;
+        let qty = getQty();
         let surRate = getVal('surchargeRate');
         let incRate = getVal('incomeRate');
         let stampRate = getVal('stampRate');
-        let upRate = getVal('upstreamRate') || 0.09;
-
-        let inVat = 0, taxDeduct = 0, stampBaseCost = 0, cashCost = 0;
+        let upRate = getVal('upstreamRate') || 0;
         let pRate = getVal('platRate');
 
+        let inVat = 0, taxDeduct = 0, stampBaseCost = 0, cashCost = 0;
         state.costs.forEach(c => {
-            let cash = dRound(c.amt * qty);
-            let iv = 0, td = 0, stampAmt = 0;
-
-            if(c.ticket === 3) {
-                let actual = dRound(cash / (1 - pRate));
-                let excl = dRound(actual / 1.09);
-                iv = dRound(actual - excl);
-                td = excl;
-                stampAmt = excl;
-                cashCost += actual;
-            } else {
-                if(c.ticket === 2) {
-                    let excl = c.rate > 0 ? dRound(cash / (1 + c.rate)) : cash;
-                    iv = dRound(cash - excl);
-                    td = excl;
-                    stampAmt = excl;
-                } else if(c.ticket === 1) {
-                    td = cash;
-                    stampAmt = cash;
-                } else {
-                    td = 0;
-                    stampAmt = cash;
-                }
-                cashCost += cash;
-            }
-            taxDeduct += td;
-            inVat += iv;
-            if(c.stamp) stampBaseCost += stampAmt;
+            let s = splitCost(c, qty, pRate, upRate);
+            cashCost += s.cash;
+            taxDeduct += s.taxDeduct;
+            inVat += s.inVat;
+            if (c.stamp) stampBaseCost += s.stampExcl;
         });
+        cashCost = dRound(cashCost);
+        taxDeduct = dRound(taxDeduct);
+        inVat = dRound(inVat);
+        stampBaseCost = dRound(stampBaseCost);
 
-        if (cashCost === 0) return { noInvoice: 0, withInvoice: 0, rate: upRate };
+        let otherCash = 0, otherExcl = 0, otherOut = 0, otherStamp = 0;
+        state.revs.slice(1).forEach(r => {
+            let s = splitRev(r, qty);
+            otherCash += s.cash;
+            otherExcl += s.excl;
+            otherOut += s.outVat;
+            if (r.stamp) otherStamp += s.excl;
+        });
+        otherCash = dRound(otherCash);
+        otherExcl = dRound(otherExcl);
+        otherOut = dRound(otherOut);
+        otherStamp = dRound(otherStamp);
+        let mainStamp = state.revs.length > 0 && state.revs[0].stamp;
+
+        if (cashCost === 0 && otherCash === 0) return { noInvoice: 0, withInvoice: 0, rate: upRate };
 
         function findMinRev(invoiceRate) {
-            let lowCents = Math.max(0, Math.floor(cashCost * 100) - 500);
-            let highCents = Math.ceil(cashCost * 300);
+            let lowCents = Math.max(0, Math.floor((cashCost - otherCash) * 100) - 500);
+            let highCents = Math.ceil((cashCost + Math.abs(otherCash) + 1) * 300);
             let bestCents = highCents;
 
             while (lowCents <= highCents) {
@@ -413,16 +494,16 @@
                     r_excl = dRound(R);
                     out_vat = 0;
                 }
-                let vat = vatSettle(out_vat, inVat);
+                let vat = vatSettle(dRound(out_vat + otherOut), inVat);
                 let payVat = vat.payVat;
                 let deduct = dRound(taxDeduct + vat.unusedVat);
                 let sur = dRound(payVat * surRate);
-                let stampRev = (state.revs.length > 0 && state.revs[0].stamp) ? r_excl : 0;
+                let stampRev = dRound((mainStamp ? r_excl : 0) + otherStamp);
                 let stamp = dRound((stampBaseCost + stampRev) * stampRate);
-                let taxableInc = dRound(r_excl - deduct - sur - stamp);
+                let taxableInc = dRound(r_excl + otherExcl - deduct - sur - stamp);
                 let incTax = dRound(Math.max(0, taxableInc * incRate));
                 let totalTax = dRound(payVat + sur + stamp + incTax);
-                let netProfit = dRound(dRound(R - cashCost) - totalTax);
+                let netProfit = dRound(dRound(R + otherCash - cashCost) - totalTax);
 
                 if (netProfit >= 0) {
                     bestCents = midCents;
@@ -452,10 +533,15 @@
         }
         tip.style.cssText = "position:absolute; background:#1a2b4c; color:white; padding:12px 18px; border-radius:10px; font-size:14px; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,0.25); transform:translateY(-110%); left:50%; margin-left:-160px; z-index:999; pointer-events:none; white-space:nowrap; opacity:0; transition: opacity 0.2s; line-height:1.7; text-align:left;";
         let invExcl = res.rate > 0 ? dRound(res.withInvoice / (1 + res.rate)) : res.withInvoice;
+        let qty = getQty();
+        let qtyNote = qty !== 1
+            ? `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">以上为 ${qty} 倍合计 · 单价不开票 ${dRound(res.noInvoice / qty).toFixed(2)} / 开票含税 ${dRound(res.withInvoice / qty).toFixed(2)}</span>`
+            : '';
+        let extra = state.revs.length > 1 ? `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">针对第一项收入保本，其余 ${state.revs.length - 1} 项收入已计入</span>` : '';
         tip.innerHTML = `⚖️ 保本测算<br>`
             + `<span style="color:#cbd5e1; font-weight:400;">货主不开票付给你</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.noInvoice.toFixed(2)}</span> 元<br>`
             + `<span style="color:#cbd5e1; font-weight:400;">向货主开票含税</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.withInvoice.toFixed(2)}</span> 元<br>`
-            + `<span style="font-size:12px; color:#94a3b8; font-weight:400;">开票不含税货款 ${invExcl.toFixed(2)} 元 ＝ 开票含税 ÷（1＋税点 ${Math.round(res.rate * 100)}%）</span>`;
+            + `<span style="font-size:12px; color:#94a3b8; font-weight:400;">开票不含税货款 ${invExcl.toFixed(2)} 元 ＝ 开票含税 ÷（1＋上游税点 ${Math.round(res.rate * 100)}%）</span>${qtyNote}${extra}`;
         tip.style.opacity = '1';
         setTimeout(() => { if(tip) tip.style.opacity = '0'; }, 4000);
     }
@@ -496,8 +582,8 @@
             costHtml += `
                 <div class="list-row">
                     <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)">
-                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" title="双击此框：已知司机净到手价，正向倒推含税支出总额">
-                    <input class="${costRateHighlight}" type="number" value="${c.ticket===3 ? getVal('platRate') : c.rate}" step="0.01" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)">
+                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" title="双击：已知不含税或司机净到手，倒推填入金额">
+                    <input class="${costRateHighlight}" type="number" value="${c.ticket===3 ? getVal('platRate') : c.rate}" step="0.01" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)" title="${c.ticket===3 ? '代扣税率（进项按左上角上游税点拆）' : (c.ticket===1 ? '普票税率：不能抵进项，仅用于印花税按不含税计' : '进项税率')}">
                     <button class="btn-toggle ${tClass}" onclick="toggleCostTicket(${c.id})">${tText}</button>
                     <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})">${stpText}</button>
                     <button class="btn-del" onclick="delRow('cost', ${c.id})">✖</button>
@@ -507,107 +593,90 @@
     }
 
     function render() {
-        let qty = getVal('qty') || 1;
+        let qty = getQty();
         let pRate = getVal('platRate');
         let surRate = getVal('surchargeRate');
         let incRate = getVal('incomeRate');
         let stampRate = getVal('stampRate');
+        let upRate = getVal('upstreamRate');
 
         let totals = {
             cashRev: 0, revExcl: 0, outVat: 0,
             cashCost: 0, costExcl: 0, taxDeduct: 0, inVat: 0,
             stampBase: 0,
-            revsHtml: '', revExclHtml: '', outVatHtml: '',
-            costHtml: '', costExclHtml: '', inVatHtml: '',
-            revCashStrs: [], revExclStrs: [], revExclHows: [], outVatStrs: [],
-            costCashStrs: [], costExclStrs: [], costExclHows: [], inVatStrs: [],
-            stampBaseStrs: [], taxDeductHows: []
+            revsHtml: '', revExclHtml: '',
+            costHtml: '', costExclHtml: '',
+            revCashNums: [], revExclNums: [], costCashNums: [], costExclNums: [],
+            revExclItems: [], outVatItems: [], costExclItems: [], inVatItems: [],
+            stampItems: [], taxDeductItems: []
         };
 
         state.revs.forEach(r => {
-            let amt = r.amt * qty;
-            let cash, excl, outVat;
-            if(r.inc) {
-                cash = dRound(amt);
-                excl = r.rate > 0 ? dRound(cash / (1 + r.rate)) : cash;
-                outVat = dRound(cash - excl);
-            } else {
-                excl = dRound(amt);
-                outVat = dRound(excl * r.rate);
-                cash = dRound(excl + outVat);
-            }
+            let s = splitRev(r, qty);
+            let cash = s.cash, excl = s.excl, outVat = s.outVat;
             totals.cashRev += cash;
             totals.revExcl += excl;
             totals.outVat += outVat;
             if(r.stamp) {
                 totals.stampBase += excl;
-                totals.stampBaseStrs.push(`${r.name}不含税 ${excl.toFixed(2)}`);
+                totals.stampItems.push({ name: r.name, num: excl.toFixed(2) });
             }
 
-            totals.revCashStrs.push(`${r.name} ${cash.toFixed(2)}`);
-            totals.revExclStrs.push(`${r.name} ${excl.toFixed(2)}`);
-            totals.revExclHows.push(r.inc && r.rate > 0
-                ? `${r.name}：含税收入 ${cash.toFixed(2)} ÷（1＋税率 ${(r.rate*100).toFixed(0)}%）＝ ${excl.toFixed(2)}`
-                : `${r.name}：不含税等于实收 ${cash.toFixed(2)}`);
-            totals.outVatStrs.push(r.rate > 0
-                ? `${r.name}：含税收入 ${cash.toFixed(2)} − 不含税收入 ${excl.toFixed(2)}`
-                : `${r.name}：税率为 0，无销项`);
+            totals.revCashNums.push(cash.toFixed(2));
+            totals.revExclNums.push(excl.toFixed(2));
+            totals.revExclItems.push(r.inc && r.rate > 0
+                ? { name: r.name, num: `${cash.toFixed(2)} ÷ ${ (1 + r.rate).toFixed(2) } ＝ ${excl.toFixed(2)}` }
+                : { name: r.name, num: cash.toFixed(2) });
+            totals.outVatItems.push(r.rate > 0
+                ? { name: r.name, num: `${cash.toFixed(2)} − ${excl.toFixed(2)} ＝ ${outVat.toFixed(2)}` }
+                : { name: r.name, num: '0.00' });
 
             totals.revsHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">📥 ${r.name}</span>
-                    <span class="row-detail">${r.inc ? '含税开票' : '不开票不含税'}</span>
+                    <span class="row-detail">${r.inc ? '含税开票实收' : '不开票实收'}</span>
                     <span class="row-value positive">+${cash.toFixed(2)}</span>
                 </div>`;
             totals.revExclHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">${r.name}不含税</span>
-                    <span class="row-detail">${r.inc && r.rate > 0 ? `含税收入 ${cash.toFixed(2)} ÷（1＋税率 ${(r.rate*100).toFixed(0)}%）` : `不含税等于实收 ${cash.toFixed(2)}`}</span>
+                    <span class="row-detail">${r.inc && r.rate > 0
+                        ? dual('含税收入 ÷（1＋销项税率）', `${cash.toFixed(2)} ÷ ${(1 + r.rate).toFixed(2)}`)
+                        : dual('不含税等于实收', cash.toFixed(2))}</span>
                     <span class="row-value sub-val">${excl.toFixed(2)}</span>
-                </div>`;
-            totals.outVatHtml += `
-                <div class="row-item sub-row">
-                    <span class="row-label">${r.name}销项</span>
-                    <span class="row-detail">${r.inc ? `含税收入 ${cash.toFixed(2)} − 不含税收入 ${excl.toFixed(2)}` : `不含税收入 ${excl.toFixed(2)} × 税率 ${(r.rate*100).toFixed(0)}%`}</span>
-                    <span class="row-value sub-val">${outVat.toFixed(2)}</span>
                 </div>`;
         });
 
         state.costs.forEach(c => {
-            let cash, excl, inVat, costDeduct, taxDeduct;
-            let ticketStr = "含税 · 专票", subDetail = "";
+            let s = splitCost(c, qty, pRate, upRate);
+            let cash = s.cash, excl = s.excl, inVat = s.inVat, costDeduct = s.costDeduct, taxDeduct = s.taxDeduct;
+            let ticketStr = "含税 · 专票";
             
             if(c.ticket === 3) {
-                let actual = (c.amt * qty) / (1 - pRate);
-                cash = dRound(actual);
-                excl = dRound(cash / 1.09);
-                inVat = dRound(cash - excl);
-                costDeduct = excl; taxDeduct = excl;
                 totals.costHtml += `
                     <div class="row-item sub-row">
-                        <span class="row-label">🚛 ${c.name}</span><span class="row-detail">含税实付</span><span class="row-value negative">−${cash.toFixed(2)}</span>
+                        <span class="row-label">🚛 ${c.name}</span>
+                        <span class="row-detail">${dual('金额栏为净价，还原含税实付', cash.toFixed(2))}</span>
+                        <span class="row-value negative">−${cash.toFixed(2)}</span>
                     </div>
                     <div class="row-item sub-row">
-                        <span class="row-label">代扣代缴</span><span class="row-detail">不含税净价 ${c.amt} ÷（1 − 代扣税率 ${(pRate*100).toFixed(0)}%）</span><span class="row-value sub-val">${(c.amt/(1-pRate)).toFixed(2)}</span>
+                        <span class="row-label">代扣还原</span>
+                        <span class="row-detail">${dual('净价 ÷（1 − 代扣税率）', `${dRound(c.amt * qty).toFixed(2)} ÷ ${(1 - pRate).toFixed(3)}`)}</span>
+                        <span class="row-value sub-val">${cash.toFixed(2)}</span>
                     </div>`;
-                subDetail = `含税实付 ${cash.toFixed(2)} − 不含税 ${excl.toFixed(2)}`;
             } else {
-                cash = dRound(c.amt * qty);
                 if(c.ticket === 2) {
-                    excl = c.rate > 0 ? dRound(cash / (1 + c.rate)) : cash;
-                    inVat = dRound(cash - excl);
-                    costDeduct = excl; taxDeduct = excl;
-                    subDetail = `含税支出 ${cash.toFixed(2)} − 不含税 ${excl.toFixed(2)}（含税 ÷（1＋进项税率 ${(c.rate*100).toFixed(0)}%））`;
+                    ticketStr = "含税 · 专票";
                 } else if (c.ticket === 1) {
-                    ticketStr = "含税 · 普票"; subDetail = "全额计成本，无进项";
-                    excl = cash; inVat = 0; costDeduct = cash; taxDeduct = cash;
+                    ticketStr = "含税 · 普票";
                 } else {
-                    ticketStr = "无票支出"; subDetail = "无发票，不可税前扣除";
-                    excl = cash; inVat = 0; costDeduct = cash; taxDeduct = 0;
+                    ticketStr = "无票支出";
                 }
                 totals.costHtml += `
                     <div class="row-item sub-row">
-                        <span class="row-label">🤝 ${c.name}</span><span class="row-detail">${ticketStr}</span><span class="row-value negative">−${cash.toFixed(2)}</span>
+                        <span class="row-label">🤝 ${c.name}</span>
+                        <span class="row-detail">${ticketStr}</span>
+                        <span class="row-value negative">−${cash.toFixed(2)}</span>
                     </div>`;
             }
 
@@ -616,46 +685,38 @@
             totals.inVat += inVat;
             totals.taxDeduct += taxDeduct;
             if(c.stamp) {
-                totals.stampBase += costDeduct;
-                totals.stampBaseStrs.push(`${c.name}不含税 ${costDeduct.toFixed(2)}`);
+                totals.stampBase += s.stampExcl;
+                totals.stampItems.push({ name: c.name, num: s.stampExcl.toFixed(2) });
             }
 
-            let exclDetail = (inVat > 0 && c.rate > 0)
-                ? `含税支出 ${cash.toFixed(2)} ÷（1＋进项税率 ${(c.rate*100).toFixed(0)}%）`
-                : (inVat > 0
-                    ? `含税支出 ${cash.toFixed(2)} − 进项税 ${inVat.toFixed(2)}`
-                    : `无进项，不含税成本等于含税支出 ${cash.toFixed(2)}`);
+            let costCn, costNum;
+            if (c.ticket === 3) {
+                costCn = '含税实付 ÷（1＋上游税点）';
+                costNum = `${cash.toFixed(2)} ÷ ${(1 + upRate).toFixed(2)} ＝ ${costDeduct.toFixed(2)}`;
+            } else if (inVat > 0 && c.rate > 0) {
+                costCn = '含税支出 ÷（1＋进项税率）';
+                costNum = `${cash.toFixed(2)} ÷ ${(1 + c.rate).toFixed(2)} ＝ ${costDeduct.toFixed(2)}`;
+            } else {
+                costCn = c.ticket === 1 ? '普票无进项，不含税成本等于含税支出' : '没票无进项，不含税成本等于含税支出';
+                costNum = cash.toFixed(2);
+            }
             totals.costExclHtml += `
                 <div class="row-item sub-row">
-                    <span class="row-label">${c.name}不含税成本</span><span class="row-detail">${exclDetail}</span><span class="row-value sub-val">${costDeduct.toFixed(2)}</span>
+                    <span class="row-label">${c.name}不含税成本</span>
+                    <span class="row-detail">${dual(costCn, costNum)}</span>
+                    <span class="row-value sub-val">${costDeduct.toFixed(2)}</span>
                 </div>`;
-            if(inVat > 0) {
-                totals.inVatHtml += `
-                    <div class="row-item sub-row">
-                        <span class="row-label">${c.name}进项</span><span class="row-detail">${subDetail}</span><span class="row-value sub-val">${inVat.toFixed(2)}</span>
-                    </div>`;
-            } else {
-                totals.inVatHtml += `
-                    <div class="row-item sub-row">
-                        <span class="row-label">${c.name}无进项</span><span class="row-detail">${c.ticket === 1 ? '普票不能抵进项' : '没票不能抵进项'}</span><span class="row-value sub-val">0.00</span>
-                    </div>`;
-            }
-            totals.costCashStrs.push(`${c.name} ${cash.toFixed(2)}`);
-            totals.costExclStrs.push(`${c.name} ${costDeduct.toFixed(2)}`);
-            totals.costExclHows.push(
-                c.ticket === 3
-                    ? `${c.name}：含税实付 ${cash.toFixed(2)} ÷（1＋9%）＝ ${costDeduct.toFixed(2)}`
-                    : (inVat > 0 && c.rate > 0
-                        ? `${c.name}：含税支出 ${cash.toFixed(2)} ÷（1＋进项税率 ${(c.rate*100).toFixed(0)}%）＝ ${costDeduct.toFixed(2)}`
-                        : `${c.name}：${c.ticket === 1 ? '普票' : '没票'}无进项，等于含税支出 ${cash.toFixed(2)}`)
-            );
-            totals.inVatStrs.push(inVat > 0
-                ? `${c.name}：含税支出 ${cash.toFixed(2)} − 不含税成本 ${excl.toFixed(2)}`
-                : `${c.name}：${c.ticket === 1 ? '普票' : '没票'}无进项`);
+            totals.costCashNums.push(cash.toFixed(2));
+            totals.costExclNums.push(costDeduct.toFixed(2));
+            totals.costExclItems.push({ name: c.name, num: costNum });
+            totals.inVatItems.push(inVat > 0
+                ? { name: c.name, num: `${cash.toFixed(2)} − ${excl.toFixed(2)} ＝ ${inVat.toFixed(2)}` }
+                : { name: c.name, num: '0.00' });
             if (taxDeduct > 0) {
-                totals.taxDeductHows.push(c.ticket === 2 || c.ticket === 3
-                    ? `${c.name}：专票按不含税成本 ${excl.toFixed(2)}`
-                    : `${c.name}：普票按含税全额 ${cash.toFixed(2)}`);
+                totals.taxDeductItems.push({
+                    name: c.name,
+                    num: (c.ticket === 2 || c.ticket === 3) ? excl.toFixed(2) : cash.toFixed(2)
+                });
             }
         });
 
@@ -670,13 +731,13 @@
         if (unusedVat > 0) {
             totals.taxDeduct = dRound(totals.taxDeduct + unusedVat);
             totals.costExcl = dRound(totals.costExcl + unusedVat);
-            totals.costExclStrs.push(`未抵扣进项 ${unusedVat.toFixed(2)}`);
-            totals.costExclHows.push(`未抵扣进项：进项税额 − 销项税额 ＝ ${unusedVat.toFixed(2)}`);
-            totals.taxDeductHows.push(`未抵扣进项：进项税额 − 销项税额 ＝ ${unusedVat.toFixed(2)}`);
+            totals.costExclNums.push(unusedVat.toFixed(2));
+            totals.costExclItems.push({ name: '未抵扣进项', num: `${totals.inVat.toFixed(2)} − ${totals.outVat.toFixed(2)} ＝ ${unusedVat.toFixed(2)}` });
+            totals.taxDeductItems.push({ name: '未抵扣进项', num: unusedVat.toFixed(2) });
             totals.costExclHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">未抵扣进项转入成本</span>
-                    <span class="row-detail">进项税额 ${totals.inVat.toFixed(2)} − 销项税额 ${totals.outVat.toFixed(2)}，多出来转入成本</span>
+                    <span class="row-detail">${dual('进项税额 − 销项税额，单趟用不掉计入成本', `${totals.inVat.toFixed(2)} − ${totals.outVat.toFixed(2)}`)}</span>
                     <span class="row-value sub-val">${unusedVat.toFixed(2)}</span>
                 </div>`;
         }
@@ -690,39 +751,53 @@
         let cashMargin = dRound(totals.cashRev - totals.cashCost);
         let netProfit = dRound(cashMargin - totalTax);
         let f2Profit = dRound(totals.revExcl - totals.costExcl - otherTax);
-        let vatPayDetail = unusedVat > 0
-            ? `销项税额 ${totals.outVat.toFixed(2)} − 进项税额 ${totals.inVat.toFixed(2)}，不够抵按 0`
-            : `销项税额 ${totals.outVat.toFixed(2)} − 进项税额 ${totals.inVat.toFixed(2)}`;
         let compTaxRate = totals.cashRev > 0 ? ((totalTax / totals.cashRev) * 100).toFixed(2) : "0.00";
-        let costExclStr = totals.costExclStrs.join(' ＋ ') || '无';
-        let revCashStr = totals.revCashStrs.join(' ＋ ') || '无';
-        let revExclStr = totals.revExclStrs.join(' ＋ ') || '无';
-        let costCashStr = totals.costCashStrs.join(' ＋ ') || '无';
-        let otherTaxStr = `附加税 ${sur.toFixed(2)} ＋ 印花税 ${stamp.toFixed(2)} ＋ 企业所得税 ${incTax.toFixed(2)}`;
-        let totalTaxStr = `应缴增值税 ${payVat.toFixed(2)} ＋ 附加税 ${sur.toFixed(2)} ＋ 印花税 ${stamp.toFixed(2)} ＋ 企业所得税 ${incTax.toFixed(2)}`;
-        let cashMarginStr = `收入合计 ${totals.cashRev.toFixed(2)} − 成本支出合计 ${totals.cashCost.toFixed(2)}`;
-        let cashProfitStr = `账面现金毛利 ${cashMargin.toFixed(2)} − 税费总计 ${totalTax.toFixed(2)}`;
-        let pnlProfitStr = `不含税收入合计 ${totals.revExcl.toFixed(2)} − 不含税成本合计 ${totals.costExcl.toFixed(2)} − 其他税费合计 ${otherTax.toFixed(2)}`;
+        let costExclNum = totals.costExclNums.join(' ＋ ') || '0.00';
+        let revCashNum = totals.revCashNums.join(' ＋ ') || '0.00';
+        let revExclNum = totals.revExclNums.join(' ＋ ') || '0.00';
+        let costCashNum = totals.costCashNums.join(' ＋ ') || '0.00';
+        let stampNum = totals.stampItems.length
+            ? `${totals.stampItems.map(it => it.num).join(' ＋ ')} ＝ ${totals.stampBase.toFixed(2)}，× ${(stampRate * 100).toFixed(2)}% ＝ ${stamp.toFixed(2)}`
+            : '0.00';
+        let otherTaxNum = `${sur.toFixed(2)} ＋ ${stamp.toFixed(2)} ＋ ${incTax.toFixed(2)}`;
+        let totalTaxNum = `${payVat.toFixed(2)} ＋ ${sur.toFixed(2)} ＋ ${stamp.toFixed(2)} ＋ ${incTax.toFixed(2)}`;
+        let cashMarginNum = `${totals.cashRev.toFixed(2)} − ${totals.cashCost.toFixed(2)}`;
+        let cashProfitNum = `${cashMargin.toFixed(2)} − ${totalTax.toFixed(2)}`;
+        let pnlProfitNum = `${totals.revExcl.toFixed(2)} − ${totals.costExcl.toFixed(2)} − ${otherTax.toFixed(2)}`;
         let deductDiffers = Math.abs(totals.taxDeduct - totals.costExcl) >= 0.01;
-        let incTaxBaseStr = deductDiffers
-            ? `不含税收入 ${totals.revExcl.toFixed(2)} − 税前扣除 ${totals.taxDeduct.toFixed(2)}（没票 ${dRound(totals.costExcl - totals.taxDeduct).toFixed(2)} 不可扣） − 附加税 ${sur.toFixed(2)} − 印花税 ${stamp.toFixed(2)}`
-            : `不含税收入 ${totals.revExcl.toFixed(2)} − 不含税成本 ${totals.costExcl.toFixed(2)} − 附加税 ${sur.toFixed(2)} − 印花税 ${stamp.toFixed(2)}`;
-        let incTaxStr = taxableInc > 0
-            ? `${incTaxBaseStr}，再 × 所得税率 ${(incRate*100).toFixed(0)}%`
-            : `${incTaxBaseStr}，所得为负不征所得税`;
+        let incCn = deductDiffers
+            ? '不含税收入 − 税前扣除 − 附加税 − 印花税，再 × 所得税率；没票不能扣，亏损不征'
+            : '不含税收入 − 不含税成本 − 附加税 − 印花税，再 × 所得税率；亏损不征';
+        let incBase = deductDiffers ? totals.taxDeduct : totals.costExcl;
+        let incNum = taxableInc > 0
+            ? `${totals.revExcl.toFixed(2)} − ${incBase.toFixed(2)} − ${sur.toFixed(2)} − ${stamp.toFixed(2)} ＝ ${taxableInc.toFixed(2)}，× ${(incRate * 100).toFixed(0)}% ＝ ${incTax.toFixed(2)}`
+            : `${totals.revExcl.toFixed(2)} − ${incBase.toFixed(2)} − ${sur.toFixed(2)} − ${stamp.toFixed(2)} ＝ ${taxableInc.toFixed(2)}，所得为负 ＝ 0.00`;
+        let vatPayCn = unusedVat > 0 ? '销项税额 − 进项税额；不够抵按零缴纳' : '销项税额 − 进项税额';
+        let vatPayNum = unusedVat > 0
+            ? `${totals.outVat.toFixed(2)} − ${totals.inVat.toFixed(2)} ＝ 0.00`
+            : `${totals.outVat.toFixed(2)} − ${totals.inVat.toFixed(2)} ＝ ${payVat.toFixed(2)}`;
 
         let unusedChip = unusedVat > 0
-            ? chipHtml('tax', '未抵扣进项', [], '进项税额 − 销项税额，多出来转入成本、不退税', unusedVat.toFixed(2), false)
+            ? chipHtml('tax', '未抵扣进项', '进项税额 − 销项税额；单趟用不掉计入成本', `${totals.inVat.toFixed(2)} − ${totals.outVat.toFixed(2)} ＝ ${unusedVat.toFixed(2)}`, unusedVat.toFixed(2), false)
             : '';
         let deductChip = deductDiffers
-            ? chipHtml('base', '税前扣除', totals.taxDeductHows, '有没票支出，企业所得税不能按不含税成本全额扣', totals.taxDeduct.toFixed(2), false)
+            ? chipHtml('base', '税前扣除', '专票按不含税、普票按全额、没票不扣', totals.taxDeductItems.map(it => it.num).join(' ＋ ') + ` ＝ ${totals.taxDeduct.toFixed(2)}`, totals.taxDeduct.toFixed(2), false, totals.taxDeductItems)
             : '';
+        let revExclJoin = totals.revExclNums.join(' ＋ ') + (totals.revExclNums.length > 1 ? ` ＝ ${totals.revExcl.toFixed(2)}` : '');
+        let costExclJoin = totals.costExclNums.join(' ＋ ') + (totals.costExclNums.length > 1 ? ` ＝ ${totals.costExcl.toFixed(2)}` : '');
+        let outVatJoin = totals.outVatItems.map(it => it.num.split(' ＝ ').pop()).join(' ＋ ');
+        if (totals.outVatItems.length > 1) outVatJoin += ` ＝ ${totals.outVat.toFixed(2)}`;
+        else if (totals.outVatItems.length === 1) outVatJoin = totals.outVatItems[0].num;
+        let inVatJoin = totals.inVatItems.map(it => it.num.includes('＝') ? it.num.split(' ＝ ').pop() : it.num).join(' ＋ ');
+        if (totals.inVatItems.length > 1) inVatJoin += ` ＝ ${totals.inVat.toFixed(2)}`;
+        else if (totals.inVatItems.length === 1) inVatJoin = totals.inVatItems[0].num;
+
         let baseStrip = `
                 <div class="strip-block">
                     <div class="strip-head">基础模块 · 不含税口径只算一次</div>
                     <div class="tax-strip">
-                        ${chipHtml('base', '不含税收入', totals.revExclHows, '含税收入 ÷（1＋销项税率）', totals.revExcl.toFixed(2), false)}
-                        ${chipHtml('base', '不含税成本', totals.costExclHows, '专票剔进项，普票/没票等于含税支出', totals.costExcl.toFixed(2), false)}
+                        ${chipHtml('base', '不含税收入', '含税开票：含税收入 ÷（1＋销项税率）。不开票：不含税等于实收', revExclJoin, totals.revExcl.toFixed(2), false, totals.revExclItems)}
+                        ${chipHtml('base', '不含税成本', '专票剔进项；普票、没票等于含税支出', costExclJoin, totals.costExcl.toFixed(2), false, totals.costExclItems)}
                         ${deductChip}
                     </div>
                 </div>`;
@@ -730,21 +805,22 @@
                 <div class="strip-block">
                     <div class="strip-head">税费模块 · 引用上方结果</div>
                     <div class="tax-strip">
-                        ${chipHtml('tax', '销项税额', totals.outVatStrs, '含税收入 − 不含税收入', totals.outVat.toFixed(2), false)}
-                        ${chipHtml('tax', '进项税额', totals.inVatStrs, '含税支出 − 不含税成本（仅专票）', totals.inVat.toFixed(2), false)}
-                        ${chipHtml('tax', '应缴增值税', [], vatPayDetail, payVat.toFixed(2), true)}
+                        ${chipHtml('tax', '销项税额', '含税收入 − 不含税收入', outVatJoin, totals.outVat.toFixed(2), false, totals.outVatItems)}
+                        ${chipHtml('tax', '进项税额', '专票、代扣：含税支出 − 不含税成本。普票、没票不能抵', inVatJoin, totals.inVat.toFixed(2), false, totals.inVatItems)}
+                        ${chipHtml('tax', '应缴增值税', vatPayCn, vatPayNum, payVat.toFixed(2), true)}
                         ${unusedChip}
-                        ${chipHtml('tax', '附加税', [], `应缴增值税 ${payVat.toFixed(2)} × 附加税率 ${(surRate*100).toFixed(0)}%`, sur.toFixed(2), true)}
-                        ${chipHtml('tax', '印花税', totals.stampBaseStrs, `勾选项目不含税合计 ${totals.stampBase.toFixed(2)} × 印花税率 ${(stampRate*10000).toFixed(0)}‱`, stamp.toFixed(2), true)}
-                        ${chipHtml('tax', '企业所得税', [], incTaxStr, incTax.toFixed(2), true)}
+                        ${chipHtml('tax', '附加税', '应缴增值税 × 附加税率', `${payVat.toFixed(2)} × ${(surRate * 100).toFixed(0)}% ＝ ${sur.toFixed(2)}`, sur.toFixed(2), true)}
+                        ${chipHtml('tax', '印花税', '勾选项目不含税价款相加，再 × 印花税率', stampNum, stamp.toFixed(2), true, totals.stampItems)}
+                        ${chipHtml('tax', '企业所得税', incCn, incNum, incTax.toFixed(2), true)}
                     </div>
                 </div>`;
 
         let reportHtml = `
             <div class="card">
                 <div class="card-header">
-                    <h2>📋 成本核算（现金流 VS 利润表）</h2>
+                    <h2>📋 成本核算（一般纳税人 · 现金流 VS 利润表）</h2>
                     <div class="order-badge">
+                        <span class="tag">一般纳税人</span>
                         <span class="tag">数量 ${qty}</span>
                         <span class="tag">附加税 ${(surRate*100).toFixed(0)}%</span>
                         <span class="tag">所得税 ${(incRate*100).toFixed(0)}%</span>
@@ -761,7 +837,7 @@
                             ${totals.revsHtml}
                             <div class="row-item row-total">
                                 <span class="row-label">收入合计</span>
-                                <span class="row-detail" style="font-size:12px">${revCashStr}</span>
+                                <span class="row-detail">${dual('各项含税收入相加', revCashNum)}</span>
                                 <span class="row-value positive">+${totals.cashRev.toFixed(2)}</span>
                             </div>
                         </div>
@@ -770,7 +846,7 @@
                             ${totals.costHtml}
                             <div class="row-item row-total">
                                 <span class="row-label">成本支出合计</span>
-                                <span class="row-detail" style="font-size:12px">${costCashStr}</span>
+                                <span class="row-detail">${dual('各项含税支出相加', costCashNum)}</span>
                                 <span class="row-value negative">−${totals.cashCost.toFixed(2)}</span>
                             </div>
                         </div>
@@ -778,7 +854,7 @@
                             <div class="block-label">⬇ 税费</div>
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">税费总计</span>
-                                <span class="row-detail" style="font-size:12px">${totalTaxStr}</span>
+                                <span class="row-detail">${dual('应缴增值税 ＋ 附加税 ＋ 印花税 ＋ 企业所得税', totalTaxNum)}</span>
                                 <span class="row-value total-tax">−${totalTax.toFixed(2)}</span>
                             </div>
                         </div>
@@ -786,24 +862,24 @@
                             <div class="block-label">📊 结果 · 净利</div>
                             <div class="row-item row-line">
                                 <span class="row-label">账面现金毛利</span>
-                                <span class="row-detail">${cashMarginStr}</span>
+                                <span class="row-detail">${dual('收入合计 − 成本支出合计', cashMarginNum)}</span>
                                 <span class="row-value">${cashMargin>=0?'+':''}${cashMargin.toFixed(2)}</span>
                             </div>
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">① 现金流净利</span>
-                                <span class="row-detail">${cashProfitStr}</span>
+                                <span class="row-detail">${dual('账面现金毛利 − 税费总计', cashProfitNum)}</span>
                                 <span class="row-value big ${netProfit>=0?'green':'negative'}">${netProfit>=0?'+':''}${netProfit.toFixed(2)}</span>
                             </div>
                         </div>
                     </div>
                     <div class="panel panel-tax">
-                        <div class="panel-title">🧾 不含税利润表 <span class="badge">计税基础</span></div>
+                        <div class="panel-title">🧾 不含税利润表 <span class="badge">测算基础</span></div>
                         <div class="block-positive">
                             <div class="block-label">⬆ 不含税收入</div>
                             ${totals.revExclHtml}
                             <div class="row-item row-total">
                                 <span class="row-label">不含税收入合计</span>
-                                <span class="row-detail" style="font-size:12px">${revExclStr}</span>
+                                <span class="row-detail">${dual('各项不含税收入相加', revExclNum)}</span>
                                 <span class="row-value positive">${totals.revExcl.toFixed(2)}</span>
                             </div>
                         </div>
@@ -811,14 +887,14 @@
                             <div class="block-label">⬇ 不含税成本</div>
                             ${totals.costExclHtml}
                             <div class="row-item row-total">
-                                <span class="row-label">📦 不含税成本合计</span><span class="row-detail" style="font-size:12px">${costExclStr}</span><span class="row-value negative">−${totals.costExcl.toFixed(2)}</span>
+                                <span class="row-label">📦 不含税成本合计</span><span class="row-detail">${dual('各项不含税成本相加', costExclNum)}</span><span class="row-value negative">−${totals.costExcl.toFixed(2)}</span>
                             </div>
                         </div>
                         <div class="block-tax">
                             <div class="block-label">⬇ 其他税费</div>
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">其他税费合计</span>
-                                <span class="row-detail" style="font-size:12px">${otherTaxStr}</span>
+                                <span class="row-detail">${dual('附加税 ＋ 印花税 ＋ 企业所得税', otherTaxNum)}</span>
                                 <span class="row-value total-tax">−${otherTax.toFixed(2)}</span>
                             </div>
                         </div>
@@ -826,7 +902,7 @@
                             <div class="block-label">📊 结果 · 净利</div>
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">② 利润表净利</span>
-                                <span class="row-detail">${pnlProfitStr}</span>
+                                <span class="row-detail">${dual('不含税收入合计 − 不含税成本合计 − 其他税费合计', pnlProfitNum)}</span>
                                 <span class="row-value big ${f2Profit>=0?'green':'negative'}">${f2Profit>=0?'+':''}${f2Profit.toFixed(2)}</span>
                             </div>
                         </div>
@@ -843,7 +919,7 @@
                 <div class="footnote">
                     <span>📌 含税收入 ${totals.cashRev.toFixed(2)}</span><span>📌 不含税收入 ${totals.revExcl.toFixed(2)}</span>
                     <span>📌 含税成本 ${totals.cashCost.toFixed(2)}</span><span>📌 不含税成本 ${totals.costExcl.toFixed(2)}</span>
-                    <span style="margin-left: auto;">📊 综合税负 ${compTaxRate}%</span>
+                    <span style="margin-left: auto;">📊 税费占含税收入 ${compTaxRate}%</span>
                 </div>
             </div>`;
         document.getElementById('reportView').innerHTML = reportHtml;
