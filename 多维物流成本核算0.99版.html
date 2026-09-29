@@ -388,12 +388,12 @@
                 <button class="btn-toggle btn-gray" id="btnTaxSmall" onclick="setTaxpayer('small')" data-tip="小规模纳税人：不得抵扣进项税额，按征收率计税；取得专用发票亦按价税合计计入营业成本">小规模纳税人</button>
             </div>
             <div class="grid-settings">
-                <div class="gs-item" data-tip="增值税附加 = 应缴增值税 × 本税率。城建税、教育费附加、地方教育附加可合计填写">
-                    <span class="gs-label">增值税附加</span>
+                <div class="gs-item" data-tip="附加税费 = 应交增值税 × 本税率。城市维护建设税、教育费附加、地方教育附加可合计填写">
+                    <span class="gs-label">附加税费</span>
                     <div class="gs-ctl"><input class="tone-sur" type="number" id="surchargeRate" value="6" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
                 <div class="gs-item" data-tip="企业所得税税率，按实际税负填写；应纳税所得额为负时不征">
-                    <span class="gs-label">企业所得税</span>
+                    <span class="gs-label">企业所得税率</span>
                     <div class="gs-ctl"><input class="tone-inc" type="number" id="incomeRate" value="5" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
                 <div class="gs-item" data-tip="印花税按勾选项目的计税依据合计计征。万分之三填 3，减半填 1.5">
@@ -503,12 +503,12 @@
         let box = document.getElementById('guideBody');
         if (box) {
             let head = r.pref
-                ? '已按系统日期套用 2023-01-01～2027-12-31 的优惠默认值：增值税附加 6%、印花税 1.5‱、企业所得税 5%；切换为小规模纳税人时征收率默认 1%。居间服务默认免征印花税。'
-                : '优惠期已结束，默认改为：增值税附加 12%、印花税 3‱、企业所得税 25%；切换为小规模纳税人时征收率默认 3%。居间服务默认免征印花税。';
+                ? '已按系统日期套用 2023-01-01～2027-12-31 的优惠默认值：附加税费 6%、印花税 1.5‱、企业所得税 5%；切换为小规模纳税人时征收率默认 1%。居间服务默认免征印花税。'
+                : '优惠期已结束，默认改为：附加税费 12%、印花税 3‱、企业所得税 25%；切换为小规模纳税人时征收率默认 3%。居间服务默认免征印花税。';
             box.innerHTML = '<div class="p-head">' + head + '</div>'
                 + '<div class="p-line">1. 本页按「单笔业务」测算，不按月汇总销售额。切换为小规模纳税人时，仅默认按 1% 征收率计税，不会因「月销售额不超过 10 万元」自动免税。业务数量调大后，税额同步放大；是否适用免税请自行对照当月销售额判断。</div>'
                 + '<div class="p-line">2. 企业所得税默认 5%，对应小型微利企业的实际税负（减计所得后再按 20% 税率）。系统不校验是否满足：年应纳税所得额不超过 300 万元、从业人数不超过 300 人、资产总额不超过 5000 万元。若公司不属于小型微利企业，请将企业所得税率改为实际税率，否则会低估应纳税额。</div>'
-                + '<div class="p-line">3. 增值税附加默认 6%，按市区常见的「城市维护建设税 + 教育费附加 + 地方教育附加 ≈ 12%」再减半。城市维护建设税各地不同（7%、5%、1%），当地合计不是 12% 时，请改左侧增值税附加税率。</div>'
+                + '<div class="p-line">3. 附加税费默认 6%，按市区常见的「城市维护建设税 + 教育费附加 + 地方教育附加 ≈ 12%」再减半。城市维护建设税各地不同（7%、5%、1%），当地合计不是 12% 时，请改左侧附加税费率。</div>'
                 + '<div class="p-line">4. 右侧「营业成本」：增值税专用发票按不含税金额；普通发票和无票按价税合计。请勿将全部成本理解为已剔除增值税。</div>'
                 + '<div class="p-line">5. 一般纳税人销项税率默认 9%，不适用小规模纳税人的增值税减免（月销售额免税、3% 减按 1%）。本页按一般纳税人身份计税。</div>';
         }
@@ -540,7 +540,7 @@
         if (e.target && e.target.id === 'beMask') closeBreakeven();
     }
 
-    // 应缴增值税与未抵扣进项：销项不够抵时差额转入成本，不退税
+    // 应交增值税与未抵扣进项：销项不够抵时差额转入成本，不退税
     function vatSettle(outVat, inVat) {
         return {
             payVat: dRound(Math.max(0, outVat - inVat)),
@@ -548,7 +548,7 @@
         };
     }
 
-    // 按税率把价税合计拆成销售额和税额
+    // 按税率把价税合计拆成营业收入和税额
     function vatSplit(cash, rate) {
         cash = dRound(cash);
         if (rate > 0) {
@@ -668,15 +668,18 @@
         let taxableInc = dRound(revExcl - taxDeduct - sur - stamp);
         let incTax = dRound(Math.max(0, taxableInc * incRate));
         let totalTax = dRound(payVat + sur + stamp + incTax);
-        let otherTax = dRound(sur + stamp + incTax);
+        let taxAdd = dRound(sur + stamp);
+        let otherTax = dRound(taxAdd + incTax);
         let cashMargin = dRound(cashRev - cashCost);
         let netProfit = dRound(cashMargin - totalTax);
-        let f2Profit = dRound(revExcl - costExcl - otherTax);
+        let profitBeforeTax = dRound(revExcl - costExcl - taxAdd);
+        let f2Profit = dRound(profitBeforeTax - incTax);
         return {
             cashRev: cashRev, revExcl: revExcl, outVat: outVat,
             cashCost: cashCost, costExcl: costExcl, taxDeduct: taxDeduct, inVat: inVat,
             stampBase: stampBase, unusedVat: unusedVat, payVat: payVat,
             sur: sur, stamp: stamp, taxableInc: taxableInc, incTax: incTax,
+            taxAdd: taxAdd, profitBeforeTax: profitBeforeTax,
             totalTax: totalTax, otherTax: otherTax,
             cashMargin: cashMargin, netProfit: netProfit, f2Profit: f2Profit
         };
@@ -717,7 +720,7 @@
         if (lbl) {
             lbl.textContent = rateLabel();
             let upTip = isSmall()
-                ? '小规模纳税人征收率，用于计算销售额和应纳税额，常见 1% 或 3%'
+                ? '小规模纳税人征收率，用于计算营业收入和应纳税额，常见 1% 或 3%'
                 : '向客户开具增值税发票的销项税率；代扣代缴还原进项税额时亦按此税率拆分';
             let upBox = document.getElementById('upstreamRate');
             if (upBox && upBox.closest('.gs-item')) upBox.closest('.gs-item').setAttribute('data-tip', upTip);
@@ -988,7 +991,7 @@
             }
             let gross = dRound(net / (1 - pRate));
             let excl = vatSplit(gross, upRate).excl;
-            if (confirm(`净额 ${fmtMoney(dRound(net))} 元\n价税合计 ${fmtMoney(gross)} ＝ 净额 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按销项税率 ${(upRate*100).toFixed(0)}% 计算进项税额，销售额 ${fmtMoney(excl)} 元\n\n金额栏填入净额 ${fmtMoney(dRound(net))} 元？`)) {
+            if (confirm(`净额 ${fmtMoney(dRound(net))} 元\n价税合计 ${fmtMoney(gross)} ＝ 净额 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按销项税率 ${(upRate*100).toFixed(0)}% 计算进项税额，营业收入 ${fmtMoney(excl)} 元\n\n金额栏填入净额 ${fmtMoney(dRound(net))} 元？`)) {
                 updateVal('cost', id, 'amt', dRound(net));
                 buildForms();
             }
@@ -1095,7 +1098,7 @@
             box.innerHTML = `<div class="be-row">不开票应收金额 <b>${fmtMoney(res.noInvoice)}</b> 元</div>`
                 + `<div class="be-sub">此时现金净额 ${fmtMoney(tNo.netProfit)} 元；再低 0.01 元则现金净额为负</div>`
                 + `<div class="be-row">开票价税合计 <b>${fmtMoney(res.withInvoice)}</b> 元</div>`
-                + `<div class="be-sub">销售额 ${fmtMoney(invExcl)} 元</div>`
+                + `<div class="be-sub">营业收入 ${fmtMoney(invExcl)} 元</div>`
                 + `<div class="be-sub">＝ 价税合计 ÷（1＋${rateLabel()} ${ratePct}%）</div>`
                 + `<div class="be-sub">此时现金净额 ${fmtMoney(tInv.netProfit)} 元；再低 0.01 元则现金净额为负</div>`
                 + qtyNote + extra;
@@ -1194,8 +1197,8 @@
             totals.revCashNums.push(fmtMoney(cash));
             totals.revExclNums.push(fmtFig(excl));
             totals.revExclItems.push(r.inc && r.rate > 0
-                ? { name: r.name + '销售额', num: `${fmtFig(cash)} ÷ ${(1 + r.rate).toFixed(2)} ＝ ${fmtFig(excl)}` }
-                : { name: r.name + (r.inc ? '销售额' : '实收'), num: fmtFig(cash) });
+                ? { name: r.name + '营业收入', num: `${fmtFig(cash)} ÷ ${(1 + r.rate).toFixed(2)} ＝ ${fmtFig(excl)}` }
+                : { name: r.name + (r.inc ? '营业收入' : '实收'), num: fmtFig(cash) });
             totals.outVatItems.push(r.rate > 0
                 ? { name: r.name + (isSmall() ? '应纳税额' : '销项税额'), num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(outVat)}` }
                 : { name: r.name + (isSmall() ? '应纳税额' : '销项税额'), num: fmtFig(0) });
@@ -1210,12 +1213,12 @@
                 </div>`;
             totals.revExclHtml += `
                 <div class="row-item sub-row"${tipAttr(r.inc && r.rate > 0
-                    ? '销售额 = 价税合计 ÷（1＋' + rateLabel() + '）'
-                    : '不开票时销售额 = 实收')}>
-                    <span class="row-label">${r.name}（销售额）</span>
+                    ? '营业收入 = 价税合计 ÷（1＋' + rateLabel() + '）'
+                    : '不开票时营业收入 = 实收')}>
+                    <span class="row-label">${r.name}（营业收入）</span>
                     <span class="row-detail">${r.inc && r.rate > 0
                         ? dual('价税合计 ÷（1＋' + rateLabel() + '）', `${fmtMoney(cash)} ÷ ${(1 + r.rate).toFixed(2)}`)
-                        : dual('不开票时销售额等于实收', fmtMoney(cash))}</span>
+                        : dual('不开票时营业收入等于实收', fmtMoney(cash))}</span>
                     <span class="row-value sub-val">${fmtMoney(excl)}</span>
                 </div>`;
         });
@@ -1322,11 +1325,12 @@
         let taxableInc = dRound(totals.revExcl - totals.taxDeduct - sur - stamp);
         let incTax = dRound(Math.max(0, taxableInc * incRate));
         let totalTax = dRound(payVat + sur + stamp + incTax);
-        let otherTax = dRound(sur + stamp + incTax);
+        let taxAdd = dRound(sur + stamp);
 
         let cashMargin = dRound(totals.cashRev - totals.cashCost);
         let netProfit = dRound(cashMargin - totalTax);
-        let f2Profit = dRound(totals.revExcl - totals.costExcl - otherTax);
+        let profitBeforeTax = dRound(totals.revExcl - totals.costExcl - taxAdd);
+        let f2Profit = dRound(profitBeforeTax - incTax);
         let chk = calcTotals({
             qty: qty, pRate: pRate, surRate: surRate, incRate: incRate,
             stampRate: stampRate, upRate: upRate || 0, small: isSmall()
@@ -1343,22 +1347,24 @@
         let stampNum = totals.stampItems.length
             ? `（${totals.stampItems.map(it => it.num).join(' ＋ ')} ＝ ${fmtFig(totals.stampBase)}）× ${stampPermyriad(stampRate)}‱ ＝ ${fmtFig(stamp)}`
             : fmtFig(0);
-        let otherTaxNum = `${fmtFig(sur)} ＋ ${fmtFig(stamp)} ＋ ${fmtFig(incTax)}`;
-        let totalTaxNum = `${fmtFig(payVat)} ＋ ${fmtFig(sur)} ＋ ${fmtFig(stamp)} ＋ ${fmtFig(incTax)}`;
+        let taxAddNum = `${fmtFig(sur)} ＋ ${fmtFig(stamp)}`;
+        let surNum = `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`;
+        let totalTaxNum = `${fmtFig(payVat)} ＋ ${fmtFig(taxAdd)} ＋ ${fmtFig(incTax)}`;
         let cashMarginNum = `${fmtFig(totals.cashRev)} − ${fmtFig(totals.cashCost)}`;
         let cashProfitNum = `${fmtFig(cashMargin)} − ${fmtFig(totalTax)}`;
-        let pnlProfitNum = `${fmtFig(totals.revExcl)} − ${fmtFig(totals.costExcl)} − ${fmtFig(otherTax)}`;
+        let profitBeforeTaxNum = `${fmtFig(totals.revExcl)} − ${fmtFig(totals.costExcl)} − ${fmtFig(taxAdd)}`;
+        let pnlProfitNum = `${fmtFig(profitBeforeTax)} − ${fmtFig(incTax)}`;
         let deductDiffers = Math.abs(totals.taxDeduct - totals.costExcl) >= 0.01;
         let incCn = deductDiffers
-            ? '企业所得税 =（销售额 − 税前扣除 − 增值税附加 − 印花税）× 企业所得税率；无票不得扣除，应纳税所得额为负时不征'
-            : '企业所得税 =（销售额 − 营业成本 − 增值税附加 − 印花税）× 企业所得税率；应纳税所得额为负时不征';
+            ? '所得税费用 =（营业收入 − 税前扣除 − 税金及附加）× 企业所得税率；无票不得扣除，应纳税所得额为负时不征'
+            : '所得税费用 =（营业收入 − 营业成本 − 税金及附加）× 企业所得税率；应纳税所得额为负时不征';
         let incBase = deductDiffers ? totals.taxDeduct : totals.costExcl;
         let incNum = taxableInc > 0
-            ? `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(sur)} − ${fmtFig(stamp)} ＝ ${fmtFig(taxableInc)}）× ${(incRate * 100).toFixed(0)}% ＝ ${fmtFig(incTax)}`
-            : `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(sur)} − ${fmtFig(stamp)} ＝ ${fmtFig(taxableInc)}）＝ ${fmtFig(0)}`;
+            ? `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(taxAdd)} ＝ ${fmtFig(taxableInc)}）× ${(incRate * 100).toFixed(0)}% ＝ ${fmtFig(incTax)}`
+            : `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(taxAdd)} ＝ ${fmtFig(taxableInc)}）＝ ${fmtFig(0)}`;
         let vatPayCn = unusedVat > 0
-            ? '应缴增值税 = 销项税额 − 进项税额；进项大于销项时本期应缴为 0'
-            : '应缴增值税 = 销项税额 − 进项税额';
+            ? '应交增值税 = 销项税额 − 进项税额；进项大于销项时本期应交为 0'
+            : '应交增值税 = 销项税额 − 进项税额';
         let vatPayNum = unusedVat > 0
             ? `${fmtFig(totals.outVat)} − ${fmtFig(totals.inVat)} ＝ ${fmtFig(0)}`
             : `${fmtFig(totals.outVat)} − ${fmtFig(totals.inVat)} ＝ ${fmtFig(payVat)}`;
@@ -1382,7 +1388,7 @@
                 <div class="strip-block">
                     <div class="strip-head">利润表项目 · 只计算一次</div>
                     <div class="tax-strip">
-                        ${chipHtml('base', '销售额', isSmall() ? '销售额 = 价税合计 ÷（1＋征收率）。不开票时：销售额 = 实收' : '销售额 = 价税合计 ÷（1＋销项税率）。不开票时：销售额 = 实收', revExclJoin, fmtMoney(totals.revExcl), false, totals.revExclItems)}
+                        ${chipHtml('base', '营业收入', isSmall() ? '营业收入 = 价税合计 ÷（1＋征收率）。不开票时：营业收入 = 实收' : '营业收入 = 价税合计 ÷（1＋销项税率）。不开票时：营业收入 = 实收', revExclJoin, fmtMoney(totals.revExcl), false, totals.revExclItems)}
                         ${chipHtml('base cost', '营业成本', isSmall() ? '营业成本 = 价税合计（小规模纳税人不得抵扣进项税额）' : '营业成本 = 专用发票按不含税金额；普通发票、无票按价税合计', costExclJoin, fmtMoney(totals.costExcl), false, totals.costExclItems)}
                         ${deductChip}
                     </div>
@@ -1391,13 +1397,13 @@
                 <div class="strip-block">
                     <div class="strip-head">税费项目 · 引用上方结果</div>
                     <div class="tax-strip">
-                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '应纳税额 = 价税合计 − 销售额（按征收率）' : '销项税额 = 价税合计 − 销售额', outVatJoin, fmtMoney(totals.outVat), false, totals.outVatItems)}
+                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '应纳税额 = 价税合计 − 营业收入（按征收率）' : '销项税额 = 价税合计 − 营业收入', outVatJoin, fmtMoney(totals.outVat), false, totals.outVatItems)}
                         ${chipHtml('tax', '进项税额', isSmall() ? '进项税额 = 0（小规模纳税人不得抵扣进项税额）' : '进项税额 = 专用发票、代扣代缴的（价税合计 − 不含税金额）；普通发票、无票不得抵扣', inVatJoin, fmtMoney(totals.inVat), false, totals.inVatItems)}
-                        ${chipHtml('tax', '应缴增值税', isSmall() ? '应缴增值税 = 应纳税额（小规模纳税人不得抵扣进项税额）' : vatPayCn, vatPayNum, fmtMoney(payVat), true)}
+                        ${chipHtml('tax', '应交增值税', isSmall() ? '应交增值税 = 应纳税额（小规模纳税人不得抵扣进项税额）' : vatPayCn, vatPayNum, fmtMoney(payVat), true)}
                         ${unusedChip}
-                        ${chipHtml('tax', '增值税附加', '增值税附加 = 应缴增值税 × 增值税附加税率', `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`, fmtMoney(sur), true)}
+                        ${chipHtml('tax', '附加税费', '附加税费 = 应交增值税 × 附加税费率', `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`, fmtMoney(sur), true)}
                         ${chipHtml('tax', '印花税', '印花税 = 勾选项目计税依据合计 × 印花税率', stampNum, fmtMoney(stamp), true, totals.stampItems)}
-                        ${chipHtml('tax', '企业所得税', incCn, incNum, fmtMoney(incTax), true)}
+                        ${chipHtml('tax', '所得税费用', incCn, incNum, fmtMoney(incTax), true)}
                     </div>
                 </div>`;
 
@@ -1408,8 +1414,8 @@
                     <div class="order-badge">
                         <span class="tag">${taxpayerName()}</span>
                         <span class="tag tone-qty">数量 ${fmtInt(qty)}</span>
-                        <span class="tag tone-sur">增值税附加 ${(surRate*100).toFixed(0)}%</span>
-                        <span class="tag tone-inc">企业所得税 ${(incRate*100).toFixed(0)}%</span>
+                        <span class="tag tone-sur">附加税费 ${(surRate*100).toFixed(0)}%</span>
+                        <span class="tag tone-inc">企业所得税率 ${(incRate*100).toFixed(0)}%</span>
                         <span class="tag tone-stamp">印花税 ${stampPermyriad(stampRate)}‱</span>
                     </div>
                 </div>
@@ -1417,7 +1423,7 @@
                 ${taxStrip}
                 <div class="split-panel">
                     <div class="panel panel-cash">
-                        <div class="panel-title"${tipAttr('按实收实付列示价税合计。应缴增值税在本栏作为现金流出；利润表不列增值税。')}>💰 现金收付 <span class="badge">价税合计口径</span></div>
+                        <div class="panel-title"${tipAttr('按实收实付列示价税合计。应交增值税在本栏作为现金流出；利润表不列增值税。')}>💰 现金收付 <span class="badge">价税合计口径</span></div>
                         <div class="block-positive">
                             <div class="block-label"${tipAttr('客户支付的款项。开票为价税合计，不开票为实收。')}>⬆ 现金流入</div>
                             ${totals.revsHtml}
@@ -1438,9 +1444,9 @@
                         </div>
                         <div class="block-tax">
                             <div class="block-label"${tipAttr('本单实际缴纳的税费。增值税是价外税，现金要付，利润表不列。')}>⬇ 税费</div>
-                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('税费合计 = 应缴增值税 ＋ 增值税附加 ＋ 印花税 ＋ 企业所得税')}>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('税费合计 = 应交增值税 ＋ 税金及附加 ＋ 所得税费用')}>
                                 <span class="row-label">税费合计</span>
-                                <span class="row-detail">${dual('应缴增值税 ＋ 增值税附加 ＋ 印花税 ＋ 企业所得税', totalTaxNum)}</span>
+                                <span class="row-detail">${dual('应交增值税 ＋ 税金及附加 ＋ 所得税费用', totalTaxNum)}</span>
                                 <span class="row-value total-tax">−${fmtMoney(totalTax)}</span>
                             </div>
                         </div>
@@ -1459,13 +1465,13 @@
                         </div>
                     </div>
                     <div class="panel panel-tax">
-                        <div class="panel-title"${tipAttr('按会计准则列示：收入、成本用不含税金额。增值税不进利润表。')}>🧾 利润表 <span class="badge">不含税口径</span></div>
+                        <div class="panel-title"${tipAttr('按会计准则列示：收入、成本用不含税金额；税金及附加与所得税费用分列；增值税不进利润表。')}>🧾 利润表 <span class="badge">不含税口径</span></div>
                         <div class="block-positive">
-                            <div class="block-label"${tipAttr('确认的销售额。开票：价税合计 ÷（1＋销项税率或征收率）；不开票：等于实收。')}>⬆ 营业收入</div>
+                            <div class="block-label"${tipAttr('确认的营业收入。开票：价税合计 ÷（1＋销项税率或征收率）；不开票：等于实收。')}>⬆ 营业收入</div>
                             ${totals.revExclHtml}
-                            <div class="row-item row-total"${tipAttr('营业收入合计 = 各项销售额相加')}>
+                            <div class="row-item row-total"${tipAttr('营业收入合计 = 各项营业收入相加')}>
                                 <span class="row-label">营业收入合计</span>
-                                <span class="row-detail">${dual('各项销售额相加', revExclNum)}</span>
+                                <span class="row-detail">${dual('各项营业收入相加', revExclNum)}</span>
                                 <span class="row-value positive">${fmtMoney(totals.revExcl)}</span>
                             </div>
                         </div>
@@ -1477,24 +1483,44 @@
                             </div>
                         </div>
                         <div class="block-tax">
-                            <div class="block-label"${tipAttr('增值税不进利润表。本栏只列增值税附加、印花税、企业所得税。')}>⬇ 利润表税费</div>
-                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('利润表税费合计 = 增值税附加 ＋ 印花税 ＋ 企业所得税')}>
-                                <span class="row-label">利润表税费合计</span>
-                                <span class="row-detail">${dual('增值税附加 ＋ 印花税 ＋ 企业所得税', otherTaxNum)}</span>
-                                <span class="row-value total-tax">−${fmtMoney(otherTax)}</span>
+                            <div class="block-label"${tipAttr('税金及附加含城市维护建设税、教育费附加、地方教育附加及印花税。增值税是价外税，不进利润表。')}>⬇ 税金及附加</div>
+                            <div class="row-item sub-row"${tipAttr('附加税费 = 应交增值税 × 附加税费率，含城市维护建设税、教育费附加、地方教育附加。')}>
+                                <span class="row-label">附加税费</span>
+                                <span class="row-detail">${dual('应交增值税 × 附加税费率', surNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(sur)}</span>
+                            </div>
+                            <div class="row-item sub-row"${tipAttr('印花税列入税金及附加。= 勾选项目计税依据合计 × 印花税率。居间合同不征。')}>
+                                <span class="row-label">印花税</span>
+                                <span class="row-detail">${dual('计税依据 × 印花税率', stampNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(stamp)}</span>
+                            </div>
+                            <div class="row-item row-total"${tipAttr('税金及附加 = 附加税费 ＋ 印花税。不含增值税，不含所得税费用。')}>
+                                <span class="row-label">税金及附加合计</span>
+                                <span class="row-detail">${dual('附加税费 ＋ 印花税', taxAddNum)}</span>
+                                <span class="row-value total-tax">−${fmtMoney(taxAdd)}</span>
                             </div>
                         </div>
                         <div class="block-result">
-                            <div class="block-label"${tipAttr('净利润应与左侧现金净额勾稽一致。')}>📊 结果</div>
-                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('净利润 = 营业收入合计 − 营业成本合计 − 利润表税费合计。应与左侧现金净额一致。')}>
+                            <div class="block-label"${tipAttr('先算利润总额，再减所得税费用得到净利润。应与左侧现金净额勾稽一致。')}>📊 结果</div>
+                            <div class="row-item sub-row"${tipAttr('利润总额 = 营业收入合计 − 营业成本合计 − 税金及附加。本单无期间费用、营业外收支。')}>
+                                <span class="row-label">利润总额</span>
+                                <span class="row-detail">${dual('营业收入合计 − 营业成本合计 − 税金及附加', profitBeforeTaxNum)}</span>
+                                <span class="row-value sub-val">${profitBeforeTax>=0?'+':''}${fmtMoney(profitBeforeTax)}</span>
+                            </div>
+                            <div class="row-item sub-row"${tipAttr('所得税费用为计提的企业所得税。按应纳税所得额 × 企业所得税率；应纳税所得额为负时为 0。')}>
+                                <span class="row-label">所得税费用</span>
+                                <span class="row-detail">${dual('应纳税所得额 × 企业所得税率', incNum)}</span>
+                                <span class="row-value sub-val">−${fmtMoney(incTax)}</span>
+                            </div>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('净利润 = 利润总额 − 所得税费用。应与左侧现金净额一致。增值税已从收入成本中剔除，不在本式出现。')}>
                                 <span class="row-label">② 净利润</span>
-                                <span class="row-detail">${dual('营业收入合计 − 营业成本合计 − 利润表税费合计', pnlProfitNum)}</span>
+                                <span class="row-detail">${dual('利润总额 − 所得税费用', pnlProfitNum)}</span>
                                 <span class="row-value big ${f2Profit>=0?'green':'negative'}">${f2Profit>=0?'+':''}${fmtMoney(f2Profit)}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="result-area"${tipAttr('勾稽关系：现金净额 = 净利润。左边扣应缴增值税，右边收入成本已剔除增值税，两边结果应一致。')}>
+                <div class="result-area"${tipAttr('勾稽关系：现金净额 = 净利润。左边扣应交增值税，右边收入成本已剔除增值税，两边结果应一致。')}>
                     <div class="result-item">
                         <span class="label">✅ 交叉验证</span>
                         <span class="number ${netProfit>=0?'green':'red'}">${fmtMoney(netProfit)}</span>
@@ -1504,12 +1530,12 @@
                 </div>
                 <div class="footnote">
                     <span data-tip="开票为价税合计，不开票为实收">📌 价税合计流入 ${fmtMoney(totals.cashRev)}</span>
-                    <span data-tip="销售额 = 价税合计 ÷（1＋销项税率或征收率）；不开票时等于实收">📌 销售额 ${fmtMoney(totals.revExcl)}</span>
+                    <span data-tip="营业收入 = 价税合计 ÷（1＋销项税率或征收率）；不开票时等于实收">📌 营业收入 ${fmtMoney(totals.revExcl)}</span>
                     <span data-tip="成本付现：开票为价税合计，代扣为还原后的价税合计">📌 价税合计流出 ${fmtMoney(totals.cashCost)}</span>
                     <span data-tip="专用发票、代扣按不含税金额；普通发票、无票按价税合计；本单未抵完进项计入营业成本">📌 营业成本 ${fmtMoney(totals.costExcl)}</span>
-                    <span data-tip="应缴增值税 ＋ 增值税附加 ＋ 印花税 ＋ 企业所得税">📌 税费合计 ${fmtMoney(totalTax)}</span>
-                    <span data-tip="增值税税负 = 应缴增值税 ÷ 销售额。税务风险分析常用此口径">📊 增值税税负 ${vatBurden}${vatBurden === '—' ? '' : '%'}</span>
-                    <span data-tip="实际税负 = 税费合计 ÷ 销售额（不含税）。分母不用价税合计，否则会低估税负">📊 实际税负 ${realBurden}${realBurden === '—' ? '' : '%'}</span>
+                    <span data-tip="应交增值税 ＋ 税金及附加 ＋ 所得税费用">📌 税费合计 ${fmtMoney(totalTax)}</span>
+                    <span data-tip="增值税税负 = 应交增值税 ÷ 营业收入。税务风险分析常用此口径">📊 增值税税负 ${vatBurden}${vatBurden === '—' ? '' : '%'}</span>
+                    <span data-tip="实际税负 = 税费合计 ÷ 营业收入。分母不用价税合计，否则会低估税负">📊 实际税负 ${realBurden}${realBurden === '—' ? '' : '%'}</span>
                 </div>
             </div>`;
         document.getElementById('reportView').innerHTML = reportHtml;
