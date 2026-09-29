@@ -97,6 +97,10 @@
         input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         
         .highlight-linked { background-color: var(--ok-soft) !important; border-color: #a7f3d0 !important; color: #047857 !important; }
+        .tone-qty { background: #eff6ff !important; border-color: #bfdbfe !important; color: #1d4ed8 !important; }
+        .tone-sur { background: #fffbeb !important; border-color: #fde68a !important; color: #b45309 !important; }
+        .tone-inc { background: #f5f3ff !important; border-color: #ddd6fe !important; color: #6d28d9 !important; }
+        .tone-stamp { background: #fff1f2 !important; border-color: #fecdd3 !important; color: #be123c !important; }
 
         .list-head { display: flex; align-items: center; gap: 6px; padding: 0 8px 6px; font-size: 12px; color: var(--text-3); font-weight: 600; }
         .list-head .col-name { width: 100px; }
@@ -284,15 +288,15 @@
             <div class="grid-settings">
                 <div class="gs-item" data-tip="附加税 = 应缴增值税 × 本税率。城建、教育等可合计填写，如 6">
                     <span class="gs-label">附加税率</span>
-                    <div class="gs-ctl"><input type="number" id="surchargeRate" value="6" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
+                    <div class="gs-ctl"><input class="tone-sur" type="number" id="surchargeRate" value="6" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
                 <div class="gs-item" data-tip="企业所得税率，按你的实际税负填写，亏损不征">
                     <span class="gs-label">所得税率</span>
-                    <div class="gs-ctl"><input type="number" id="incomeRate" value="5" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
+                    <div class="gs-ctl"><input class="tone-inc" type="number" id="incomeRate" value="5" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
                 <div class="gs-item" data-tip="印花税按勾选项目的不含税价款合计计征。万分之三填 0.03">
                     <span class="gs-label">印花税率</span>
-                    <div class="gs-ctl"><input type="number" id="stampRate" value="0.03" step="0.01" oninput="render()"><span class="pct-mark">%</span></div>
+                    <div class="gs-ctl"><input class="tone-stamp" type="number" id="stampRate" value="0.03" step="0.01" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
                 <div class="gs-item" data-tip="一般纳税人是销项税率；小规模是征收率。第一项含税收入会跟着变">
                     <span class="gs-label" id="lblUpstream">上游税点</span>
@@ -300,7 +304,7 @@
                 </div>
                 <div class="gs-item" data-tip="同一套收支按几倍测算，金额和税费都会乘这个数">
                     <span class="gs-label">业务数量</span>
-                    <div class="gs-ctl"><input type="number" id="qty" value="1" oninput="render()"></div>
+                    <div class="gs-ctl"><input class="tone-qty" type="number" id="qty" value="1" oninput="render()"></div>
                 </div>
                 <div class="gs-item" id="wrapPlatRate" style="display: none;" data-tip="代扣税率。支出金额栏请填司机净到手，系统还原含税实付">
                     <span class="gs-label">代扣税率</span>
@@ -311,7 +315,7 @@
 
         <div class="form-group">
             <div class="form-group-title"><span>💰 营业收入项</span></div>
-            <div class="list-head"><span class="col-name" data-tip="收入科目名称">科目</span><span class="col-amt" data-tip="含税时填含税实收；不开票时填实收现金">金额</span><span class="col-rate" data-tip="含税开票税率；不开票时为 0">税率</span></div>
+            <div class="list-head"><span class="col-name" data-tip="收入科目名称">科目</span><span class="col-amt" data-tip="含税时填含税单价；不开票时填实收单价">单价</span><span class="col-rate" data-tip="含税开票税率；不开票时为 0">税率</span></div>
             <div id="revContainer"></div>
             <button class="btn-add" onclick="addRevRow()" data-tip="增加一笔收入">➕ 添加收入项</button>
         </div>
@@ -323,7 +327,7 @@
                     ⚖️ 保本测算
                 </button>
             </div>
-            <div class="list-head"><span class="col-name" data-tip="支出科目名称">科目</span><span class="col-amt" data-tip="一般填含税支出；代扣请填司机净价，双击可倒推">金额</span><span class="col-rate" data-tip="普票/专票税率，或代扣税率">税率</span></div>
+            <div class="list-head"><span class="col-name" data-tip="支出科目名称">科目</span><span class="col-amt" data-tip="一般填含税单价；代扣请填司机净价，双击可倒推">单价</span><span class="col-rate" data-tip="普票/专票税率，或代扣税率">税率</span></div>
             <div id="costContainer"></div>
             <button class="btn-add" onclick="addCostRow()" data-tip="增加一笔支出">➕ 添加支出项</button>
         </div>
@@ -801,7 +805,7 @@
             revHtml += `
                 <div class="list-row">
                     <input class="name-input" type="text" value="${r.name}" oninput="updateVal('rev', ${r.id}, 'name', this.value)" data-tip="收入科目名称，字多会自动加宽">
-                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)" data-tip="${r.inc ? '含税开票实收金额' : '不开票时的实收现金'}">
+                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)" data-tip="${r.inc ? '含税开票单价' : '不开票时的实收单价'}">
                     <span class="pct-field"><input class="${rateHighlightClass}" type="number" value="${toPct(r.rate)}" step="0.1" ${r.inc?'':'readonly'} oninput="updateVal('rev', ${r.id}, 'rate', this.value)" data-tip="${r.inc ? (isSmall() ? '征收率，与上方征收率联动（第一项）' : '销项税率，第一项与上方上游税点联动') : '不开票不征销项，税率为 0'}"><span class="pct-mark">%</span></span>
                     <button class="btn-toggle ${incClass}" onclick="toggleRevInc(${r.id})" data-tip="${r.inc ? '当前按含税开票。点一下改为不开票' : '当前不开票。点一下改为含税开票'}">${incText}</button>
                     <button class="btn-toggle ${stpClass}" onclick="toggleStamp('rev', ${r.id})" data-tip="${r.stamp ? '已计入印花税税基。点一下免印花' : '不计入印花税。点一下改为计印花'}">${stpText}</button>
@@ -835,7 +839,7 @@
             costHtml += `
                 <div class="list-row">
                     <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)" data-tip="支出科目名称，字多会自动加宽">
-                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" data-tip="${c.ticket === 3 ? '填司机净到手。双击可按净价倒推' : '填含税支出。双击可按不含税倒推填入'}">
+                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" data-tip="${c.ticket === 3 ? '填司机净到手单价。双击可按净价倒推' : '填含税单价。双击可按不含税倒推填入'}">
                     <span class="pct-field"><input class="${costRateHighlight}" type="number" value="${costRatePct}" step="0.1" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)" data-tip="${costRateTip}"><span class="pct-mark">%</span></span>
                     <button class="btn-toggle ${tClass}" onclick="toggleCostTicket(${c.id})" data-tip="${ticketTip}">${tText}</button>
                     <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})" data-tip="${c.stamp ? '已计入印花税税基。点一下免印花' : '不计入印花税。点一下改为计印花'}">${stpText}</button>
@@ -1078,10 +1082,10 @@
                     <h2>📋 成本核算（${taxpayerName()} · 现金流 VS 利润表）</h2>
                     <div class="order-badge">
                         <span class="tag">${taxpayerName()}</span>
-                        <span class="tag">数量 ${qty}</span>
-                        <span class="tag">附加税 ${(surRate*100).toFixed(0)}%</span>
-                        <span class="tag">所得税 ${(incRate*100).toFixed(0)}%</span>
-                        <span class="tag">印花税 ${(stampRate*10000).toFixed(0)}‱</span>
+                        <span class="tag tone-qty">数量 ${qty}</span>
+                        <span class="tag tone-sur">附加税 ${(surRate*100).toFixed(0)}%</span>
+                        <span class="tag tone-inc">所得税 ${(incRate*100).toFixed(0)}%</span>
+                        <span class="tag tone-stamp">印花税 ${(stampRate*10000).toFixed(0)}‱</span>
                     </div>
                 </div>
                 ${baseStrip}
