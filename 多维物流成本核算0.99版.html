@@ -59,10 +59,14 @@
         }
         
         .form-group { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; background: var(--surface-soft); }
-        .form-group-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .form-group-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; letter-spacing: 0.2px; }
+        .form-group-title > span { display: inline-flex; align-items: center; gap: 6px; }
+        .title-params { color: #1d4ed8; }
+        .title-rev { color: #047857; }
+        .title-cost { color: #b91c1c; }
         .title-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .taxpayer-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-        .policy-note { margin-top: 10px; font-size: 12px; line-height: 1.65; color: #64748b; }
+        .policy-note { margin-top: 10px; font-size: 11px; line-height: 1.65; color: #94a3b8; }
         .btn-guide { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; min-width: 72px; }
         .guide-mask {
             display: none;
@@ -139,7 +143,7 @@
             align-items: center;
         }
         .gs-item { display: flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; }
-        .gs-label { font-size: 12px; color: #94a3b8; font-weight: 500; flex: 0 0 auto; }
+        .gs-label { font-size: 12px; color: var(--text); font-weight: 600; flex: 0 0 auto; }
         .gs-ctl { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
         .gs-ctl input[type="number"] { width: 72px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px; text-align: center; font-weight: 700; color: var(--text); background: var(--surface); }
         .gs-ctl input:focus, .list-row input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
@@ -207,9 +211,11 @@
             flex-direction: column;
             overflow-x: clip;
         }
-        .tax-chip.base { background: var(--brand-soft); border-color: #bfdbfe; }
+        .tax-chip.base { background: var(--ok-soft); border-color: #a7f3d0; }
+        .tax-chip.base.cost { background: var(--danger-soft); border-color: #fecaca; }
         .tax-chip .k { font-size: 12px; color: #92400e; font-weight: 600; letter-spacing: 0.2px; }
-        .tax-chip.base .k { color: #1d4ed8; }
+        .tax-chip.base .k { color: var(--ok); }
+        .tax-chip.base.cost .k { color: var(--danger); }
         .tax-chip .lines { margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
         .tax-chip[data-tip], .panel [data-tip], .result-area [data-tip], .footnote [data-tip] { cursor: help; }
         .tax-chip .d-num { font-size: 12px; color: var(--text-2); font-weight: 500; margin-top: 6px; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: normal; overflow-wrap: break-word; word-break: break-word; min-width: 0; max-width: 100%; }
@@ -375,7 +381,7 @@
         <h1 id="pageTitle">⚙️ 单笔业务成本核算 · 一般纳税人</h1>
         
         <div class="form-group">
-            <div class="form-group-title">
+            <div class="form-group-title title-params">
                 <span>🎛 测算参数</span>
                 <div class="title-actions">
                     <button class="btn-toggle btn-guide" id="btnGuide" onclick="openGuide(event)">必看说明</button>
@@ -413,17 +419,18 @@
                     <div class="gs-ctl"><input class="highlight-linked" type="number" id="platRate" value="7.5" step="0.1" oninput="syncPlatRate(this.value)"><span class="pct-mark">%</span></div>
                 </div>
             </div>
+            <div class="policy-note" id="policyNote"></div>
         </div>
 
         <div class="form-group">
-            <div class="form-group-title"><span>💰 营业收入</span></div>
+            <div class="form-group-title title-rev"><span>💰 营业收入</span></div>
             <div class="list-head"><span class="col-name" data-tip="收入项目名称">项目</span><span class="col-amt" data-tip="开票填价税合计单价；不开票填实收单价">单价</span><span class="col-rate" data-tip="开票为增值税税率或征收率；不开票为 0">税率</span></div>
             <div id="revContainer"></div>
             <button class="btn-add" onclick="addRevRow()" data-tip="增加一项收入">➕ 添加收入项</button>
         </div>
 
         <div class="form-group">
-            <div class="form-group-title">
+            <div class="form-group-title title-cost">
                 <span>💸 营业成本</span>
                 <button id="btnBreakeven" onclick="showBreakeven(event)" data-tip="按当前成本测算：客户不开票应付多少、开票价税合计应付多少方可保本" style="background: var(--ok-soft); color: var(--ok); border: 1px solid #a7f3d0; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
                     ⚖️ 保本测算
@@ -500,13 +507,14 @@
         if (sur) sur.value = r.surchargePct;
         if (inc) inc.value = r.incomePct;
         if (stamp) stamp.value = r.stampPermil;
+        let note = document.getElementById('policyNote');
+        let head = r.pref
+            ? '已按系统日期套用 2023-01-01～2027-12-31 的优惠默认值：附加税费 6%、印花税 1.5‱、企业所得税 5%；切换为小规模纳税人时征收率默认 1%。居间服务默认免征印花税。'
+            : '优惠期已结束，默认改为：附加税费 12%、印花税 3‱、企业所得税 25%；切换为小规模纳税人时征收率默认 3%。居间服务默认免征印花税。';
+        if (note) note.textContent = head;
         let box = document.getElementById('guideBody');
         if (box) {
-            let head = r.pref
-                ? '已按系统日期套用 2023-01-01～2027-12-31 的优惠默认值：附加税费 6%、印花税 1.5‱、企业所得税 5%；切换为小规模纳税人时征收率默认 1%。居间服务默认免征印花税。'
-                : '优惠期已结束，默认改为：附加税费 12%、印花税 3‱、企业所得税 25%；切换为小规模纳税人时征收率默认 3%。居间服务默认免征印花税。';
-            box.innerHTML = '<div class="p-head">' + head + '</div>'
-                + '<div class="p-line">1. 本页按「单笔业务」测算，不按月汇总销售额。切换为小规模纳税人时，仅默认按 1% 征收率计税，不会因「月销售额不超过 10 万元」自动免税。业务数量调大后，税额同步放大；是否适用免税请自行对照当月销售额判断。</div>'
+            box.innerHTML = '<div class="p-line">1. 本页按「单笔业务」测算，不按月汇总销售额。切换为小规模纳税人时，仅默认按 1% 征收率计税，不会因「月销售额不超过 10 万元」自动免税。业务数量调大后，税额同步放大；是否适用免税请自行对照当月销售额判断。</div>'
                 + '<div class="p-line">2. 企业所得税默认 5%，对应小型微利企业的实际税负（减计所得后再按 20% 税率）。系统不校验是否满足：年应纳税所得额不超过 300 万元、从业人数不超过 300 人、资产总额不超过 5000 万元。若公司不属于小型微利企业，请将企业所得税率改为实际税率，否则会低估应纳税额。</div>'
                 + '<div class="p-line">3. 附加税费默认 6%，按市区常见的「城市维护建设税 + 教育费附加 + 地方教育附加 ≈ 12%」再减半。城市维护建设税各地不同（7%、5%、1%），当地合计不是 12% 时，请改左侧附加税费率。</div>'
                 + '<div class="p-line">4. 右侧「营业成本」：增值税专用发票按不含税金额；普通发票和无票按价税合计。请勿将全部成本理解为已剔除增值税。</div>'
