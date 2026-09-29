@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>多维物流成本与税务 0.40版 · 一般纳税人</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>单笔业务成本核算 0.99版 · 一般纳税人</title>
     <style>
         :root {
             --bg: #f4f6f8;
@@ -26,12 +26,37 @@
             --violet-soft: #f5f3ff;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
+        html { -webkit-text-size-adjust: 100%; }
         body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
         
-        .app-container { display: grid; grid-template-columns: 38% 62%; width: 100%; height: 100%; }
+        .app-container { display: grid; grid-template-columns: 38fr 62fr; gap: 20px; padding: 20px; width: 100%; height: 100%; min-width: 0; }
         
-        .sidebar { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; height: 100%; z-index: 10; overflow-y: auto; padding: 22px; }
-        .sidebar h1 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.2px; }
+        .sidebar {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 10;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 24px 26px 28px;
+            min-width: 0;
+        }
+        .sidebar h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.2px;
+        }
         
         .form-group { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; background: var(--surface-soft); }
         .form-group-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -92,7 +117,7 @@
         #appTip {
             position: fixed;
             z-index: 2000;
-            max-width: 260px;
+            max-width: min(280px, calc(100vw - 16px));
             padding: 8px 10px;
             border-radius: 10px;
             font-size: 12px;
@@ -154,21 +179,22 @@
         .btn-del { background: transparent; border: none; font-size: 16px; color: #c4c9d2; cursor: pointer; padding: 4px; }
         .btn-del:hover { color: var(--danger); }
 
-        /* 右侧报表区 */
-        .report-view { padding: 20px; overflow-y: auto; background: var(--bg); display: flex; justify-content: center; }
-        .card { max-width: 1100px; width: 100%; background: var(--surface); border-radius: 20px; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06); border: 1px solid var(--line); padding: 24px 26px 28px; height: fit-content; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
-        .card-header h2 { font-size: 20px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 12px; letter-spacing: -0.2px; }
+        /* 右侧报表区：与左侧同一套卡片 */
+        .report-view { padding: 0; overflow: hidden; background: transparent; display: flex; min-width: 0; height: 100%; }
+        .card { max-width: none; width: 100%; min-width: 0; height: 100%; background: var(--surface); border-radius: 20px; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06); border: 1px solid var(--line); padding: 24px 26px 28px; overflow-x: hidden; overflow-y: auto; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 14px; gap: 8px; }
+        .card-header h2 { font-size: 20px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 12px; letter-spacing: -0.2px; min-width: 0; }
         .order-badge { background: var(--surface-soft); padding: 6px 14px; border-radius: 999px; font-size: 13px; color: var(--text-2); font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border: 1px solid var(--line); }
         .order-badge .tag { background: var(--surface); padding: 2px 10px; border-radius: 999px; font-weight: 500; color: var(--text-2); border: 1px solid var(--line); }
-        .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 10px 0 20px; }
+        .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 10px 0 20px; min-width: 0; }
 
-        .strip-block { margin: 0 0 14px; }
+        .strip-block { margin: 0 0 14px; min-width: 0; }
         .strip-head { font-size: 12px; font-weight: 600; color: var(--text-3); margin-bottom: 6px; letter-spacing: 0.2px; }
         .tax-strip {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+            display: flex;
+            flex-wrap: wrap;
             gap: 8px;
+            min-width: 0;
         }
         .tax-chip {
             background: var(--warn-soft);
@@ -176,19 +202,23 @@
             border-radius: 12px;
             padding: 10px 12px;
             min-width: 0;
-            height: 100%;
+            flex: 1 1 148px;
             display: flex;
             flex-direction: column;
+            overflow-x: clip;
         }
         .tax-chip.base { background: var(--brand-soft); border-color: #bfdbfe; }
         .tax-chip .k { font-size: 12px; color: #92400e; font-weight: 600; letter-spacing: 0.2px; }
         .tax-chip.base .k { color: #1d4ed8; }
-        .tax-chip .lines { margin: 6px 0 0; display: flex; flex-direction: column; gap: 3px; }
-        .tax-chip[data-tip] { cursor: help; }
-        .tax-chip .d-num { font-size: 12px; color: var(--text-2); font-weight: 500; margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; word-break: break-word; }
-        .tax-chip .line { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 8px; }
-        .tax-chip .line .nm { font-size: 11px; color: var(--text-3); flex: 0 1 auto; white-space: nowrap; }
-        .tax-chip .line .num { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; flex: 1 1 auto; min-width: 0; }
+        .tax-chip .lines { margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .tax-chip[data-tip], .panel [data-tip], .result-area [data-tip], .footnote [data-tip] { cursor: help; }
+        .tax-chip .d-num { font-size: 12px; color: var(--text-2); font-weight: 500; margin-top: 6px; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: normal; overflow-wrap: break-word; word-break: break-word; min-width: 0; max-width: 100%; }
+        .tax-chip .line { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+        .tax-chip .line.is-fig { flex-direction: column; align-items: stretch; gap: 2px; }
+        .tax-chip .line .nm { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+        .tax-chip .line.is-fig .nm { white-space: normal; overflow: visible; text-overflow: unset; }
+        .tax-chip .line .num { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; flex: 1 1 auto; min-width: 0; line-height: 1.5; overflow-wrap: break-word; word-break: break-word; }
+        .tax-chip .line.is-fig .num { text-align: left; flex: 0 1 auto; width: 100%; white-space: normal; overflow-wrap: break-word; word-break: break-word; }
         .tax-chip .v {
             font-size: 18px;
             font-weight: 700;
@@ -202,7 +232,7 @@
         .tax-chip.base .v { color: var(--ok); }
         .tax-chip.base.cost .v { color: var(--danger); }
         .tax-chip .v.neg { color: var(--warn); }
-        .panel { background: var(--surface-soft); border-radius: 16px; padding: 16px 16px 18px; border: 1px solid var(--line); display: flex; flex-direction: column; }
+        .panel { background: var(--surface-soft); border-radius: 16px; padding: 16px 16px 18px; border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
         .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 10px; flex-shrink: 0; color: var(--text); }
         .panel-title .badge { font-size: 12px; background: var(--surface); padding: 2px 10px; border-radius: 999px; font-weight: 500; color: var(--text-2); border: 1px solid var(--line); }
         .panel-cash .panel-title { color: #1e3a8a; } .panel-tax .panel-title { color: #92400e; }
@@ -217,22 +247,24 @@
         .block-result { background: var(--brand-soft); border-radius: 12px; padding: 10px 14px; border-left: 3px solid var(--brand); margin-top: auto; }
         .block-result .block-label { font-size: 13px; font-weight: 600; color: #1d4ed8; margin-bottom: 4px; }
         
-        .row-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14.5px; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .row-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13.5px; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.04); gap: 6px; min-width: 0; }
         .row-item:last-of-type { border-bottom: none; }
-        .row-label { color: var(--text-2); font-weight: 400; flex: 0 0 auto; min-width: 90px; }
-        .row-detail { color: var(--text-3); font-size: 13px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.35; }
-        .f-cn { font-size: 11px; color: var(--text-3); font-weight: 400; }
-        .f-num { font-size: 12px; color: var(--text-2); font-weight: 500; font-variant-numeric: tabular-nums; }
-        .row-value { font-weight: 400; font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 70px; text-align: right; color: var(--text-2); }
+        .row-label { color: var(--text-2); font-weight: 400; font-size: 13.5px; flex: 0 1 auto; min-width: 0; }
+        .row-detail { color: var(--text-3); font-size: 12px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.4; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
+        .f-cn, .f-num { font-size: 12px; font-weight: 400; max-width: 100%; line-height: 1.4; }
+        .f-cn { color: var(--text-3); }
+        .f-num { color: var(--text-2); font-variant-numeric: tabular-nums; overflow-wrap: break-word; word-break: break-word; }
+        .row-value { font-weight: 400; font-size: 13.5px; font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 70px; text-align: right; color: var(--text-2); }
         .row-value.big { font-size: 17px; font-weight: 700; }
         
         .row-value.positive { color: var(--ok); }
         .row-value.negative { color: var(--danger) !important; }
         .row-value.green { color: var(--ok); }
 
-        /* 拆项：灰黑、不加粗 */
+        /* 拆项：左右同一字号、同一颜色 */
         .row-line, .sub-row { padding-left: 20px; font-size: 13.5px; color: var(--text-2); border-left: 2px solid var(--line); margin-left: 4px; font-weight: 400; }
-        .row-line .row-label, .sub-row .row-label { font-weight: 400; color: var(--text-2); min-width: 80px; }
+        .row-line .row-label, .sub-row .row-label { font-weight: 400; font-size: 13.5px; color: var(--text-2); min-width: 0; }
+        .row-line .row-detail, .sub-row .row-detail { font-size: 12px; }
         .row-line .row-value, .sub-row .row-value,
         .row-line .row-value.positive, .sub-row .row-value.positive,
         .row-line .row-value.negative, .sub-row .row-value.negative,
@@ -253,9 +285,10 @@
         .row-subtotal .row-value.negative { color: var(--danger) !important; }
         .row-subtotal .row-value.total-tax { color: var(--warn) !important; }
 
-        /* 总项合计 */
-        .row-total { font-size: 14.5px; }
-        .row-total .row-label { font-weight: 600; color: var(--text); }
+        /* 总项合计：左右同一套 */
+        .row-total { font-size: 14px; }
+        .row-total .row-label { font-weight: 600; font-size: 14px; color: var(--text); }
+        .row-total .row-detail { font-size: 12px; }
         .row-total .row-value { font-weight: 700 !important; font-size: 15px !important; }
         .row-total .row-value.positive { color: var(--ok) !important; }
         .row-total .row-value.negative { color: var(--danger) !important; }
@@ -278,21 +311,60 @@
         .check-mark.success { background: var(--ok-soft); color: #047857; border: 1px solid #a7f3d0; }
         .check-mark.error { background: var(--danger-soft); color: var(--danger); border: 1px solid #fecaca; }
         
-        .footnote { margin-top: 16px; font-size: 13px; color: var(--text-3); background: var(--surface-soft); padding: 10px 16px; border-radius: 12px; display: flex; flex-wrap: wrap; gap: 8px 20px; border: 1px solid var(--line); }
-        .footnote span { font-weight: 500; color: var(--text-2); }
+        .footnote { margin-top: 16px; font-size: 13px; color: var(--text-3); background: var(--surface-soft); padding: 10px 16px; border-radius: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; border: 1px solid var(--line); }
+        .footnote span { font-weight: 500; color: var(--text-2); flex: 1 1 0; min-width: 0; text-align: center; }
 
         @media (max-width: 900px) {
-            body { height: auto; overflow: visible; }
-            .app-container { display: flex; flex-direction: column; }
-            .sidebar { border-right: none; border-bottom: 1px solid var(--line); padding: 16px; overflow: visible; box-shadow: none; }
-            .report-view { padding: 12px; overflow: visible; }
-            .card { padding: 20px 16px; border-radius: 24px; }
-            .split-panel { grid-template-columns: 1fr; gap: 20px; }
-            .tax-strip { grid-template-columns: repeat(2, 1fr); }
-            .grid-settings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+            body { height: auto; min-height: 100dvh; overflow-x: hidden; overflow-y: auto; }
+            .app-container { display: flex; flex-direction: column; height: auto; min-height: 100dvh; gap: 12px; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+            .sidebar {
+                border-right: none;
+                overflow: visible;
+                height: auto;
+                padding: 20px 16px;
+            }
+            .sidebar h1 { font-size: 16px; margin-bottom: 14px; padding-bottom: 12px; flex-wrap: wrap; }
+            .form-group { padding: 12px; }
+            .form-group-title { flex-wrap: wrap; }
+            .title-actions { width: 100%; justify-content: flex-start; }
+            .taxpayer-bar { flex-wrap: wrap; }
+            .grid-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; }
+            .gs-item { flex-wrap: wrap; }
+            .gs-ctl input[type="number"],
+            .list-row input.num-input,
+            .list-row .pct-field input { font-size: 16px; }
+            .list-head { display: none; }
             .list-row { gap: 6px; flex-wrap: wrap; }
-            .list-row input.name-input { flex-grow: 0; }
-            .btn-toggle { flex-grow: 0; min-width: 52px; padding: 6px 8px; }
+            .list-row input.name-input {
+                flex: 1 1 100%;
+                width: 100% !important;
+                min-width: 0;
+                font-size: 16px;
+            }
+            .btn-toggle { min-height: 36px; min-width: 48px; padding: 8px 10px; }
+            .btn-add { min-height: 44px; }
+            .report-view { padding: 0; overflow: visible; height: auto; }
+            .card { padding: 20px 16px; border-radius: 20px; height: auto; overflow: visible; }
+            .card-header { gap: 8px; }
+            .card-header h2 { font-size: 16px; line-height: 1.4; }
+            .split-panel { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+            .tax-chip { flex: 1 1 140px; }
+            .row-item { flex-wrap: wrap; align-items: flex-start; }
+            .row-label { min-width: 0; flex: 1 1 auto; }
+            .row-detail { flex: 1 1 100%; order: 3; text-align: left; align-items: flex-start; padding: 2px 0 0; }
+            .row-value { margin-left: auto; }
+            .footnote { margin-left: 0; }
+            .footnote span { margin-left: 0 !important; flex: 1 1 calc(50% - 8px); }
+            .result-area { padding: 12px 14px; }
+            .result-item .number { font-size: 20px; }
+            .guide-mask { padding: 12px 10px; align-items: flex-end; }
+            .guide-box { width: 100%; max-height: min(88dvh, 720px); border-radius: 16px 16px 0 0; }
+        }
+        @media (max-width: 480px) {
+            .tax-chip { flex: 1 1 100%; }
+            .grid-settings { grid-template-columns: minmax(0, 1fr); }
+            .gs-item { justify-content: space-between; }
+            .order-badge { width: 100%; }
         }
     </style>
 </head>
@@ -300,43 +372,43 @@
 
 <div class="app-container">
     <div class="sidebar" id="sidebar">
-        <h1 id="pageTitle">⚙️ 成本与税务引擎 · 一般纳税人</h1>
+        <h1 id="pageTitle">⚙️ 单笔业务成本核算 · 一般纳税人</h1>
         
         <div class="form-group">
             <div class="form-group-title">
-                <span>🎛 全局配置</span>
+                <span>🎛 测算参数</span>
                 <div class="title-actions">
                     <button class="btn-toggle btn-guide" id="btnGuide" onclick="openGuide(event)">必看说明</button>
-                    <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" data-tip="开启后可把某笔支出设为代扣：金额栏填司机净价，系统还原含税实付。不会自动改外包">已关闭 代扣代缴</button>
+                    <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" data-tip="开启后，第一项成本自动设为代扣代缴并带出代扣税率；金额栏填承运人净额。关闭后恢复原票种">已关闭 代扣代缴</button>
                 </div>
             </div>
             <div class="taxpayer-bar">
-                <span class="gs-label" data-tip="决定能不能抵进项，以及左侧税率是销项税率还是征收率">纳税身份</span>
-                <button class="btn-toggle btn-blue" id="btnTaxGeneral" onclick="setTaxpayer('general')" data-tip="一般纳税人：专票、代扣可抵进项，按销项税率计税">一般纳税人</button>
-                <button class="btn-toggle btn-gray" id="btnTaxSmall" onclick="setTaxpayer('small')" data-tip="小规模：不能抵进项，按征收率计税，专票也按含税全额进成本">小规模</button>
+                <span class="gs-label" data-tip="决定能否抵扣进项税额，以及左侧税率为销项税率还是征收率">纳税身份</span>
+                <button class="btn-toggle btn-blue" id="btnTaxGeneral" onclick="setTaxpayer('general')" data-tip="一般纳税人：专用发票、代扣代缴可抵扣进项税额，按销项税率计税">一般纳税人</button>
+                <button class="btn-toggle btn-gray" id="btnTaxSmall" onclick="setTaxpayer('small')" data-tip="小规模纳税人：不得抵扣进项税额，按征收率计税；取得专用发票亦按价税合计计入营业成本">小规模纳税人</button>
             </div>
             <div class="grid-settings">
-                <div class="gs-item" data-tip="附加税 = 应缴增值税 × 本税率。城建、教育等可合计填写，如 6">
-                    <span class="gs-label">附加税率</span>
+                <div class="gs-item" data-tip="增值税附加 = 应缴增值税 × 本税率。城建税、教育费附加、地方教育附加可合计填写">
+                    <span class="gs-label">增值税附加</span>
                     <div class="gs-ctl"><input class="tone-sur" type="number" id="surchargeRate" value="6" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
-                <div class="gs-item" data-tip="企业所得税率，按你的实际税负填写，亏损不征">
-                    <span class="gs-label">所得税率</span>
+                <div class="gs-item" data-tip="企业所得税税率，按实际税负填写；应纳税所得额为负时不征">
+                    <span class="gs-label">企业所得税</span>
                     <div class="gs-ctl"><input class="tone-inc" type="number" id="incomeRate" value="5" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
-                <div class="gs-item" data-tip="印花税按勾选项目的不含税价款合计计征。万分之三填 3，减半填 1.5">
+                <div class="gs-item" data-tip="印花税按勾选项目的计税依据合计计征。万分之三填 3，减半填 1.5">
                     <span class="gs-label">印花税率</span>
                     <div class="gs-ctl"><input class="tone-stamp" type="number" id="stampRate" value="1.5" step="0.1" oninput="render()"><span class="pct-mark">‱</span></div>
                 </div>
-                <div class="gs-item" data-tip="一般纳税人是销项税率；小规模是征收率。第一项含税收入会跟着变">
-                    <span class="gs-label" id="lblUpstream">上游税点</span>
+                <div class="gs-item" data-tip="一般纳税人为销项税率；小规模纳税人为征收率。第一项开票收入的税率随此项联动">
+                    <span class="gs-label" id="lblUpstream">销项税率</span>
                     <div class="gs-ctl"><input class="highlight-linked" type="number" id="upstreamRate" value="9" step="0.1" oninput="syncUpstreamRate(this.value)"><span class="pct-mark">%</span></div>
                 </div>
-                <div class="gs-item" data-tip="同一套收支按几倍测算，金额和税费都会乘这个数">
+                <div class="gs-item" data-tip="同一套收支按几倍测算，金额和税费均乘以该数量">
                     <span class="gs-label">业务数量</span>
                     <div class="gs-ctl"><input class="tone-qty" type="number" id="qty" value="1" oninput="render()"></div>
                 </div>
-                <div class="gs-item" id="wrapPlatRate" style="display: none;" data-tip="代扣税率。支出金额栏请填司机净到手，系统还原含税实付">
+                <div class="gs-item" id="wrapPlatRate" style="display: none;" data-tip="代扣代缴税率。成本金额栏请填承运人净额，系统还原为价税合计">
                     <span class="gs-label">代扣税率</span>
                     <div class="gs-ctl"><input class="highlight-linked" type="number" id="platRate" value="7.5" step="0.1" oninput="syncPlatRate(this.value)"><span class="pct-mark">%</span></div>
                 </div>
@@ -344,22 +416,22 @@
         </div>
 
         <div class="form-group">
-            <div class="form-group-title"><span>💰 营业收入项</span></div>
-            <div class="list-head"><span class="col-name" data-tip="收入科目名称">科目</span><span class="col-amt" data-tip="含税时填含税单价；不开票时填实收单价">单价</span><span class="col-rate" data-tip="含税开票税率；不开票时为 0">税率</span></div>
+            <div class="form-group-title"><span>💰 营业收入</span></div>
+            <div class="list-head"><span class="col-name" data-tip="收入项目名称">项目</span><span class="col-amt" data-tip="开票填价税合计单价；不开票填实收单价">单价</span><span class="col-rate" data-tip="开票为增值税税率或征收率；不开票为 0">税率</span></div>
             <div id="revContainer"></div>
-            <button class="btn-add" onclick="addRevRow()" data-tip="增加一笔收入">➕ 添加收入项</button>
+            <button class="btn-add" onclick="addRevRow()" data-tip="增加一项收入">➕ 添加收入项</button>
         </div>
 
         <div class="form-group">
             <div class="form-group-title">
-                <span>💸 运营支出项</span>
-                <button id="btnBreakeven" onclick="showBreakeven(event)" data-tip="按当前支出测算：货主不开票应付多少、开票含税应付多少才保本" style="background: var(--ok-soft); color: var(--ok); border: 1px solid #a7f3d0; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                <span>💸 营业成本</span>
+                <button id="btnBreakeven" onclick="showBreakeven(event)" data-tip="按当前成本测算：客户不开票应付多少、开票价税合计应付多少方可保本" style="background: var(--ok-soft); color: var(--ok); border: 1px solid #a7f3d0; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
                     ⚖️ 保本测算
                 </button>
             </div>
-            <div class="list-head"><span class="col-name" data-tip="支出科目名称">科目</span><span class="col-amt" data-tip="一般填含税单价；代扣请填司机净价，双击可倒推">单价</span><span class="col-rate" data-tip="普票/专票税率，或代扣税率">税率</span></div>
+            <div class="list-head"><span class="col-name" data-tip="成本项目名称">项目</span><span class="col-amt" data-tip="一般填价税合计单价；代扣代缴请填承运人净额，双击可倒推">单价</span><span class="col-rate" data-tip="增值税税率、征收率，或代扣代缴税率">税率</span></div>
             <div id="costContainer"></div>
-            <button class="btn-add" onclick="addCostRow()" data-tip="增加一笔支出">➕ 添加支出项</button>
+            <button class="btn-add" onclick="addCostRow()" data-tip="增加一项成本">➕ 添加成本项</button>
         </div>
     </div>
 
@@ -390,7 +462,7 @@
     let state = {
         usePlatform: false,
         taxpayer: 'general',
-        revs: [ { id: 1, name: "主营结算", amt: 55, rate: 0.09, inc: true, stamp: true } ],
+        revs: [ { id: 1, name: "主营业务收入", amt: 55, rate: 0.09, inc: true, stamp: true } ],
         costs: [
             { id: 1, name: "外包运费", amt: 40, rate: 0.01, ticket: 2, stamp: true },
             { id: 2, name: "居间服务", amt: 10, rate: 0.01, ticket: 1, stamp: false }
@@ -431,14 +503,14 @@
         let box = document.getElementById('guideBody');
         if (box) {
             let head = r.pref
-                ? '已按电脑日期套用 2023-01-01～2027-12-31 的优惠默认值：附加税 6%、印花 1.5‱、所得税 5%；切到小规模时征收率默认 1%。居间服务默认免印花。'
-                : '优惠期已结束，默认改为：附加税 12%、印花 3‱、所得税 25%；切到小规模时征收率默认 3%。居间服务默认免印花。';
+                ? '已按系统日期套用 2023-01-01～2027-12-31 的优惠默认值：增值税附加 6%、印花税 1.5‱、企业所得税 5%；切换为小规模纳税人时征收率默认 1%。居间服务默认免征印花税。'
+                : '优惠期已结束，默认改为：增值税附加 12%、印花税 3‱、企业所得税 25%；切换为小规模纳税人时征收率默认 3%。居间服务默认免征印花税。';
             box.innerHTML = '<div class="p-head">' + head + '</div>'
-                + '<div class="p-line">1. 本页按「一单」测算，不算月销售额。切到小规模时，只是默认按 1% 征收率计税，不会因为「月销售额不超过 10 万」自动免税。业务数量开大了，税也会跟着加，要不要免税请自己对照当月销售额判断。</div>'
-                + '<div class="p-line">2. 所得税默认 5%，是小型微利企业的实际税负（减计所得后再按 20% 税率）。系统不会检查你是否满足：年应纳税所得额不超过 300 万、从业不超过 300 人、资产不超过 5000 万。如果公司不是小微，请把所得税率改成实际税率，否则会算低。</div>'
-                + '<div class="p-line">3. 附加税默认 6%，是按城里常见的「城建 + 教育费附加 + 地方教育附加 ≈ 12%」再减半。城建税各地不同（7%、5%、1%），你们当地合计不是 12% 时，请改左侧附加税率。</div>'
-                + '<div class="p-line">4. 右侧「不含税成本」：专票会去掉进项税；普票和没票去不掉，金额就是你付出去的含税全额。名称仍叫不含税，不要理解成已经全部剔了税。</div>'
-                + '<div class="p-line">5. 一般纳税人销项默认 9%，不享受小规模那套增值税减免（月销售额免税、3% 减按 1%）。这是按一般纳税人身份来的。</div>';
+                + '<div class="p-line">1. 本页按「单笔业务」测算，不按月汇总销售额。切换为小规模纳税人时，仅默认按 1% 征收率计税，不会因「月销售额不超过 10 万元」自动免税。业务数量调大后，税额同步放大；是否适用免税请自行对照当月销售额判断。</div>'
+                + '<div class="p-line">2. 企业所得税默认 5%，对应小型微利企业的实际税负（减计所得后再按 20% 税率）。系统不校验是否满足：年应纳税所得额不超过 300 万元、从业人数不超过 300 人、资产总额不超过 5000 万元。若公司不属于小型微利企业，请将企业所得税率改为实际税率，否则会低估应纳税额。</div>'
+                + '<div class="p-line">3. 增值税附加默认 6%，按市区常见的「城市维护建设税 + 教育费附加 + 地方教育附加 ≈ 12%」再减半。城市维护建设税各地不同（7%、5%、1%），当地合计不是 12% 时，请改左侧增值税附加税率。</div>'
+                + '<div class="p-line">4. 右侧「营业成本」：增值税专用发票按不含税金额；普通发票和无票按价税合计。请勿将全部成本理解为已剔除增值税。</div>'
+                + '<div class="p-line">5. 一般纳税人销项税率默认 9%，不适用小规模纳税人的增值税减免（月销售额免税、3% 减按 1%）。本页按一般纳税人身份计税。</div>';
         }
     }
 
@@ -476,7 +548,7 @@
         };
     }
 
-    // 按税率把含税拆成不含税和税额
+    // 按税率把价税合计拆成销售额和税额
     function vatSplit(cash, rate) {
         cash = dRound(cash);
         if (rate > 0) {
@@ -508,10 +580,10 @@
 
     function taxpayerName() { return isSmall() ? '小规模纳税人' : '一般纳税人'; }
 
-    function rateLabel() { return isSmall() ? '征收率' : '上游税点'; }
+    function rateLabel() { return isSmall() ? '征收率' : '销项税率'; }
 
-    // 代扣进项按上游税点拆；普票不能抵进项，但印花税按不含税价款
-    // 小规模不能抵进项：专票/代扣也按含税全额进成本
+    // 代扣进项按销项税率拆；普通发票不得抵扣进项，但印花税按不含税价款
+    // 小规模纳税人不得抵扣进项：专用发票/代扣亦按价税合计计入营业成本
     function splitCost(c, qty, pRate, upRate, smallMode) {
         if (smallMode === undefined) smallMode = isSmall();
         let raw;
@@ -645,18 +717,24 @@
         if (lbl) {
             lbl.textContent = rateLabel();
             let upTip = isSmall()
-                ? '小规模征收率，用于拆不含税和应纳税额，常见 1% 或 3%'
-                : '主营开票销项税率；代扣代缴拆进项也用此税率';
+                ? '小规模纳税人征收率，用于计算销售额和应纳税额，常见 1% 或 3%'
+                : '向客户开具增值税发票的销项税率；代扣代缴还原进项税额时亦按此税率拆分';
             let upBox = document.getElementById('upstreamRate');
             if (upBox && upBox.closest('.gs-item')) upBox.closest('.gs-item').setAttribute('data-tip', upTip);
         }
         let h1 = document.getElementById('pageTitle');
-        if (h1) h1.textContent = '⚙️ 成本与税务引擎 · ' + taxpayerName();
-        document.title = '多维物流成本与税务 0.40版 · ' + taxpayerName();
+        if (h1) h1.textContent = '⚙️ 单笔业务成本核算 · ' + taxpayerName();
+        document.title = '单笔业务成本核算 0.99版 · ' + taxpayerName();
     }
 
     function dual(cn, num) {
         return `<span class="f-cn">${cn}</span><span class="f-num">${num}</span>`;
+    }
+
+    // 带运算的公式整段放在中文说明下一行；纯数字与说明同一行。等号后的结果不拆行。
+    function isFig(s) {
+        let t = String(s == null ? '' : s);
+        return /[−＋×÷＝]/.test(t) || / [+\-=] /.test(t);
     }
 
     function escapeAttr(s) {
@@ -666,12 +744,17 @@
             .replace(/</g, '&lt;');
     }
 
+    function tipAttr(text) {
+        return text ? ` data-tip="${escapeAttr(text)}"` : '';
+    }
+
     function chipHtml(kind, title, cnText, numText, value, neg, items) {
         let lineHtml = '';
         if (items && items.length) {
-            lineHtml = `<div class="lines">${items.map(it =>
-                `<div class="line"><span class="nm">${it.name}</span><span class="num">${it.num}</span></div>`
-            ).join('')}</div>`;
+            lineHtml = `<div class="lines">${items.map(it => {
+                let fig = isFig(it.num);
+                return `<div class="line${fig ? ' is-fig' : ''}"><span class="nm">${it.name}</span><span class="num">${it.num}</span></div>`;
+            }).join('')}</div>`;
         }
         // 分项已经写出数字公式时，不再追加一行重复合计；带乘税率的（如印花税）仍保留
         let showNum = numText;
@@ -696,6 +779,10 @@
 
     function fitNameWidth(el) {
         if (!el) return;
+        if (window.innerWidth < 900) {
+            el.style.width = '';
+            return;
+        }
         const minW = 100, maxW = 240;
         if (!fitNameWidth.ctx) {
             fitNameWidth.canvas = document.createElement('canvas');
@@ -745,7 +832,7 @@
     
     function syncUpstreamRate(val) {
         let rate = fromPct(val);
-        // 只同步第一项「含税开票」收入；不开票项税率必须保持 0，否则会误计销项
+        // 只同步第一项开票收入；不开票项税率必须保持 0，否则会误计销项
         if (state.revs.length > 0 && state.revs[0].inc) { state.revs[0].rate = rate; }
         buildForms(); render();
     }
@@ -779,6 +866,26 @@
         render();
     }
 
+    function restoreWithholdingTicket(c) {
+        c.ticket = (c.prevTicket === 0 || c.prevTicket === 1 || c.prevTicket === 2) ? c.prevTicket : 2;
+        c.rate = (typeof c.prevRate === 'number') ? c.prevRate : (c.ticket === 2 ? 0.01 : (c.ticket === 1 ? 0.01 : 0));
+        delete c.prevTicket;
+        delete c.prevRate;
+    }
+
+    function applyFirstCostWithholding() {
+        if (!state.costs.length) return;
+        let c = state.costs[0];
+        if (c.ticket === 3) {
+            c.rate = getRate('platRate') || 0.075;
+            return;
+        }
+        c.prevTicket = c.ticket;
+        c.prevRate = c.rate;
+        c.ticket = 3;
+        c.rate = getRate('platRate') || 0.075;
+    }
+
     function togglePlatform() {
         state.usePlatform = !state.usePlatform;
         const btn = document.getElementById('btnPlatform');
@@ -787,19 +894,17 @@
         if (state.usePlatform) {
             btn.className = 'btn-toggle btn-purple';
             btn.innerHTML = '已开启 代扣代缴';
-            btn.setAttribute('data-tip', '已开启。请自己把某笔支出切成代扣，不会自动改第一笔。金额栏填司机净价');
+            btn.setAttribute('data-tip', '已开启：第一项成本已设为代扣代缴，税率与上方代扣税率一致。金额栏填承运人净额。关闭开关后恢复原票种');
             wrap.style.display = 'flex';
+            applyFirstCostWithholding();
         } else {
             btn.className = 'btn-toggle btn-gray';
             btn.innerHTML = '已关闭 代扣代缴';
-            btn.setAttribute('data-tip', '开启后可把某笔支出设为代扣：金额栏填司机净价，系统还原含税实付。不会自动改外包');
+            btn.setAttribute('data-tip', '开启后，第一项成本自动设为代扣代缴并带出代扣税率；金额栏填承运人净额。关闭后恢复原票种');
             wrap.style.display = 'none';
             state.costs.forEach(c => {
                 if (c.ticket !== 3) return;
-                c.ticket = (c.prevTicket === 0 || c.prevTicket === 1 || c.prevTicket === 2) ? c.prevTicket : 2;
-                c.rate = (typeof c.prevRate === 'number') ? c.prevRate : (c.ticket === 2 ? 0.01 : (c.ticket === 1 ? 0.01 : 0));
-                delete c.prevTicket;
-                delete c.prevRate;
+                restoreWithholdingTicket(c);
             });
         }
         buildForms();
@@ -822,6 +927,16 @@
 
     function toggleCostTicket(id) {
         let c = state.costs.find(x => x.id === id);
+        if (!c) return;
+        if (c.ticket === 3) {
+            if (state.usePlatform) {
+                alert('请先关闭上方「代扣代缴」开关，才能改为其他票种。');
+                return;
+            }
+            restoreWithholdingTicket(c);
+            buildForms(); render();
+            return;
+        }
         let maxState = state.usePlatform ? 4 : 3;
         let prevTicket = c.ticket;
         let prevRate = c.rate;
@@ -848,7 +963,7 @@
     }
     
     function addCostRow() {
-        state.costs.push({ id: state.nextId++, name: "新增支出", amt: 0, rate: 0.01, ticket: 1, stamp: true });
+        state.costs.push({ id: state.nextId++, name: "新增成本", amt: 0, rate: 0.01, ticket: 1, stamp: true });
         buildForms(); render();
     }
     
@@ -864,7 +979,7 @@
         if (c.ticket === 3) {
             let pRate = getRate('platRate');
             let upRate = getRate('upstreamRate');
-            let raw = prompt(`【代扣倒推】\n当前支出项：${c.name}\n\n请输入司机要求的【净到手现金】：`, c.amt);
+            let raw = prompt(`【代扣代缴倒推】\n当前成本项目：${c.name}\n\n请输入承运人【净额】：`, c.amt);
             if (raw === null || raw === '' || isNaN(raw)) return;
             let net = parseFloat(raw);
             if (pRate < 0 || pRate >= 1) {
@@ -873,18 +988,18 @@
             }
             let gross = dRound(net / (1 - pRate));
             let excl = vatSplit(gross, upRate).excl;
-            if (confirm(`净到手 ${fmtMoney(dRound(net))} 元\n含税实付 ${fmtMoney(gross)} ＝ 净到手 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按上游税点 ${(upRate*100).toFixed(0)}% 拆进项，不含税 ${fmtMoney(excl)} 元\n\n金额栏填入净价 ${fmtMoney(dRound(net))} 元？`)) {
+            if (confirm(`净额 ${fmtMoney(dRound(net))} 元\n价税合计 ${fmtMoney(gross)} ＝ 净额 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按销项税率 ${(upRate*100).toFixed(0)}% 计算进项税额，销售额 ${fmtMoney(excl)} 元\n\n金额栏填入净额 ${fmtMoney(dRound(net))} 元？`)) {
                 updateVal('cost', id, 'amt', dRound(net));
                 buildForms();
             }
             return;
         }
-        let raw = prompt(`【倒推含税支出】\n当前支出项：${c.name}\n\n请输入不含税金额，系统按该项税率还原含税支出：`, c.amt);
+        let raw = prompt(`【倒推价税合计】\n当前成本项目：${c.name}\n\n请输入不含税金额，系统按该项税率还原价税合计：`, c.amt);
         if (raw === null || raw === '' || isNaN(raw)) return;
         let excl = parseFloat(raw);
         let rate = c.ticket === 0 ? 0 : (c.rate || 0);
         let gross = rate > 0 ? dRound(excl * (1 + rate)) : dRound(excl);
-        if (confirm(`不含税 ${fmtMoney(dRound(excl))} 元\n含税支出 ${fmtMoney(gross)} ＝ 不含税 ×（1＋税率 ${(rate*100).toFixed(0)}%）\n\n是否填入含税支出？`)) {
+        if (confirm(`不含税 ${fmtMoney(dRound(excl))} 元\n价税合计 ${fmtMoney(gross)} ＝ 不含税 ×（1＋税率 ${(rate*100).toFixed(0)}%）\n\n是否填入价税合计？`)) {
             updateVal('cost', id, 'amt', gross);
             buildForms();
         }
@@ -949,7 +1064,7 @@
         hideAppTip();
         closeGuide();
         if (state.revs.length === 0) {
-            alert('请先添加一笔收入，再做保本测算');
+            alert('请先添加一项收入，再进行保本测算');
             return;
         }
         let res = getBreakevenRev();
@@ -957,11 +1072,11 @@
         let qty = getQty();
         let qtyNote = '';
         if (qty > 0 && qty !== 1) {
-            qtyNote = `<div class="be-sub">以上为 ${fmtInt(qty)} 倍合计 · 单价不开票 ${fmtMoney(dRound(res.noInvoice / qty))} / 开票含税 ${fmtMoney(dRound(res.withInvoice / qty))}</div>`;
+            qtyNote = `<div class="be-sub">以上为 ${fmtInt(qty)} 倍合计 · 单价不开票 ${fmtMoney(dRound(res.noInvoice / qty))} / 开票价税合计 ${fmtMoney(dRound(res.withInvoice / qty))}</div>`;
         } else if (qty === 0) {
             qtyNote = `<div class="be-sub">业务数量为 0，不测算单价</div>`;
         }
-        let extra = state.revs.length > 1 ? `<div class="be-sub">针对第一项收入保本，其余 ${state.revs.length - 1} 项收入已计入</div>` : '';
+        let extra = state.revs.length > 1 ? `<div class="be-sub">按第一项收入测算保本，其余 ${state.revs.length - 1} 项收入已计入</div>` : '';
         let tNo = calcTotals(Object.assign({}, {
             qty: qty, pRate: getRate('platRate'), surRate: getRate('surchargeRate'),
             incRate: getRate('incomeRate'), stampRate: getStampRate(),
@@ -977,12 +1092,12 @@
         let ratePct = (res.rate * 100).toFixed(2).replace(/\.00$/, '');
         let box = document.getElementById('beBody');
         if (box) {
-            box.innerHTML = `<div class="be-row">货主不开票付给你 <b>${fmtMoney(res.noInvoice)}</b> 元</div>`
-                + `<div class="be-sub">此时现金流净利 ${fmtMoney(tNo.netProfit)} 元，比保本少 0.01 就会亏损</div>`
-                + `<div class="be-row">向货主开票含税 <b>${fmtMoney(res.withInvoice)}</b> 元</div>`
-                + `<div class="be-sub">开票不含税货款 ${fmtMoney(invExcl)} 元</div>`
-                + `<div class="be-sub">＝ 开票含税 ÷（1＋${rateLabel()} ${ratePct}%）</div>`
-                + `<div class="be-sub">此时现金流净利 ${fmtMoney(tInv.netProfit)} 元，比保本少 0.01 就会亏损</div>`
+            box.innerHTML = `<div class="be-row">不开票应收金额 <b>${fmtMoney(res.noInvoice)}</b> 元</div>`
+                + `<div class="be-sub">此时现金净额 ${fmtMoney(tNo.netProfit)} 元；再低 0.01 元则现金净额为负</div>`
+                + `<div class="be-row">开票价税合计 <b>${fmtMoney(res.withInvoice)}</b> 元</div>`
+                + `<div class="be-sub">销售额 ${fmtMoney(invExcl)} 元</div>`
+                + `<div class="be-sub">＝ 价税合计 ÷（1＋${rateLabel()} ${ratePct}%）</div>`
+                + `<div class="be-sub">此时现金净额 ${fmtMoney(tInv.netProfit)} 元；再低 0.01 元则现金净额为负</div>`
                 + qtyNote + extra;
         }
         let mask = document.getElementById('beMask');
@@ -993,19 +1108,19 @@
         let revHtml = '';
         state.revs.forEach((r, idx) => {
             let incClass = r.inc ? "btn-green" : "btn-gray";
-            let incText = r.inc ? "含税" : "不开票";
+            let incText = r.inc ? "开票" : "不开票";
             let stpClass = r.stamp ? "btn-stamp" : "btn-gray";
             let stpText = r.stamp ? "印花" : "免印花";
             let rateHighlightClass = idx === 0 ? "num-input highlight-linked" : "num-input";
 
             revHtml += `
                 <div class="list-row">
-                    <input class="name-input" type="text" value="${r.name}" oninput="updateVal('rev', ${r.id}, 'name', this.value)" data-tip="收入科目名称，字多会自动加宽">
-                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)" data-tip="${r.inc ? '含税开票单价' : '不开票时的实收单价'}">
-                    <span class="pct-field"><input class="${rateHighlightClass}" type="number" value="${toPct(r.rate)}" step="0.1" ${r.inc?'':'readonly'} oninput="updateVal('rev', ${r.id}, 'rate', this.value)" data-tip="${r.inc ? (isSmall() ? '征收率，与上方征收率联动（第一项）' : '销项税率，第一项与上方上游税点联动') : '不开票不征销项，税率为 0'}"><span class="pct-mark">%</span></span>
-                    <button class="btn-toggle ${incClass}" onclick="toggleRevInc(${r.id})" data-tip="${r.inc ? '当前按含税开票。点一下改为不开票' : '当前不开票。点一下改为含税开票'}">${incText}</button>
-                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('rev', ${r.id})" data-tip="${r.stamp ? '已计入印花税税基。点一下免印花' : '不计入印花税。点一下改为计印花'}">${stpText}</button>
-                    <button class="btn-del" onclick="delRow('rev', ${r.id})" data-tip="删除这笔收入">✖</button>
+                    <input class="name-input" type="text" value="${r.name}" oninput="updateVal('rev', ${r.id}, 'name', this.value)" data-tip="收入项目名称，过长时输入框自动加宽">
+                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)" data-tip="${r.inc ? '价税合计单价' : '不开票时的实收单价'}">
+                    <span class="pct-field"><input class="${rateHighlightClass}" type="number" value="${toPct(r.rate)}" step="0.1" ${r.inc?'':'readonly'} oninput="updateVal('rev', ${r.id}, 'rate', this.value)" data-tip="${r.inc ? (isSmall() ? '征收率，与上方征收率联动（第一项）' : '销项税率，第一项与上方销项税率联动') : '不开票不计提销项税额，税率为 0'}"><span class="pct-mark">%</span></span>
+                    <button class="btn-toggle ${incClass}" onclick="toggleRevInc(${r.id})" data-tip="${r.inc ? '当前按开具增值税发票（价税合计）。点击改为不开票' : '当前不开票。点击改为开具增值税发票'}">${incText}</button>
+                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('rev', ${r.id})" data-tip="${r.stamp ? '已计入印花税计税依据。点击改为不征印花税' : '不计入印花税计税依据。点击改为计征'}">${stpText}</button>
+                    <button class="btn-del" onclick="delRow('rev', ${r.id})" data-tip="删除该项收入">✖</button>
                 </div>`;
         });
         document.getElementById('revContainer').innerHTML = revHtml;
@@ -1013,7 +1128,7 @@
         let costHtml = '';
         state.costs.forEach((c, idx) => {
             let tClass, tText = "";
-            if(c.ticket === 0) { tClass = "btn-red"; tText = "没票"; }
+            if(c.ticket === 0) { tClass = "btn-red"; tText = "无票"; }
             else if(c.ticket === 1) { tClass = "btn-blue"; tText = "普票"; }
             else if(c.ticket === 2) { tClass = "btn-green"; tText = "专票"; }
             else { tClass = "btn-purple"; tText = "代扣"; }
@@ -1023,23 +1138,23 @@
             let costRateHighlight = (c.ticket === 3) ? "num-input highlight-linked" : "num-input";
             let costRatePct = toPct(c.ticket === 3 ? getRate('platRate') : c.rate);
             let costRateTip = c.ticket === 3
-                ? '代扣税率（只读，改上面的代扣税率）。进项按上游税点或征收率拆'
+                ? '代扣代缴税率（只读，请改上方代扣税率）。进项税额按销项税率或征收率计算'
                 : (c.ticket === 1
-                    ? '普票税率：不能抵进项，只用来按不含税计印花税'
-                    : (c.ticket === 2 ? (isSmall() ? '专票税率：小规模仍不能抵进项' : '专票进项税率') : '没票无税率'));
-            let ticketTip = c.ticket === 0 ? '没票：不能抵进项，所得税也不能扣。点一下切换票种'
-                : (c.ticket === 1 ? '普票：不能抵进项。点一下切换票种'
-                : (c.ticket === 2 ? (isSmall() ? '专票：小规模不能抵进项。点一下切换票种' : '专票：可抵进项。点一下切换票种')
-                : '代扣：金额栏填司机净价。点一下切换票种'));
+                    ? '普通发票税率：不得抵扣进项税额，仅用于按不含税金额计征印花税'
+                    : (c.ticket === 2 ? (isSmall() ? '专用发票税率：小规模纳税人仍不得抵扣进项税额' : '专用发票进项税率') : '无票无税率'));
+            let ticketTip = c.ticket === 0 ? '无票：不得抵扣进项税额，亦不得在企业所得税前扣除。点击切换票种'
+                : (c.ticket === 1 ? '普通发票：不得抵扣进项税额。点击切换票种'
+                : (c.ticket === 2 ? (isSmall() ? '专用发票：小规模纳税人不得抵扣进项税额。点击切换票种' : '专用发票：可抵扣进项税额。点击切换票种')
+                : '代扣代缴：金额栏填承运人净额。请先关闭上方代扣代缴开关，才能改为其他票种'));
             
             costHtml += `
                 <div class="list-row">
-                    <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)" data-tip="支出科目名称，字多会自动加宽">
-                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" data-tip="${c.ticket === 3 ? '填司机净到手单价。双击可按净价倒推' : '填含税单价。双击可按不含税倒推填入'}">
+                    <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)" data-tip="成本项目名称，过长时输入框自动加宽">
+                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" data-tip="${c.ticket === 3 ? '填承运人净额单价。双击可按净额倒推' : '填价税合计单价。双击可按不含税金额倒推填入'}">
                     <span class="pct-field"><input class="${costRateHighlight}" type="number" value="${costRatePct}" step="0.1" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)" data-tip="${costRateTip}"><span class="pct-mark">%</span></span>
                     <button class="btn-toggle ${tClass}" onclick="toggleCostTicket(${c.id})" data-tip="${ticketTip}">${tText}</button>
-                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})" data-tip="${c.stamp ? '已计入印花税税基。点一下免印花' : '不计入印花税。点一下改为计印花'}">${stpText}</button>
-                    <button class="btn-del" onclick="delRow('cost', ${c.id})" data-tip="删除这笔支出">✖</button>
+                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})" data-tip="${c.stamp ? '已计入印花税计税依据。点击改为不征印花税' : '不计入印花税计税依据。点击改为计征'}">${stpText}</button>
+                    <button class="btn-del" onclick="delRow('cost', ${c.id})" data-tip="删除该项成本">✖</button>
                 </div>`;
         });
         document.getElementById('costContainer').innerHTML = costHtml;
@@ -1073,30 +1188,34 @@
             totals.outVat += outVat;
             if(r.stamp) {
                 totals.stampBase += excl;
-                totals.stampItems.push({ name: r.name + '税基', num: fmtFig(excl) });
+                totals.stampItems.push({ name: r.name + '计税依据', num: fmtFig(excl) });
             }
 
             totals.revCashNums.push(fmtMoney(cash));
             totals.revExclNums.push(fmtFig(excl));
             totals.revExclItems.push(r.inc && r.rate > 0
-                ? { name: r.name + '不含税', num: `${fmtFig(cash)} ÷ ${(1 + r.rate).toFixed(2)} ＝ ${fmtFig(excl)}` }
-                : { name: r.name + (r.inc ? '不含税' : '不开票'), num: fmtFig(cash) });
+                ? { name: r.name + '销售额', num: `${fmtFig(cash)} ÷ ${(1 + r.rate).toFixed(2)} ＝ ${fmtFig(excl)}` }
+                : { name: r.name + (r.inc ? '销售额' : '实收'), num: fmtFig(cash) });
             totals.outVatItems.push(r.rate > 0
-                ? { name: r.name + (isSmall() ? '征收额' : '销项'), num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(outVat)}` }
-                : { name: r.name + (isSmall() ? '征收额' : '销项'), num: fmtFig(0) });
+                ? { name: r.name + (isSmall() ? '应纳税额' : '销项税额'), num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(outVat)}` }
+                : { name: r.name + (isSmall() ? '应纳税额' : '销项税额'), num: fmtFig(0) });
 
             totals.revsHtml += `
-                <div class="row-item sub-row">
+                <div class="row-item sub-row"${tipAttr(r.inc
+                    ? '价税合计流入 = 单价 × 数量。本栏按开票实收，不拆增值税。'
+                    : '实收 = 单价 × 数量。不开票不计提销项税额，流入等于实收。')}>
                     <span class="row-label">📥 ${r.name}</span>
-                    <span class="row-detail">${r.inc ? '含税开票实收' : '不开票实收'}</span>
-                    <span class="row-value positive">+${fmtMoney(cash)}</span>
+                    <span class="row-detail">${r.inc ? '价税合计（开票）' : '实收（不开票）'}</span>
+                    <span class="row-value sub-val">+${fmtMoney(cash)}</span>
                 </div>`;
             totals.revExclHtml += `
-                <div class="row-item sub-row">
-                    <span class="row-label">${r.name}不含税</span>
+                <div class="row-item sub-row"${tipAttr(r.inc && r.rate > 0
+                    ? '销售额 = 价税合计 ÷（1＋' + rateLabel() + '）'
+                    : '不开票时销售额 = 实收')}>
+                    <span class="row-label">${r.name}（销售额）</span>
                     <span class="row-detail">${r.inc && r.rate > 0
-                        ? dual('含税收入 ÷（1＋' + rateLabel() + '）', `${fmtMoney(cash)} ÷ ${(1 + r.rate).toFixed(2)}`)
-                        : dual('不含税等于实收', fmtMoney(cash))}</span>
+                        ? dual('价税合计 ÷（1＋' + rateLabel() + '）', `${fmtMoney(cash)} ÷ ${(1 + r.rate).toFixed(2)}`)
+                        : dual('不开票时销售额等于实收', fmtMoney(cash))}</span>
                     <span class="row-value sub-val">${fmtMoney(excl)}</span>
                 </div>`;
         });
@@ -1104,33 +1223,33 @@
         state.costs.forEach(c => {
             let s = splitCost(c, qty, pRate, upRate);
             let cash = s.cash, excl = s.excl, inVat = s.inVat, costDeduct = s.costDeduct, taxDeduct = s.taxDeduct;
-            let ticketStr = "含税 · 专票";
+            let ticketStr = "专用发票（价税合计）";
             
             if(c.ticket === 3) {
                 totals.costHtml += `
-                    <div class="row-item sub-row">
+                    <div class="row-item sub-row"${tipAttr('价税合计流出 = 净额 ÷（1 − 代扣税率）。金额栏填承运人净额，本栏为还原后的实付。')}>
                         <span class="row-label">🚛 ${c.name}</span>
-                        <span class="row-detail">${dual('金额栏为净价，还原含税实付', fmtMoney(cash))}</span>
-                        <span class="row-value negative">−${fmtMoney(cash)}</span>
+                        <span class="row-detail">${dual('金额栏为净额，还原为价税合计', fmtMoney(cash))}</span>
+                        <span class="row-value sub-val">−${fmtMoney(cash)}</span>
                     </div>
-                    <div class="row-item sub-row">
+                    <div class="row-item sub-row"${tipAttr('价税合计流出 = 净额 ÷（1 − 代扣税率）')}>
                         <span class="row-label">代扣还原</span>
-                        <span class="row-detail">${dual('净价 ÷（1 − 代扣税率）', `${fmtMoney(dRound(c.amt * qty))} ÷ ${(1 - pRate).toFixed(3)}`)}</span>
+                        <span class="row-detail">${dual('净额 ÷（1 − 代扣税率）', `${fmtMoney(dRound(c.amt * qty))} ÷ ${(1 - pRate).toFixed(3)}`)}</span>
                         <span class="row-value sub-val">${fmtMoney(cash)}</span>
                     </div>`;
             } else {
                 if(c.ticket === 2) {
-                    ticketStr = "含税 · 专票";
+                    ticketStr = "专用发票（价税合计）";
                 } else if (c.ticket === 1) {
-                    ticketStr = "含税 · 普票";
+                    ticketStr = "普通发票（价税合计）";
                 } else {
-                    ticketStr = "无票支出";
+                    ticketStr = "无票（价税合计）";
                 }
                 totals.costHtml += `
-                    <div class="row-item sub-row">
+                    <div class="row-item sub-row"${tipAttr('价税合计流出 = 单价 × 数量。现金收付不区分进项能否抵扣，按实付列示。')}>
                         <span class="row-label">🤝 ${c.name}</span>
                         <span class="row-detail">${ticketStr}</span>
-                        <span class="row-value negative">−${fmtMoney(cash)}</span>
+                        <span class="row-value sub-val">−${fmtMoney(cash)}</span>
                     </div>`;
             }
 
@@ -1140,38 +1259,38 @@
             totals.taxDeduct += taxDeduct;
             if(c.stamp) {
                 totals.stampBase += s.stampExcl;
-                totals.stampItems.push({ name: c.name + '税基', num: fmtFig(s.stampExcl) });
+                totals.stampItems.push({ name: c.name + '计税依据', num: fmtFig(s.stampExcl) });
             }
 
             let costCn, costNum;
             if (isSmall()) {
-                costCn = '小规模不能抵进项，成本等于含税支出';
+                costCn = '小规模纳税人不能抵扣进项，营业成本等于价税合计';
                 costNum = fmtFig(cash);
             } else if (c.ticket === 3) {
-                costCn = '含税实付 ÷（1＋上游税点）';
+                costCn = '价税合计 ÷（1＋销项税率）';
                 costNum = `${fmtFig(cash)} ÷ ${(1 + upRate).toFixed(2)} ＝ ${fmtFig(costDeduct)}`;
             } else if (inVat > 0 && c.rate > 0) {
-                costCn = '含税支出 ÷（1＋进项税率）';
+                costCn = '价税合计 ÷（1＋进项税率）';
                 costNum = `${fmtFig(cash)} ÷ ${(1 + c.rate).toFixed(2)} ＝ ${fmtFig(costDeduct)}`;
             } else {
-                costCn = c.ticket === 1 ? '普票无进项，不含税成本等于含税支出' : '没票无进项，不含税成本等于含税支出';
+                costCn = c.ticket === 1 ? '普通发票不得抵扣进项，营业成本按价税合计' : '无票不得抵扣进项，营业成本按实付金额';
                 costNum = fmtFig(cash);
             }
             totals.costExclHtml += `
-                <div class="row-item sub-row">
-                    <span class="row-label">${c.name}不含税成本</span>
+                <div class="row-item sub-row"${tipAttr(costCn)}>
+                    <span class="row-label">${c.name}（营业成本）</span>
                     <span class="row-detail">${dual(costCn, costNum)}</span>
                     <span class="row-value sub-val">${fmtMoney(costDeduct)}</span>
                 </div>`;
             totals.costCashNums.push(fmtMoney(cash));
             totals.costExclNums.push(fmtFig(costDeduct));
-            totals.costExclItems.push({ name: c.name + '不含税', num: costNum });
+            totals.costExclItems.push({ name: c.name + '营业成本', num: costNum });
             totals.inVatItems.push(inVat > 0
-                ? { name: c.name + '进项', num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(inVat)}` }
-                : { name: c.name + '进项', num: fmtFig(0) });
+                ? { name: c.name + '进项税额', num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(inVat)}` }
+                : { name: c.name + '进项税额', num: fmtFig(0) });
             if (taxDeduct > 0) {
                 totals.taxDeductItems.push({
-                    name: c.name + '扣除',
+                    name: c.name + '税前扣除',
                     num: (c.ticket === 2 || c.ticket === 3) ? fmtFig(excl) : fmtFig(cash)
                 });
             }
@@ -1181,7 +1300,7 @@
         totals.cashCost = dRound(totals.cashCost); totals.costExcl = dRound(totals.costExcl); totals.taxDeduct = dRound(totals.taxDeduct);
         totals.inVat = dRound(totals.inVat); totals.stampBase = dRound(totals.stampBase);
 
-        // 销项不够抵进项时：未抵扣进项转入成本（不能当成利润）
+        // 销项不够抵进项时：未抵扣进项税额计入营业成本（不得确认为利润）
         let vat = vatSettle(totals.outVat, totals.inVat);
         let unusedVat = vat.unusedVat;
         let payVat = vat.payVat;
@@ -1189,12 +1308,12 @@
             totals.taxDeduct = dRound(totals.taxDeduct + unusedVat);
             totals.costExcl = dRound(totals.costExcl + unusedVat);
             totals.costExclNums.push(fmtFig(unusedVat));
-            totals.costExclItems.push({ name: '未抵扣进项', num: `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)} ＝ ${fmtFig(unusedVat)}` });
-            totals.taxDeductItems.push({ name: '未抵扣进项', num: fmtFig(unusedVat) });
+            totals.costExclItems.push({ name: '未抵扣进项税额', num: `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)} ＝ ${fmtFig(unusedVat)}` });
+            totals.taxDeductItems.push({ name: '未抵扣进项税额', num: fmtFig(unusedVat) });
             totals.costExclHtml += `
-                <div class="row-item sub-row">
-                    <span class="row-label">未抵扣进项转入成本</span>
-                    <span class="row-detail">${dual('进项税额 − 销项税额，单趟用不掉计入成本', `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)}`)}</span>
+                <div class="row-item sub-row"${tipAttr('未抵扣进项税额 = 进项税额 − 销项税额。本单未抵完部分计入营业成本，不得确认为利润。')}>
+                    <span class="row-label">未抵扣进项税额计入成本</span>
+                    <span class="row-detail">${dual('进项税额 − 销项税额；本单未抵完部分计入营业成本', `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)}`)}</span>
                     <span class="row-value sub-val">${fmtMoney(unusedVat)}</span>
                 </div>`;
         }
@@ -1215,7 +1334,8 @@
         if (Math.abs(chk.netProfit - netProfit) >= 0.01 || Math.abs(chk.f2Profit - f2Profit) >= 0.01) {
             console.error('核算内核与报表不一致', { chk: chk.netProfit, netProfit: netProfit, chk2: chk.f2Profit, f2Profit: f2Profit });
         }
-        let compTaxRate = totals.cashRev > 0 ? ((totalTax / totals.cashRev) * 100).toFixed(2) : "0.00";
+        let vatBurden = totals.revExcl > 0 ? ((payVat / totals.revExcl) * 100).toFixed(2) : '—';
+        let realBurden = totals.revExcl > 0 ? ((totalTax / totals.revExcl) * 100).toFixed(2) : '—';
         let costExclNum = totals.costExclNums.join(' ＋ ') || fmtFig(0);
         let revCashNum = totals.revCashNums.join(' ＋ ') || fmtMoney(0);
         let revExclNum = totals.revExclNums.join(' ＋ ') || fmtFig(0);
@@ -1230,24 +1350,24 @@
         let pnlProfitNum = `${fmtFig(totals.revExcl)} − ${fmtFig(totals.costExcl)} − ${fmtFig(otherTax)}`;
         let deductDiffers = Math.abs(totals.taxDeduct - totals.costExcl) >= 0.01;
         let incCn = deductDiffers
-            ? '企业所得税 =（不含税收入 − 税前扣除 − 附加税 − 印花税）× 所得税率；没票不能扣，亏损不征'
-            : '企业所得税 =（不含税收入 − 不含税成本 − 附加税 − 印花税）× 所得税率；亏损不征';
+            ? '企业所得税 =（销售额 − 税前扣除 − 增值税附加 − 印花税）× 企业所得税率；无票不得扣除，应纳税所得额为负时不征'
+            : '企业所得税 =（销售额 − 营业成本 − 增值税附加 − 印花税）× 企业所得税率；应纳税所得额为负时不征';
         let incBase = deductDiffers ? totals.taxDeduct : totals.costExcl;
         let incNum = taxableInc > 0
             ? `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(sur)} − ${fmtFig(stamp)} ＝ ${fmtFig(taxableInc)}）× ${(incRate * 100).toFixed(0)}% ＝ ${fmtFig(incTax)}`
             : `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(sur)} − ${fmtFig(stamp)} ＝ ${fmtFig(taxableInc)}）＝ ${fmtFig(0)}`;
         let vatPayCn = unusedVat > 0
-            ? '应缴增值税 = 销项税额 − 进项税额；不够抵按 0 缴纳'
+            ? '应缴增值税 = 销项税额 − 进项税额；进项大于销项时本期应缴为 0'
             : '应缴增值税 = 销项税额 − 进项税额';
         let vatPayNum = unusedVat > 0
             ? `${fmtFig(totals.outVat)} − ${fmtFig(totals.inVat)} ＝ ${fmtFig(0)}`
             : `${fmtFig(totals.outVat)} − ${fmtFig(totals.inVat)} ＝ ${fmtFig(payVat)}`;
 
         let unusedChip = unusedVat > 0
-            ? chipHtml('tax', '未抵扣进项', '未抵扣进项 = 进项税额 − 销项税额；单趟用不掉计入成本', `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)} ＝ ${fmtFig(unusedVat)}`, fmtMoney(unusedVat), false)
+            ? chipHtml('tax', '未抵扣进项税额', '未抵扣进项税额 = 进项税额 − 销项税额；本单未抵完部分计入营业成本', `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)} ＝ ${fmtFig(unusedVat)}`, fmtMoney(unusedVat), false)
             : '';
         let deductChip = deductDiffers
-            ? chipHtml('base', '税前扣除', '税前扣除 = 专票按不含税 ＋ 普票按全额；没票不扣', totals.taxDeductItems.map(it => it.num).join(' ＋ ') + ` ＝ ${fmtFig(totals.taxDeduct)}`, fmtMoney(totals.taxDeduct), false, totals.taxDeductItems)
+            ? chipHtml('base', '税前扣除', '企业所得税税前扣除 = 专用发票按不含税金额 ＋ 普通发票按价税合计；无票不得扣除', totals.taxDeductItems.map(it => it.num).join(' ＋ ') + ` ＝ ${fmtFig(totals.taxDeduct)}`, fmtMoney(totals.taxDeduct), false, totals.taxDeductItems)
             : '';
         let revExclJoin = totals.revExclNums.join(' ＋ ') + (totals.revExclNums.length > 1 ? ` ＝ ${fmtFig(totals.revExcl)}` : '');
         let costExclJoin = totals.costExclNums.join(' ＋ ') + (totals.costExclNums.length > 1 ? ` ＝ ${fmtFig(totals.costExcl)}` : '');
@@ -1260,23 +1380,23 @@
 
         let baseStrip = `
                 <div class="strip-block">
-                    <div class="strip-head">基础模块 · 不含税口径只算一次</div>
+                    <div class="strip-head">利润表项目 · 只计算一次</div>
                     <div class="tax-strip">
-                        ${chipHtml('base', '不含税收入', isSmall() ? '不含税收入 = 含税收入 ÷（1＋征收率）。不开票时：不含税收入 = 实收' : '不含税收入 = 含税收入 ÷（1＋销项税率）。不开票时：不含税收入 = 实收', revExclJoin, fmtMoney(totals.revExcl), false, totals.revExclItems)}
-                        ${chipHtml('base cost', '不含税成本', isSmall() ? '不含税成本 = 含税支出（小规模不能抵进项）' : '不含税成本 = 专票剔进项后的价款；普票、没票时：不含税成本 = 含税支出', costExclJoin, fmtMoney(totals.costExcl), false, totals.costExclItems)}
+                        ${chipHtml('base', '销售额', isSmall() ? '销售额 = 价税合计 ÷（1＋征收率）。不开票时：销售额 = 实收' : '销售额 = 价税合计 ÷（1＋销项税率）。不开票时：销售额 = 实收', revExclJoin, fmtMoney(totals.revExcl), false, totals.revExclItems)}
+                        ${chipHtml('base cost', '营业成本', isSmall() ? '营业成本 = 价税合计（小规模纳税人不得抵扣进项税额）' : '营业成本 = 专用发票按不含税金额；普通发票、无票按价税合计', costExclJoin, fmtMoney(totals.costExcl), false, totals.costExclItems)}
                         ${deductChip}
                     </div>
                 </div>`;
         let taxStrip = `
                 <div class="strip-block">
-                    <div class="strip-head">税费模块 · 引用上方结果</div>
+                    <div class="strip-head">税费项目 · 引用上方结果</div>
                     <div class="tax-strip">
-                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '应纳税额 = 含税收入 − 不含税收入（按征收率）' : '销项税额 = 含税收入 − 不含税收入', outVatJoin, fmtMoney(totals.outVat), false, totals.outVatItems)}
-                        ${chipHtml('tax', '进项税额', isSmall() ? '进项税额 = 0（小规模不能抵扣进项）' : '进项税额 = 专票/代扣的（含税支出 − 不含税成本）；普票、没票不能抵，进项 = 0', inVatJoin, fmtMoney(totals.inVat), false, totals.inVatItems)}
-                        ${chipHtml('tax', '应缴增值税', isSmall() ? '应缴增值税 = 应纳税额（小规模不能抵进项）' : vatPayCn, vatPayNum, fmtMoney(payVat), true)}
+                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '应纳税额 = 价税合计 − 销售额（按征收率）' : '销项税额 = 价税合计 − 销售额', outVatJoin, fmtMoney(totals.outVat), false, totals.outVatItems)}
+                        ${chipHtml('tax', '进项税额', isSmall() ? '进项税额 = 0（小规模纳税人不得抵扣进项税额）' : '进项税额 = 专用发票、代扣代缴的（价税合计 − 不含税金额）；普通发票、无票不得抵扣', inVatJoin, fmtMoney(totals.inVat), false, totals.inVatItems)}
+                        ${chipHtml('tax', '应缴增值税', isSmall() ? '应缴增值税 = 应纳税额（小规模纳税人不得抵扣进项税额）' : vatPayCn, vatPayNum, fmtMoney(payVat), true)}
                         ${unusedChip}
-                        ${chipHtml('tax', '附加税', '附加税 = 应缴增值税 × 附加税率', `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`, fmtMoney(sur), true)}
-                        ${chipHtml('tax', '印花税', '印花税 = 勾选项目不含税价款合计 × 印花税率', stampNum, fmtMoney(stamp), true, totals.stampItems)}
+                        ${chipHtml('tax', '增值税附加', '增值税附加 = 应缴增值税 × 增值税附加税率', `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`, fmtMoney(sur), true)}
+                        ${chipHtml('tax', '印花税', '印花税 = 勾选项目计税依据合计 × 印花税率', stampNum, fmtMoney(stamp), true, totals.stampItems)}
                         ${chipHtml('tax', '企业所得税', incCn, incNum, fmtMoney(incTax), true)}
                     </div>
                 </div>`;
@@ -1284,12 +1404,12 @@
         let reportHtml = `
             <div class="card">
                 <div class="card-header">
-                    <h2>📋 成本核算（${taxpayerName()} · 现金流 VS 利润表）</h2>
+                    <h2>📋 单笔业务成本核算（${taxpayerName()} · 现金收付 VS 利润表）</h2>
                     <div class="order-badge">
                         <span class="tag">${taxpayerName()}</span>
                         <span class="tag tone-qty">数量 ${fmtInt(qty)}</span>
-                        <span class="tag tone-sur">附加税 ${(surRate*100).toFixed(0)}%</span>
-                        <span class="tag tone-inc">所得税 ${(incRate*100).toFixed(0)}%</span>
+                        <span class="tag tone-sur">增值税附加 ${(surRate*100).toFixed(0)}%</span>
+                        <span class="tag tone-inc">企业所得税 ${(incRate*100).toFixed(0)}%</span>
                         <span class="tag tone-stamp">印花税 ${stampPermyriad(stampRate)}‱</span>
                     </div>
                 </div>
@@ -1297,95 +1417,99 @@
                 ${taxStrip}
                 <div class="split-panel">
                     <div class="panel panel-cash">
-                        <div class="panel-title">💰 含税现金流 <span class="badge">实际收付</span></div>
+                        <div class="panel-title"${tipAttr('按实收实付列示价税合计。应缴增值税在本栏作为现金流出；利润表不列增值税。')}>💰 现金收付 <span class="badge">价税合计口径</span></div>
                         <div class="block-positive">
-                            <div class="block-label">⬆ 收入</div>
+                            <div class="block-label"${tipAttr('客户支付的款项。开票为价税合计，不开票为实收。')}>⬆ 现金流入</div>
                             ${totals.revsHtml}
-                            <div class="row-item row-total">
-                                <span class="row-label">收入合计</span>
-                                <span class="row-detail">${dual('各项含税收入相加', revCashNum)}</span>
+                            <div class="row-item row-total"${tipAttr('价税合计流入 = 各项现金流入相加')}>
+                                <span class="row-label">价税合计流入</span>
+                                <span class="row-detail">${dual('各项价税合计相加', revCashNum)}</span>
                                 <span class="row-value positive">+${fmtMoney(totals.cashRev)}</span>
                             </div>
                         </div>
                         <div class="block-negative">
-                            <div class="block-label">⬇ 成本支出</div>
+                            <div class="block-label"${tipAttr('支付给承运人、居间人等的款项。开票为价税合计，代扣为净额还原后的价税合计。')}>⬇ 现金流出</div>
                             ${totals.costHtml}
-                            <div class="row-item row-total">
-                                <span class="row-label">成本支出合计</span>
-                                <span class="row-detail">${dual('各项含税支出相加', costCashNum)}</span>
+                            <div class="row-item row-total"${tipAttr('价税合计流出 = 各项现金流出相加')}>
+                                <span class="row-label">价税合计流出</span>
+                                <span class="row-detail">${dual('各项价税合计相加', costCashNum)}</span>
                                 <span class="row-value negative">−${fmtMoney(totals.cashCost)}</span>
                             </div>
                         </div>
                         <div class="block-tax">
-                            <div class="block-label">⬇ 税费</div>
-                            <div class="row-item row-total" style="border-bottom: none;">
-                                <span class="row-label">税费总计</span>
-                                <span class="row-detail">${dual('应缴增值税 ＋ 附加税 ＋ 印花税 ＋ 企业所得税', totalTaxNum)}</span>
+                            <div class="block-label"${tipAttr('本单实际缴纳的税费。增值税是价外税，现金要付，利润表不列。')}>⬇ 税费</div>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('税费合计 = 应缴增值税 ＋ 增值税附加 ＋ 印花税 ＋ 企业所得税')}>
+                                <span class="row-label">税费合计</span>
+                                <span class="row-detail">${dual('应缴增值税 ＋ 增值税附加 ＋ 印花税 ＋ 企业所得税', totalTaxNum)}</span>
                                 <span class="row-value total-tax">−${fmtMoney(totalTax)}</span>
                             </div>
                         </div>
                         <div class="block-result">
-                            <div class="block-label">📊 结果 · 净利</div>
-                            <div class="row-item row-line">
-                                <span class="row-label">账面现金毛利</span>
-                                <span class="row-detail">${dual('收入合计 − 成本支出合计', cashMarginNum)}</span>
-                                <span class="row-value">${cashMargin>=0?'+':''}${fmtMoney(cashMargin)}</span>
+                            <div class="block-label"${tipAttr('现金净额应与右侧净利润勾稽一致。')}>📊 结果</div>
+                            <div class="row-item sub-row"${tipAttr('收付差额 = 价税合计流入 − 价税合计流出（尚未扣税）')}>
+                                <span class="row-label">收付差额</span>
+                                <span class="row-detail">${dual('价税合计流入 − 价税合计流出', cashMarginNum)}</span>
+                                <span class="row-value sub-val">${cashMargin>=0?'+':''}${fmtMoney(cashMargin)}</span>
                             </div>
-                            <div class="row-item row-total" style="border-bottom: none;">
-                                <span class="row-label">① 现金流净利</span>
-                                <span class="row-detail">${dual('账面现金毛利 − 税费总计', cashProfitNum)}</span>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('现金净额 = 收付差额 − 税费合计。应与右侧净利润一致。')}>
+                                <span class="row-label">① 现金净额</span>
+                                <span class="row-detail">${dual('收付差额 − 税费合计', cashProfitNum)}</span>
                                 <span class="row-value big ${netProfit>=0?'green':'negative'}">${netProfit>=0?'+':''}${fmtMoney(netProfit)}</span>
                             </div>
                         </div>
                     </div>
                     <div class="panel panel-tax">
-                        <div class="panel-title">🧾 不含税利润表 <span class="badge">测算基础</span></div>
+                        <div class="panel-title"${tipAttr('按会计准则列示：收入、成本用不含税金额。增值税不进利润表。')}>🧾 利润表 <span class="badge">不含税口径</span></div>
                         <div class="block-positive">
-                            <div class="block-label">⬆ 不含税收入</div>
+                            <div class="block-label"${tipAttr('确认的销售额。开票：价税合计 ÷（1＋销项税率或征收率）；不开票：等于实收。')}>⬆ 营业收入</div>
                             ${totals.revExclHtml}
-                            <div class="row-item row-total">
-                                <span class="row-label">不含税收入合计</span>
-                                <span class="row-detail">${dual('各项不含税收入相加', revExclNum)}</span>
+                            <div class="row-item row-total"${tipAttr('营业收入合计 = 各项销售额相加')}>
+                                <span class="row-label">营业收入合计</span>
+                                <span class="row-detail">${dual('各项销售额相加', revExclNum)}</span>
                                 <span class="row-value positive">${fmtMoney(totals.revExcl)}</span>
                             </div>
                         </div>
                         <div class="block-negative">
-                            <div class="block-label">⬇ 不含税成本</div>
+                            <div class="block-label"${tipAttr('专用发票、代扣按不含税金额；普通发票、无票按价税合计；本单未抵完进项计入营业成本。')}>⬇ 营业成本</div>
                             ${totals.costExclHtml}
-                            <div class="row-item row-total">
-                                <span class="row-label">📦 不含税成本合计</span><span class="row-detail">${dual('各项不含税成本相加', costExclNum)}</span><span class="row-value negative">−${fmtMoney(totals.costExcl)}</span>
+                            <div class="row-item row-total"${tipAttr('营业成本合计 = 各项营业成本相加')}>
+                                <span class="row-label">营业成本合计</span><span class="row-detail">${dual('各项营业成本相加', costExclNum)}</span><span class="row-value negative">−${fmtMoney(totals.costExcl)}</span>
                             </div>
                         </div>
                         <div class="block-tax">
-                            <div class="block-label">⬇ 其他税费</div>
-                            <div class="row-item row-total" style="border-bottom: none;">
-                                <span class="row-label">其他税费合计</span>
-                                <span class="row-detail">${dual('附加税 ＋ 印花税 ＋ 企业所得税', otherTaxNum)}</span>
+                            <div class="block-label"${tipAttr('增值税不进利润表。本栏只列增值税附加、印花税、企业所得税。')}>⬇ 利润表税费</div>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('利润表税费合计 = 增值税附加 ＋ 印花税 ＋ 企业所得税')}>
+                                <span class="row-label">利润表税费合计</span>
+                                <span class="row-detail">${dual('增值税附加 ＋ 印花税 ＋ 企业所得税', otherTaxNum)}</span>
                                 <span class="row-value total-tax">−${fmtMoney(otherTax)}</span>
                             </div>
                         </div>
                         <div class="block-result">
-                            <div class="block-label">📊 结果 · 净利</div>
-                            <div class="row-item row-total" style="border-bottom: none;">
-                                <span class="row-label">② 利润表净利</span>
-                                <span class="row-detail">${dual('不含税收入合计 − 不含税成本合计 − 其他税费合计', pnlProfitNum)}</span>
+                            <div class="block-label"${tipAttr('净利润应与左侧现金净额勾稽一致。')}>📊 结果</div>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('净利润 = 营业收入合计 − 营业成本合计 − 利润表税费合计。应与左侧现金净额一致。')}>
+                                <span class="row-label">② 净利润</span>
+                                <span class="row-detail">${dual('营业收入合计 − 营业成本合计 − 利润表税费合计', pnlProfitNum)}</span>
                                 <span class="row-value big ${f2Profit>=0?'green':'negative'}">${f2Profit>=0?'+':''}${fmtMoney(f2Profit)}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="result-area">
+                <div class="result-area"${tipAttr('勾稽关系：现金净额 = 净利润。左边扣应缴增值税，右边收入成本已剔除增值税，两边结果应一致。')}>
                     <div class="result-item">
                         <span class="label">✅ 交叉验证</span>
                         <span class="number ${netProfit>=0?'green':'red'}">${fmtMoney(netProfit)}</span>
                         <span style="color:#2a4f77; font-weight:500;">= ${fmtMoney(f2Profit)}</span>
-                        <span class="check-mark ${Math.abs(netProfit - f2Profit)<0.01 ? 'success':'error'}">${Math.abs(netProfit - f2Profit)<0.01 ? '✔ 两项净利一致':'❌ 数据有误差'}</span>
+                        <span class="check-mark ${Math.abs(netProfit - f2Profit)<0.01 ? 'success':'error'}">${Math.abs(netProfit - f2Profit)<0.01 ? '✔ 现金净额与净利润一致':'❌ 两项金额不一致'}</span>
                     </div>
                 </div>
                 <div class="footnote">
-                    <span>📌 含税收入 ${fmtMoney(totals.cashRev)}</span><span>📌 不含税收入 ${fmtMoney(totals.revExcl)}</span>
-                    <span>📌 含税成本 ${fmtMoney(totals.cashCost)}</span><span>📌 不含税成本 ${fmtMoney(totals.costExcl)}</span>
-                    <span style="margin-left: auto;">📊 税费占含税收入 ${compTaxRate}%</span>
+                    <span data-tip="开票为价税合计，不开票为实收">📌 价税合计流入 ${fmtMoney(totals.cashRev)}</span>
+                    <span data-tip="销售额 = 价税合计 ÷（1＋销项税率或征收率）；不开票时等于实收">📌 销售额 ${fmtMoney(totals.revExcl)}</span>
+                    <span data-tip="成本付现：开票为价税合计，代扣为还原后的价税合计">📌 价税合计流出 ${fmtMoney(totals.cashCost)}</span>
+                    <span data-tip="专用发票、代扣按不含税金额；普通发票、无票按价税合计；本单未抵完进项计入营业成本">📌 营业成本 ${fmtMoney(totals.costExcl)}</span>
+                    <span data-tip="应缴增值税 ＋ 增值税附加 ＋ 印花税 ＋ 企业所得税">📌 税费合计 ${fmtMoney(totalTax)}</span>
+                    <span data-tip="增值税税负 = 应缴增值税 ÷ 销售额。税务风险分析常用此口径">📊 增值税税负 ${vatBurden}${vatBurden === '—' ? '' : '%'}</span>
+                    <span data-tip="实际税负 = 税费合计 ÷ 销售额（不含税）。分母不用价税合计，否则会低估税负">📊 实际税负 ${realBurden}${realBurden === '—' ? '' : '%'}</span>
                 </div>
             </div>`;
         document.getElementById('reportView').innerHTML = reportHtml;
@@ -1438,6 +1562,13 @@
         tipTimer = setTimeout(hideAppTip, 5000);
     }
 
+    document.addEventListener('click', function (e) {
+        if (!window.matchMedia('(hover: none), (max-width: 900px)').matches) return;
+        let t = e.target.closest('.tax-chip[data-tip], .gs-item[data-tip], .footnote [data-tip], .panel [data-tip], .result-area[data-tip]');
+        if (!t) return;
+        if (e.target.closest('input, button')) return;
+        showAppTip(t, e);
+    });
     document.addEventListener('mouseover', function (e) {
         let t = e.target.closest('[data-tip]');
         if (!t || t === tipAnchor) return;
