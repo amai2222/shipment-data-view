@@ -5,122 +5,206 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>多维物流成本与税务 0.40版 · 一般纳税人</title>
     <style>
+        :root {
+            --bg: #f4f6f8;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --line: #e5e7eb;
+            --line-strong: #d1d5db;
+            --text: #111827;
+            --text-2: #4b5563;
+            --text-3: #6b7280;
+            --brand: #2563eb;
+            --brand-soft: #eff6ff;
+            --ok: #059669;
+            --ok-soft: #ecfdf5;
+            --danger: #dc2626;
+            --danger-soft: #fef2f2;
+            --warn: #d97706;
+            --warn-soft: #fffbeb;
+            --violet: #7c3aed;
+            --violet-soft: #f5f3ff;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; }
-        body { background: #f4f7fd; color: #1a1a1a; height: 100vh; overflow: hidden; }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
         
         .app-container { display: grid; grid-template-columns: 38% 62%; width: 100%; height: 100%; }
         
-        .sidebar { background: #ffffff; border-right: 1px solid #e0e6ed; display: flex; flex-direction: column; height: 100%; box-shadow: 2px 0 10px rgba(0,0,0,0.03); z-index: 10; overflow-y: auto; padding: 24px; }
-        .sidebar h1 { font-size: 20px; font-weight: 600; color: #0b1a33; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .sidebar { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; height: 100%; z-index: 10; overflow-y: auto; padding: 22px; }
+        .sidebar h1 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.2px; }
         
-        .form-group { border: 1px solid #e9eef5; border-radius: 16px; padding: 16px; margin-bottom: 20px; background: #fafcff; }
-        .form-group-title { font-size: 15px; font-weight: 600; color: #1f3a6b; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .form-group { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; background: var(--surface-soft); }
+        .form-group-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .title-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .taxpayer-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .taxpayer-bar .gs-label { margin-right: 2px; }
+        #appTip {
+            position: fixed;
+            z-index: 2000;
+            max-width: 260px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #1e3a5f;
+            background: #eef4ff;
+            border: 1px solid #bfdbfe;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        #be-tip {
+            position: fixed;
+            z-index: 2100;
+            min-width: 280px;
+            width: max-content;
+            max-width: min(380px, calc(100vw - 16px));
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.7;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-sizing: border-box;
+        }
+        #be-tip .be-h { font-weight: 600; color: #fff; margin-bottom: 6px; }
+        #be-tip .be-row { white-space: nowrap; }
+        #be-tip .be-row b { color: #4ade80; font-size: 17px; font-weight: 700; }
+        #be-tip .be-sub { font-size: 12px; color: #94a3b8; font-weight: 400; }
         
-        .grid-settings { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: center; }
-        .input-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: #3d4d6a; }
-        .input-row input[type="number"], .input-row input[type="text"] { width: 85px; padding: 6px; border: 1px solid #cdd5e0; border-radius: 8px; font-size: 14px; text-align: center; font-weight: 600; color: #0b1a33; }
+        .grid-settings {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            column-gap: 12px;
+            row-gap: 10px;
+            align-items: center;
+        }
+        .gs-item { display: flex; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; }
+        .gs-label { font-size: 12px; color: #94a3b8; font-weight: 500; flex: 0 0 auto; }
+        .gs-ctl { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+        .gs-ctl input[type="number"] { width: 72px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px; text-align: center; font-weight: 700; color: var(--text); background: var(--surface); }
+        .gs-ctl input:focus, .list-row input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+        .pct-field { display: inline-flex; align-items: center; gap: 4px; }
+        .pct-mark { font-size: 13px; font-weight: 600; color: var(--text-3); width: 14px; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
         
-        .highlight-linked { background-color: #eaf7ee !important; border-color: #a3e0b8 !important; }
+        .highlight-linked { background-color: var(--ok-soft) !important; border-color: #a7f3d0 !important; color: #047857 !important; }
 
-        .list-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; background: white; padding: 10px; border-radius: 10px; border: 1px solid #e9eef5; flex-wrap: wrap; }
-        .list-row input.name-input { width: 100px; padding: 6px; border: 1px solid #cdd5e0; border-radius: 6px; }
-        .list-row input.num-input { width: 65px; padding: 6px; border: 1px solid #cdd5e0; border-radius: 6px; text-align: center; }
+        .list-head { display: flex; align-items: center; gap: 6px; padding: 0 8px 6px; font-size: 12px; color: var(--text-3); font-weight: 600; }
+        .list-head .col-name { width: 100px; }
+        .list-head .col-amt { width: 64px; text-align: center; }
+        .list-head .col-rate { width: 86px; text-align: center; }
+        .list-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; background: var(--surface); padding: 8px; border-radius: 10px; border: 1px solid var(--line); flex-wrap: nowrap; }
+        .list-row input.name-input { width: 100px; min-width: 100px; flex: 0 0 auto; padding: 6px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--text); }
+        .list-row input.num-input { width: 64px; flex: 0 0 64px; padding: 6px; border: 1px solid var(--line-strong); border-radius: 6px; text-align: center; background: var(--surface); color: var(--text); }
+        .list-row .pct-field { flex: 0 0 auto; }
+        .list-row .pct-field input { width: 64px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; text-align: center; font-weight: 600; background: var(--surface); color: var(--text); }
         
-        .btn-toggle { padding: 6px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; }
-        .btn-gray { background: #f0f2f5; color: #5a6f8a; }
-        .btn-green { background: #eaf7ee; color: #1a7a4a; }
-        .btn-blue { background: #e8f3fa; color: #0078D7; }
-        .btn-red { background: #fce8e8; color: #d32f2f; }
-        .btn-purple { background: #f5eefc; color: #7b2cbf; }
-        .btn-stamp { background: #fcf5ee; color: #a6591e; min-width: 90px; }
-        .btn-add { width: 100%; padding: 10px; border: 1px dashed #b5c4d6; background: transparent; border-radius: 10px; font-size: 14px; font-weight: 600; color: #5a6f8a; cursor: pointer; margin-top: 5px; }
-        .btn-add:hover { background: #f4f7fd; border-color: #0078D7; color: #0078D7; }
-        .btn-del { background: transparent; border: none; font-size: 16px; color: #b5c4d6; cursor: pointer; padding: 4px; margin-left: auto; }
-        .btn-del:hover { color: #d32f2f; }
+        .btn-toggle { padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s ease; display: inline-flex; align-items: center; justify-content: center; min-width: 52px; white-space: nowrap; }
+        .btn-gray { background: #f3f4f6; color: var(--text-2); border-color: var(--line); }
+        .btn-green { background: var(--ok-soft); color: var(--ok); border-color: #a7f3d0; }
+        .btn-blue { background: var(--brand-soft); color: var(--brand); border-color: #bfdbfe; }
+        .btn-red { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
+        .btn-purple { background: var(--violet-soft); color: var(--violet); border-color: #ddd6fe; }
+        .btn-stamp { background: var(--warn-soft); color: var(--warn); border-color: #fde68a; min-width: 52px; }
+        .btn-toggle:hover { filter: brightness(0.97); }
+        .btn-add { width: 100%; padding: 10px; border: 1px dashed var(--line-strong); background: transparent; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--text-3); cursor: pointer; margin-top: 5px; }
+        .btn-add:hover { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+        .btn-del { background: transparent; border: none; font-size: 16px; color: #c4c9d2; cursor: pointer; padding: 4px; }
+        .btn-del:hover { color: var(--danger); }
 
         /* 右侧报表区 */
-        .report-view { padding: 20px; overflow-y: auto; background: #f4f7fd; display: flex; justify-content: center; }
-        .card { max-width: 1100px; width: 100%; background: white; border-radius: 32px; box-shadow: 0 20px 40px -10px rgba(0,20,40,0.1); padding: 28px 30px 32px; height: fit-content; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid #e9eef5; padding-bottom: 14px; }
-        .card-header h2 { font-size: 22px; font-weight: 600; color: #0b1a33; display: flex; align-items: center; gap: 12px; }
-        .order-badge { background: #eef4ff; padding: 6px 18px; border-radius: 60px; font-size: 14px; color: #1d3b6f; font-weight: 500; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .order-badge .tag { background: white; padding: 2px 12px; border-radius: 40px; font-weight: 500; color: #1d3b6f; }
+        .report-view { padding: 20px; overflow-y: auto; background: var(--bg); display: flex; justify-content: center; }
+        .card { max-width: 1100px; width: 100%; background: var(--surface); border-radius: 20px; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06); border: 1px solid var(--line); padding: 24px 26px 28px; height: fit-content; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+        .card-header h2 { font-size: 20px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 12px; letter-spacing: -0.2px; }
+        .order-badge { background: var(--surface-soft); padding: 6px 14px; border-radius: 999px; font-size: 13px; color: var(--text-2); font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border: 1px solid var(--line); }
+        .order-badge .tag { background: var(--surface); padding: 2px 10px; border-radius: 999px; font-weight: 500; color: var(--text-2); border: 1px solid var(--line); }
         .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 10px 0 20px; }
 
         .strip-block { margin: 0 0 14px; }
-        .strip-head { font-size: 12px; font-weight: 600; color: #6b7c93; margin-bottom: 6px; letter-spacing: 0.4px; }
+        .strip-head { font-size: 12px; font-weight: 600; color: var(--text-3); margin-bottom: 6px; letter-spacing: 0.2px; }
         .tax-strip {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
             gap: 8px;
         }
         .tax-chip {
-            background: #fbf6ef;
-            border: 1px solid #ead9c4;
-            border-radius: 14px;
+            background: var(--warn-soft);
+            border: 1px solid #fde68a;
+            border-radius: 12px;
             padding: 10px 12px;
             min-width: 0;
             height: 100%;
             display: flex;
             flex-direction: column;
         }
-        .tax-chip.base { background: #f4f8fc; border-color: #d3e0ee; }
-        .tax-chip .k { font-size: 12px; color: #7a5a1a; font-weight: 600; letter-spacing: 0.2px; }
-        .tax-chip.base .k { color: #1f3a6b; }
+        .tax-chip.base { background: var(--brand-soft); border-color: #bfdbfe; }
+        .tax-chip .k { font-size: 12px; color: #92400e; font-weight: 600; letter-spacing: 0.2px; }
+        .tax-chip.base .k { color: #1d4ed8; }
         .tax-chip .lines { margin: 6px 0 0; display: flex; flex-direction: column; gap: 3px; }
-        .tax-chip .d-cn { font-size: 11px; color: #6b7280; font-weight: 400; margin-top: 4px; line-height: 1.45; }
-        .tax-chip .d-num { font-size: 12px; color: #2c2418; font-weight: 500; margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; word-break: break-word; }
+        .tax-chip .d-cn { font-size: 11px; color: var(--text-3); font-weight: 400; margin-top: 4px; line-height: 1.45; }
+        .tax-chip .d-num { font-size: 12px; color: var(--text-2); font-weight: 500; margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; word-break: break-word; }
         .tax-chip .line { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 8px; }
-        .tax-chip .line .nm { font-size: 11px; color: #6b7280; flex: 0 1 auto; white-space: nowrap; }
-        .tax-chip .line .num { font-size: 12px; color: #2c2418; font-variant-numeric: tabular-nums; text-align: right; flex: 1 1 auto; min-width: 0; }
+        .tax-chip .line .nm { font-size: 11px; color: var(--text-3); flex: 0 1 auto; white-space: nowrap; }
+        .tax-chip .line .num { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; flex: 1 1 auto; min-width: 0; }
         .tax-chip .v {
             font-size: 18px;
             font-weight: 700;
-            color: #2c2418;
+            color: var(--warn);
             font-variant-numeric: tabular-nums;
             margin-top: auto;
             padding-top: 10px;
             text-align: right;
             align-self: stretch;
         }
-        .tax-chip.base .v { color: #0b1a33; }
-        .tax-chip .v.neg { color: #b45309; }
-        .panel { background: #fafcff; border-radius: 20px; padding: 18px 18px 20px; border: 1px solid #e6ecf7; box-shadow: 0 4px 8px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
-        .panel-title { font-size: 17px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px dashed #d2ddea; padding-bottom: 10px; flex-shrink: 0; }
-        .panel-title .badge { font-size: 12px; background: #dce5f5; padding: 2px 14px; border-radius: 30px; font-weight: 500; color: #1f3a6b; }
-        .panel-cash .panel-title { color: #0b3b5c; } .panel-tax .panel-title { color: #7a4a1a; }
+        .tax-chip.base .v { color: var(--ok); }
+        .tax-chip.base.cost .v { color: var(--danger); }
+        .tax-chip .v.neg { color: var(--warn); }
+        .panel { background: var(--surface-soft); border-radius: 16px; padding: 16px 16px 18px; border: 1px solid var(--line); display: flex; flex-direction: column; }
+        .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 10px; flex-shrink: 0; color: var(--text); }
+        .panel-title .badge { font-size: 12px; background: var(--surface); padding: 2px 10px; border-radius: 999px; font-weight: 500; color: var(--text-2); border: 1px solid var(--line); }
+        .panel-cash .panel-title { color: #1e3a8a; } .panel-tax .panel-title { color: #92400e; }
         
-        .block-positive { background: #eaf7ee; border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; border-left: 4px solid #1f8b4a; }
-        .block-positive .block-label { font-size: 13px; font-weight: 600; color: #1a6b3a; margin-bottom: 4px; letter-spacing: 0.3px; }
-        .block-negative { background: #f7eeee; border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; border-left: 4px solid #b13e3e; }
-        .block-negative .block-label { font-size: 13px; font-weight: 600; color: #8a2e2e; margin-bottom: 4px; letter-spacing: 0.3px; }
-        .block-tax { background: #f7f0e8; border-radius: 14px; padding: 10px 14px; margin-bottom: 10px; border-left: 4px solid #b88a3e; }
-        .block-tax .block-label { font-size: 13px; font-weight: 600; color: #7a5a1a; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .block-positive { background: var(--ok-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; border-left: 3px solid var(--ok); }
+        .block-positive .block-label { font-size: 13px; font-weight: 600; color: #047857; margin-bottom: 4px; }
+        .block-negative { background: var(--danger-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; border-left: 3px solid var(--danger); }
+        .block-negative .block-label { font-size: 13px; font-weight: 600; color: #b91c1c; margin-bottom: 4px; }
+        .block-tax { background: var(--warn-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; border-left: 3px solid var(--warn); }
+        .block-tax .block-label { font-size: 13px; font-weight: 600; color: #b45309; margin-bottom: 4px; }
         
-        .block-result { background: #e8eefa; border-radius: 14px; padding: 10px 14px; border-left: 4px solid #2b6bb0; margin-top: auto; }
-        .block-result .block-label { font-size: 13px; font-weight: 600; color: #1f3d66; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .block-result { background: var(--brand-soft); border-radius: 12px; padding: 10px 14px; border-left: 3px solid var(--brand); margin-top: auto; }
+        .block-result .block-label { font-size: 13px; font-weight: 600; color: #1d4ed8; margin-bottom: 4px; }
         
         .row-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14.5px; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.04); }
         .row-item:last-of-type { border-bottom: none; }
-        .row-label { color: #3d4d6a; font-weight: 400; flex: 0 0 auto; min-width: 90px; }
-        .row-detail { color: #6b7280; font-size: 13px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.35; }
-        .f-cn { font-size: 11px; color: #6b7280; font-weight: 400; }
-        .f-num { font-size: 12px; color: #3d4d6a; font-weight: 500; font-variant-numeric: tabular-nums; }
-        .row-value { font-weight: 400; font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 70px; text-align: right; color: #3d4d6a; }
+        .row-label { color: var(--text-2); font-weight: 400; flex: 0 0 auto; min-width: 90px; }
+        .row-detail { color: var(--text-3); font-size: 13px; font-weight: 400; flex: 1 1 auto; text-align: center; padding: 0 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.35; }
+        .f-cn { font-size: 11px; color: var(--text-3); font-weight: 400; }
+        .f-num { font-size: 12px; color: var(--text-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+        .row-value { font-weight: 400; font-variant-numeric: tabular-nums; flex: 0 0 auto; min-width: 70px; text-align: right; color: var(--text-2); }
         .row-value.big { font-size: 17px; font-weight: 700; }
         
-        .row-value.positive { color: #1a7a4a; }
-        .row-value.negative { color: #d32f2f !important; }
-        .row-value.green { color: #1b7b44; }
+        .row-value.positive { color: var(--ok); }
+        .row-value.negative { color: var(--danger) !important; }
+        .row-value.green { color: var(--ok); }
 
         /* 拆项：灰黑、不加粗 */
-        .row-line, .sub-row { padding-left: 20px; font-size: 13.5px; color: #3d4d6a; border-left: 2px solid #d0ddea; margin-left: 4px; font-weight: 400; }
-        .row-line .row-label, .sub-row .row-label { font-weight: 400; color: #3d4d6a; min-width: 80px; }
+        .row-line, .sub-row { padding-left: 20px; font-size: 13.5px; color: var(--text-2); border-left: 2px solid var(--line); margin-left: 4px; font-weight: 400; }
+        .row-line .row-label, .sub-row .row-label { font-weight: 400; color: var(--text-2); min-width: 80px; }
         .row-line .row-value, .sub-row .row-value,
         .row-line .row-value.positive, .sub-row .row-value.positive,
         .row-line .row-value.negative, .sub-row .row-value.negative,
         .row-line .row-value.sub-val, .sub-row .row-value.sub-val {
-            color: #3d4d6a !important;
+            color: var(--text-2) !important;
             font-weight: 400 !important;
             font-size: 13.5px !important;
         }
@@ -132,51 +216,50 @@
             font-weight: 600 !important;
             font-size: 14px !important;
         }
-        .row-subtotal .row-value.positive { color: #1a7a4a !important; }
-        .row-subtotal .row-value.negative { color: #d32f2f !important; }
-        .row-subtotal .row-value.total-tax { color: #a6591e !important; }
+        .row-subtotal .row-value.positive { color: var(--ok) !important; }
+        .row-subtotal .row-value.negative { color: var(--danger) !important; }
+        .row-subtotal .row-value.total-tax { color: var(--warn) !important; }
 
         /* 总项合计 */
         .row-total { font-size: 14.5px; }
-        .row-total .row-label { font-weight: 600; color: #0b1a33; }
+        .row-total .row-label { font-weight: 600; color: var(--text); }
         .row-total .row-value { font-weight: 700 !important; font-size: 15px !important; }
-        .row-total .row-value.positive { color: #1a7a4a !important; }
-        .row-total .row-value.negative { color: #d32f2f !important; }
-        .row-total .row-value.total-tax { color: #a6591e !important; }
-        .row-total .row-value.green { color: #1b7b44 !important; }
+        .row-total .row-value.positive { color: var(--ok) !important; }
+        .row-total .row-value.negative { color: var(--danger) !important; }
+        .row-total .row-value.total-tax { color: var(--warn) !important; }
+        .row-total .row-value.green { color: var(--ok) !important; }
         .row-total .row-value.big { font-size: 17px !important; }
 
-        .hl-bold { font-weight: 600; color: #0b1a33; }
+        .hl-bold { font-weight: 600; color: var(--text); }
 
         .border-top-thin { border-top: 1px solid #dbb8b8; margin: 4px 0 2px; }
         .border-top-tax { border-top: 1px solid #dbb89e; margin: 4px 0 2px; }
 
-        .result-area { background: #f0f5fe; border-radius: 18px; padding: 16px 22px; margin: 18px 0 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; border-left: 6px solid #2b6bb0; }
+        .result-area { background: var(--brand-soft); border-radius: 14px; padding: 14px 20px; margin: 16px 0 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; border: 1px solid #bfdbfe; }
         .result-item { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-        .result-item .label { font-size: 15px; color: #1f3d66; font-weight: 500; }
-        .result-item .number { font-size: 22px; font-weight: 700; color: #0b2b50; letter-spacing: -0.2px; }
-        .result-item .number.green { color: #1b7b44; }
-        .result-item .number.red { color: #d32f2f; }
-        .check-mark { padding: 6px 18px; border-radius: 60px; font-size: 14px; font-weight: 500; }
-        .check-mark.success { background: #d3e6d6; color: #0d4823; }
-        .check-mark.error { background: #fce8e8; color: #d32f2f; }
+        .result-item .label { font-size: 14px; color: #1d4ed8; font-weight: 600; }
+        .result-item .number { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+        .result-item .number.green { color: var(--ok); }
+        .result-item .number.red { color: var(--danger); }
+        .check-mark { padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+        .check-mark.success { background: var(--ok-soft); color: #047857; border: 1px solid #a7f3d0; }
+        .check-mark.error { background: var(--danger-soft); color: var(--danger); border: 1px solid #fecaca; }
         
-        .footnote { margin-top: 20px; font-size: 13px; color: #5b6f8e; background: #f4f8ff; padding: 12px 20px; border-radius: 40px; display: flex; flex-wrap: wrap; gap: 8px 24px; border: 1px solid #e0e9f5; }
-        .footnote span { font-weight: 500; color: #1f3b61; }
+        .footnote { margin-top: 16px; font-size: 13px; color: var(--text-3); background: var(--surface-soft); padding: 10px 16px; border-radius: 12px; display: flex; flex-wrap: wrap; gap: 8px 20px; border: 1px solid var(--line); }
+        .footnote span { font-weight: 500; color: var(--text-2); }
 
         @media (max-width: 900px) {
             body { height: auto; overflow: visible; }
             .app-container { display: flex; flex-direction: column; }
-            .sidebar { border-right: none; border-bottom: 2px solid #e0e6ed; padding: 16px; overflow: visible; box-shadow: none; }
+            .sidebar { border-right: none; border-bottom: 1px solid var(--line); padding: 16px; overflow: visible; box-shadow: none; }
             .report-view { padding: 12px; overflow: visible; }
             .card { padding: 20px 16px; border-radius: 24px; }
             .split-panel { grid-template-columns: 1fr; gap: 20px; }
             .tax-strip { grid-template-columns: repeat(2, 1fr); }
-            .grid-settings { grid-template-columns: 1fr; gap: 10px; }
-            .input-row { width: 100%; }
-            .list-row { gap: 8px; justify-content: space-between; }
-            .list-row input.name-input { flex-grow: 1; min-width: 80px; width: auto; }
-            .btn-toggle { flex-grow: 1; min-width: unset; padding: 8px; }
+            .grid-settings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+            .list-row { gap: 6px; flex-wrap: wrap; }
+            .list-row input.name-input { flex-grow: 0; }
+            .btn-toggle { flex-grow: 0; min-width: 52px; padding: 6px 8px; }
         }
     </style>
 </head>
@@ -184,42 +267,65 @@
 
 <div class="app-container">
     <div class="sidebar" id="sidebar">
-        <h1>⚙️ 成本与税务引擎 · 一般纳税人</h1>
+        <h1 id="pageTitle">⚙️ 成本与税务引擎 · 一般纳税人</h1>
         
         <div class="form-group">
-            <div class="form-group-title">🎛 全局配置</div>
-            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: center;">
-                <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" style="flex: 1; white-space: nowrap;">⬜ 关闭代扣代缴模式</button>
-                <div class="input-row highlight-linked" id="wrapPlatRate" style="flex: 1; display: none;">
-                    <span>代扣税率:</span><input type="number" id="platRate" value="0.075" step="0.005" oninput="syncPlatRate(this.value)" title="金额栏请填司机净价，系统还原含税实付">
-                </div>
-                <div class="input-row highlight-linked" style="flex: 1;">
-                    <span title="主营开票销项税率；代扣代缴拆进项也用此税率">上游税点:</span><input type="number" id="upstreamRate" value="0.09" step="0.01" oninput="syncUpstreamRate(this.value)" title="主营开票销项税率；代扣代缴拆进项也用此税率">
+            <div class="form-group-title">
+                <span>🎛 全局配置</span>
+                <div class="title-actions">
+                    <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" data-tip="开启后，支出可设为代扣：金额栏填司机净价，系统还原含税实付">已关闭 代扣代缴</button>
                 </div>
             </div>
+            <div class="taxpayer-bar">
+                <span class="gs-label" data-tip="决定能不能抵进项，以及左侧税率是销项税率还是征收率">纳税身份</span>
+                <button class="btn-toggle btn-blue" id="btnTaxGeneral" onclick="setTaxpayer('general')" data-tip="一般纳税人：专票、代扣可抵进项，按销项税率计税">一般纳税人</button>
+                <button class="btn-toggle btn-gray" id="btnTaxSmall" onclick="setTaxpayer('small')" data-tip="小规模：不能抵进项，按征收率计税，专票也按含税全额进成本">小规模</button>
+            </div>
             <div class="grid-settings">
-                <div class="input-row"><span>业务倍数:</span><input type="number" id="qty" value="1" oninput="render()"></div>
-                <div class="input-row"><span>附加税率:</span><input type="number" id="surchargeRate" value="0.06" step="0.01" oninput="render()"></div>
-                <div class="input-row"><span title="按你的实际税负填写，参与测算">所得税率:</span><input type="number" id="incomeRate" value="0.05" step="0.01" oninput="render()" title="按你的实际税负填写，参与测算"></div>
-                <div class="input-row"><span>印花税率:</span><input type="number" id="stampRate" value="0.0003" step="0.0001" oninput="render()"></div>
+                <div class="gs-item" data-tip="附加税 = 应缴增值税 × 本税率。城建、教育等可合计填写，如 6">
+                    <span class="gs-label">附加税率</span>
+                    <div class="gs-ctl"><input type="number" id="surchargeRate" value="6" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
+                </div>
+                <div class="gs-item" data-tip="企业所得税率，按你的实际税负填写，亏损不征">
+                    <span class="gs-label">所得税率</span>
+                    <div class="gs-ctl"><input type="number" id="incomeRate" value="5" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
+                </div>
+                <div class="gs-item" data-tip="印花税按勾选项目的不含税价款合计计征。万分之三填 0.03">
+                    <span class="gs-label">印花税率</span>
+                    <div class="gs-ctl"><input type="number" id="stampRate" value="0.03" step="0.01" oninput="render()"><span class="pct-mark">%</span></div>
+                </div>
+                <div class="gs-item" data-tip="一般纳税人是销项税率；小规模是征收率。第一项含税收入会跟着变">
+                    <span class="gs-label" id="lblUpstream">上游税点</span>
+                    <div class="gs-ctl"><input class="highlight-linked" type="number" id="upstreamRate" value="9" step="0.1" oninput="syncUpstreamRate(this.value)"><span class="pct-mark">%</span></div>
+                </div>
+                <div class="gs-item" data-tip="同一套收支按几倍测算，金额和税费都会乘这个数">
+                    <span class="gs-label">业务数量</span>
+                    <div class="gs-ctl"><input type="number" id="qty" value="1" oninput="render()"></div>
+                </div>
+                <div class="gs-item" id="wrapPlatRate" style="display: none;" data-tip="代扣税率。支出金额栏请填司机净到手，系统还原含税实付">
+                    <span class="gs-label">代扣税率</span>
+                    <div class="gs-ctl"><input class="highlight-linked" type="number" id="platRate" value="7.5" step="0.1" oninput="syncPlatRate(this.value)"><span class="pct-mark">%</span></div>
+                </div>
             </div>
         </div>
 
         <div class="form-group">
             <div class="form-group-title"><span>💰 营业收入项</span></div>
+            <div class="list-head"><span class="col-name" data-tip="收入科目名称">科目</span><span class="col-amt" data-tip="含税时填含税实收；不开票时填实收现金">金额</span><span class="col-rate" data-tip="含税开票税率；不开票时为 0">税率</span></div>
             <div id="revContainer"></div>
-            <button class="btn-add" onclick="addRevRow()">➕ 添加收入项</button>
+            <button class="btn-add" onclick="addRevRow()" data-tip="增加一笔收入">➕ 添加收入项</button>
         </div>
 
         <div class="form-group">
             <div class="form-group-title">
                 <span>💸 运营支出项</span>
-                <button onclick="showBreakeven(event)" style="background: #eaf7ee; color: #1a7a4a; border: 1px solid #cde8d5; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;">
+                <button id="btnBreakeven" onclick="showBreakeven(event)" data-tip="按当前支出测算：货主不开票应付多少、开票含税应付多少才保本" style="background: var(--ok-soft); color: var(--ok); border: 1px solid #a7f3d0; padding: 4px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
                     ⚖️ 保本测算
                 </button>
             </div>
+            <div class="list-head"><span class="col-name" data-tip="支出科目名称">科目</span><span class="col-amt" data-tip="一般填含税支出；代扣请填司机净价，双击可倒推">金额</span><span class="col-rate" data-tip="普票/专票税率，或代扣税率">税率</span></div>
             <div id="costContainer"></div>
-            <button class="btn-add" onclick="addCostRow()">➕ 添加支出项</button>
+            <button class="btn-add" onclick="addCostRow()" data-tip="增加一笔支出">➕ 添加支出项</button>
         </div>
     </div>
 
@@ -229,6 +335,7 @@
 <script>
     let state = {
         usePlatform: false,
+        taxpayer: 'general',
         revs: [ { id: 1, name: "主营结算", amt: 55, rate: 0.09, inc: true, stamp: true } ],
         costs: [
             { id: 1, name: "外包运费", amt: 40, rate: 0.01, ticket: 1, stamp: true },
@@ -275,24 +382,88 @@
         return { cash: cash, excl: excl, outVat: outVat };
     }
 
+    function isSmall() { return state.taxpayer === 'small'; }
+
+    function taxpayerName() { return isSmall() ? '小规模纳税人' : '一般纳税人'; }
+
+    function rateLabel() { return isSmall() ? '征收率' : '上游税点'; }
+
     // 代扣进项按上游税点拆；普票不能抵进项，但印花税按不含税价款
+    // 小规模不能抵进项：专票/代扣也按含税全额进成本
     function splitCost(c, qty, pRate, upRate) {
+        let raw;
         if (c.ticket === 3) {
             let net = dRound(c.amt * qty);
             let cash = (pRate > 0 && pRate < 1) ? dRound(net / (1 - pRate)) : net;
             let split = vatSplit(cash, upRate);
-            return { cash: cash, excl: split.excl, inVat: split.vat, costDeduct: split.excl, taxDeduct: split.excl, stampExcl: split.excl };
+            raw = { cash: cash, excl: split.excl, inVat: split.vat, costDeduct: split.excl, taxDeduct: split.excl, stampExcl: split.excl };
+        } else {
+            let cash = dRound(c.amt * qty);
+            if (c.ticket === 2) {
+                let split = vatSplit(cash, c.rate);
+                raw = { cash: cash, excl: split.excl, inVat: split.vat, costDeduct: split.excl, taxDeduct: split.excl, stampExcl: split.excl };
+            } else if (c.ticket === 1) {
+                let split = vatSplit(cash, c.rate);
+                raw = { cash: cash, excl: split.excl, inVat: 0, costDeduct: cash, taxDeduct: cash, stampExcl: split.excl };
+            } else {
+                raw = { cash: cash, excl: cash, inVat: 0, costDeduct: cash, taxDeduct: 0, stampExcl: cash };
+            }
         }
-        let cash = dRound(c.amt * qty);
-        if (c.ticket === 2) {
-            let split = vatSplit(cash, c.rate);
-            return { cash: cash, excl: split.excl, inVat: split.vat, costDeduct: split.excl, taxDeduct: split.excl, stampExcl: split.excl };
+        if (isSmall()) {
+            return {
+                cash: raw.cash,
+                excl: raw.cash,
+                inVat: 0,
+                costDeduct: raw.cash,
+                taxDeduct: c.ticket === 0 ? 0 : raw.cash,
+                stampExcl: raw.stampExcl
+            };
         }
-        if (c.ticket === 1) {
-            let split = vatSplit(cash, c.rate);
-            return { cash: cash, excl: split.excl, inVat: 0, costDeduct: cash, taxDeduct: cash, stampExcl: split.excl };
+        return raw;
+    }
+
+    function setTaxpayer(mode) {
+        if (mode !== 'general' && mode !== 'small') return;
+        let prev = state.taxpayer;
+        state.taxpayer = mode;
+        let upEl = document.getElementById('upstreamRate');
+        applyTaxpayerUi();
+        if (prev !== mode && upEl) {
+            let nowPct = getVal('upstreamRate');
+            if (mode === 'small' && nowPct === 9) {
+                upEl.value = 1;
+                syncUpstreamRate(1);
+                return;
+            }
+            if (mode === 'general' && nowPct === 1) {
+                upEl.value = 9;
+                syncUpstreamRate(9);
+                return;
+            }
         }
-        return { cash: cash, excl: cash, inVat: 0, costDeduct: cash, taxDeduct: 0, stampExcl: cash };
+        buildForms();
+        render();
+    }
+
+    function applyTaxpayerUi() {
+        let g = document.getElementById('btnTaxGeneral');
+        let s = document.getElementById('btnTaxSmall');
+        if (g && s) {
+            g.className = 'btn-toggle ' + (isSmall() ? 'btn-gray' : 'btn-blue');
+            s.className = 'btn-toggle ' + (isSmall() ? 'btn-blue' : 'btn-gray');
+        }
+        let lbl = document.getElementById('lblUpstream');
+        if (lbl) {
+            lbl.textContent = rateLabel();
+            let upTip = isSmall()
+                ? '小规模征收率，用于拆不含税和应纳税额，常见 1% 或 3%'
+                : '主营开票销项税率；代扣代缴拆进项也用此税率';
+            let upBox = document.getElementById('upstreamRate');
+            if (upBox && upBox.closest('.gs-item')) upBox.closest('.gs-item').setAttribute('data-tip', upTip);
+        }
+        let h1 = document.getElementById('pageTitle');
+        if (h1) h1.textContent = '⚙️ 成本与税务引擎 · ' + taxpayerName();
+        document.title = '多维物流成本与税务 0.40版 · ' + taxpayerName();
     }
 
     function dual(cn, num) {
@@ -327,6 +498,24 @@
     
     function getVal(id) { return parseFloat(document.getElementById(id).value) || 0; }
 
+    function fitNameWidth(el) {
+        if (!el) return;
+        const minW = 100, maxW = 240;
+        if (!fitNameWidth.ctx) {
+            fitNameWidth.canvas = document.createElement('canvas');
+            fitNameWidth.ctx = fitNameWidth.canvas.getContext('2d');
+        }
+        const cs = window.getComputedStyle(el);
+        fitNameWidth.ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const w = Math.ceil(fitNameWidth.ctx.measureText(el.value || ' ').width) + 20;
+        el.style.width = Math.min(maxW, Math.max(minW, w)) + 'px';
+    }
+
+    // 界面用百分数，内部计算用小数
+    function toPct(rate) { return parseFloat(((parseFloat(rate) || 0) * 100).toFixed(4)); }
+    function fromPct(val) { return (parseFloat(val) || 0) / 100; }
+    function getRate(id) { return fromPct(getVal(id)); }
+
     function getQty() {
         let el = document.getElementById('qty');
         if (!el || el.value === '' || el.value === null) return 1;
@@ -336,14 +525,14 @@
     }
     
     function syncUpstreamRate(val) {
-        let rate = parseFloat(val) || 0;
+        let rate = fromPct(val);
         // 只同步第一项「含税开票」收入；不开票项税率必须保持 0，否则会误计销项
         if (state.revs.length > 0 && state.revs[0].inc) { state.revs[0].rate = rate; }
         buildForms(); render();
     }
 
     function syncPlatRate(val) {
-        let rate = parseFloat(val) || 0;
+        let rate = fromPct(val);
         state.costs.forEach(c => {
             if (c.ticket === 3) {
                 c.rate = rate;
@@ -355,10 +544,18 @@
     function updateVal(type, id, field, val) {
         let arr = type === 'rev' ? state.revs : state.costs;
         let item = arr.find(x => x.id === id);
-        item[field] = field === 'name' ? val : parseFloat(val) || 0;
-        
-        if (type === 'rev' && field === 'rate' && state.revs.length > 0 && id === state.revs[0].id) {
-            document.getElementById('upstreamRate').value = item.rate;
+        if (field === 'name') {
+            item[field] = val;
+            if (document.activeElement && document.activeElement.classList.contains('name-input')) {
+                fitNameWidth(document.activeElement);
+            }
+        } else if (field === 'rate') {
+            item.rate = fromPct(val);
+            if (type === 'rev' && state.revs.length > 0 && id === state.revs[0].id) {
+                document.getElementById('upstreamRate').value = toPct(item.rate);
+            }
+        } else {
+            item[field] = parseFloat(val) || 0;
         }
         render();
     }
@@ -370,16 +567,18 @@
         
         if (state.usePlatform) {
             btn.className = 'btn-toggle btn-purple';
-            btn.innerHTML = '✅ 启用代扣代缴模式';
+            btn.innerHTML = '已开启 代扣代缴';
+            btn.setAttribute('data-tip', '关闭后，代扣支出会改回普票。金额栏填司机净价时才会还原含税实付');
             wrap.style.display = 'flex';
             
             if (state.costs.length > 0) {
                 state.costs[0].ticket = 3;
-                state.costs[0].rate = getVal('platRate') || 0.075;
+                state.costs[0].rate = getRate('platRate') || 0.075;
             }
         } else {
             btn.className = 'btn-toggle btn-gray';
-            btn.innerHTML = '⬜ 关闭代扣代缴模式';
+            btn.innerHTML = '已关闭 代扣代缴';
+            btn.setAttribute('data-tip', '开启后，支出可设为代扣：金额栏填司机净价，系统还原含税实付');
             wrap.style.display = 'none';
             
             state.costs.forEach(c => { if(c.ticket === 3) { c.ticket = 1; c.rate = 0.01; } });
@@ -391,7 +590,7 @@
     function toggleRevInc(id) {
         let r = state.revs.find(x => x.id === id);
         r.inc = !r.inc;
-        r.rate = r.inc ? getVal('upstreamRate') : 0;
+        r.rate = r.inc ? getRate('upstreamRate') : 0;
         buildForms(); render();
     }
     
@@ -410,13 +609,13 @@
         if(c.ticket === 0) c.rate = 0;
         else if(c.ticket === 1) c.rate = 0.01;
         else if(c.ticket === 2) c.rate = 0.09;
-        else if(c.ticket === 3) c.rate = getVal('platRate') || 0.075;
+        else if(c.ticket === 3) c.rate = getRate('platRate') || 0.075;
         
         buildForms(); render();
     }
 
     function addRevRow() {
-        let upRate = getVal('upstreamRate') || 0.09;
+        let upRate = getRate('upstreamRate') || 0.09;
         state.revs.push({ id: state.nextId++, name: "新增收入", amt: 0, rate: upRate, inc: true, stamp: true });
         buildForms(); render();
     }
@@ -436,8 +635,8 @@
         let c = state.costs.find(x => x.id === id);
         if (!c) return;
         if (c.ticket === 3) {
-            let pRate = getVal('platRate');
-            let upRate = getVal('upstreamRate');
+            let pRate = getRate('platRate');
+            let upRate = getRate('upstreamRate');
             let raw = prompt(`【代扣倒推】\n当前支出项：${c.name}\n\n请输入司机要求的【净到手现金】：`, c.amt);
             if (raw === null || raw === '' || isNaN(raw)) return;
             let net = parseFloat(raw);
@@ -466,11 +665,11 @@
 
     function getBreakevenRev() {
         let qty = getQty();
-        let surRate = getVal('surchargeRate');
-        let incRate = getVal('incomeRate');
-        let stampRate = getVal('stampRate');
-        let upRate = getVal('upstreamRate') || 0;
-        let pRate = getVal('platRate');
+        let surRate = getRate('surchargeRate');
+        let incRate = getRate('incomeRate');
+        let stampRate = getRate('stampRate');
+        let upRate = getRate('upstreamRate') || 0;
+        let pRate = getRate('platRate');
 
         let inVat = 0, taxDeduct = 0, stampBaseCost = 0, cashCost = 0;
         state.costs.forEach(c => {
@@ -546,49 +745,67 @@
     }
 
     function showBreakeven(e) {
+        if (e) e.stopPropagation();
+        hideAppTip();
         let res = getBreakevenRev();
-        let tip = document.getElementById('be-tip');
-        if(!tip) {
-            tip = document.createElement('div');
-            tip.id = 'be-tip';
-            e.target.style.position = 'relative';
-            e.target.appendChild(tip);
-        }
-        tip.style.cssText = "position:absolute; background:#1a2b4c; color:white; padding:12px 18px; border-radius:10px; font-size:14px; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,0.25); transform:translateY(-110%); left:50%; margin-left:-160px; z-index:999; pointer-events:none; white-space:nowrap; opacity:0; transition: opacity 0.2s; line-height:1.7; text-align:left;";
         let invExcl = res.rate > 0 ? dRound(res.withInvoice / (1 + res.rate)) : res.withInvoice;
         let qty = getQty();
         let qtyNote = '';
         if (qty > 0 && qty !== 1) {
-            qtyNote = `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">以上为 ${qty} 倍合计 · 单价不开票 ${dRound(res.noInvoice / qty).toFixed(2)} / 开票含税 ${dRound(res.withInvoice / qty).toFixed(2)}</span>`;
+            qtyNote = `<div class="be-sub">以上为 ${qty} 倍合计 · 单价不开票 ${dRound(res.noInvoice / qty).toFixed(2)} / 开票含税 ${dRound(res.withInvoice / qty).toFixed(2)}</div>`;
         } else if (qty === 0) {
-            qtyNote = `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">业务倍数为 0，不测算单价</span>`;
+            qtyNote = `<div class="be-sub">业务数量为 0，不测算单价</div>`;
         }
-        let extra = state.revs.length > 1 ? `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">针对第一项收入保本，其余 ${state.revs.length - 1} 项收入已计入</span>` : '';
-        tip.innerHTML = `⚖️ 保本测算<br>`
-            + `<span style="color:#cbd5e1; font-weight:400;">货主不开票付给你</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.noInvoice.toFixed(2)}</span> 元<br>`
-            + `<span style="color:#cbd5e1; font-weight:400;">向货主开票含税</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.withInvoice.toFixed(2)}</span> 元<br>`
-            + `<span style="font-size:12px; color:#94a3b8; font-weight:400;">开票不含税货款 ${invExcl.toFixed(2)} 元 ＝ 开票含税 ÷（1＋上游税点 ${Math.round(res.rate * 100)}%）</span>${qtyNote}${extra}`;
+        let extra = state.revs.length > 1 ? `<div class="be-sub">针对第一项收入保本，其余 ${state.revs.length - 1} 项收入已计入</div>` : '';
+        let tip = document.getElementById('be-tip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'be-tip';
+            document.body.appendChild(tip);
+        }
+        tip.innerHTML = `<div class="be-h">⚖️ 保本测算</div>`
+            + `<div class="be-row">货主不开票付给你 <b>${res.noInvoice.toFixed(2)}</b> 元</div>`
+            + `<div class="be-row">向货主开票含税 <b>${res.withInvoice.toFixed(2)}</b> 元</div>`
+            + `<div class="be-sub">开票不含税货款 ${invExcl.toFixed(2)} 元</div>`
+            + `<div class="be-sub">＝ 开票含税 ÷（1＋${rateLabel()} ${(res.rate * 100).toFixed(0)}%）</div>${qtyNote}${extra}`;
         tip.style.opacity = '1';
-        setTimeout(() => { if(tip) tip.style.opacity = '0'; }, 4000);
+        tip.style.left = '-999px';
+        tip.style.top = '0';
+        let btn = (e && (e.currentTarget || (e.target && e.target.closest('button')))) || document.getElementById('btnBreakeven');
+        requestAnimationFrame(function () {
+            let r = btn.getBoundingClientRect();
+            let tw = tip.offsetWidth;
+            let th = tip.offsetHeight;
+            let left = r.right - tw;
+            if (left < 8) left = 8;
+            if (left + tw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - tw - 8);
+            let top = r.top - th - 10;
+            if (top < 8) top = r.bottom + 10;
+            if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+        });
+        if (showBreakeven.timer) clearTimeout(showBreakeven.timer);
+        showBreakeven.timer = setTimeout(function () { tip.style.opacity = '0'; }, 6000);
     }
 
     function buildForms() {
         let revHtml = '';
         state.revs.forEach((r, idx) => {
             let incClass = r.inc ? "btn-green" : "btn-gray";
-            let incText = r.inc ? "✅ 含税" : "⬜ 不含税";
+            let incText = r.inc ? "含税" : "不开票";
             let stpClass = r.stamp ? "btn-stamp" : "btn-gray";
-            let stpText = r.stamp ? "📄 计印花税" : "🚫 免印花税";
+            let stpText = r.stamp ? "印花" : "免印花";
             let rateHighlightClass = idx === 0 ? "num-input highlight-linked" : "num-input";
 
             revHtml += `
                 <div class="list-row">
-                    <input class="name-input" type="text" value="${r.name}" oninput="updateVal('rev', ${r.id}, 'name', this.value)">
-                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)">
-                    <input class="${rateHighlightClass}" type="number" value="${r.rate}" step="0.01" ${r.inc?'':'readonly'} oninput="updateVal('rev', ${r.id}, 'rate', this.value)">
-                    <button class="btn-toggle ${incClass}" onclick="toggleRevInc(${r.id})">${incText}</button>
-                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('rev', ${r.id})">${stpText}</button>
-                    <button class="btn-del" onclick="delRow('rev', ${r.id})">✖</button>
+                    <input class="name-input" type="text" value="${r.name}" oninput="updateVal('rev', ${r.id}, 'name', this.value)" data-tip="收入科目名称，字多会自动加宽">
+                    <input class="num-input" type="number" value="${r.amt}" oninput="updateVal('rev', ${r.id}, 'amt', this.value)" data-tip="${r.inc ? '含税开票实收金额' : '不开票时的实收现金'}">
+                    <span class="pct-field"><input class="${rateHighlightClass}" type="number" value="${toPct(r.rate)}" step="0.1" ${r.inc?'':'readonly'} oninput="updateVal('rev', ${r.id}, 'rate', this.value)" data-tip="${r.inc ? (isSmall() ? '征收率，与上方征收率联动（第一项）' : '销项税率，第一项与上方上游税点联动') : '不开票不征销项，税率为 0'}"><span class="pct-mark">%</span></span>
+                    <button class="btn-toggle ${incClass}" onclick="toggleRevInc(${r.id})" data-tip="${r.inc ? '当前按含税开票。点一下改为不开票' : '当前不开票。点一下改为含税开票'}">${incText}</button>
+                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('rev', ${r.id})" data-tip="${r.stamp ? '已计入印花税税基。点一下免印花' : '不计入印花税。点一下改为计印花'}">${stpText}</button>
+                    <button class="btn-del" onclick="delRow('rev', ${r.id})" data-tip="删除这笔收入">✖</button>
                 </div>`;
         });
         document.getElementById('revContainer').innerHTML = revHtml;
@@ -596,35 +813,46 @@
         let costHtml = '';
         state.costs.forEach((c, idx) => {
             let tClass, tText = "";
-            if(c.ticket === 0) { tClass = "btn-red"; tText = "🚫 没票"; }
-            else if(c.ticket === 1) { tClass = "btn-blue"; tText = "✅ 普票"; }
-            else if(c.ticket === 2) { tClass = "btn-green"; tText = "✅ 专票"; }
-            else { tClass = "btn-purple"; tText = "🏢 代扣"; }
+            if(c.ticket === 0) { tClass = "btn-red"; tText = "没票"; }
+            else if(c.ticket === 1) { tClass = "btn-blue"; tText = "普票"; }
+            else if(c.ticket === 2) { tClass = "btn-green"; tText = "专票"; }
+            else { tClass = "btn-purple"; tText = "代扣"; }
             
             let stpClass = c.stamp ? "btn-stamp" : "btn-gray";
-            let stpText = c.stamp ? "📄 计印花税" : "🚫 免印花税";
+            let stpText = c.stamp ? "印花" : "免印花";
             let costRateHighlight = (c.ticket === 3) ? "num-input highlight-linked" : "num-input";
+            let costRatePct = toPct(c.ticket === 3 ? getRate('platRate') : c.rate);
+            let costRateTip = c.ticket === 3
+                ? '代扣税率（只读，改上面的代扣税率）。进项按上游税点或征收率拆'
+                : (c.ticket === 1
+                    ? '普票税率：不能抵进项，只用来按不含税计印花税'
+                    : (c.ticket === 2 ? (isSmall() ? '专票税率：小规模仍不能抵进项' : '专票进项税率') : '没票无税率'));
+            let ticketTip = c.ticket === 0 ? '没票：不能抵进项，所得税也不能扣。点一下切换票种'
+                : (c.ticket === 1 ? '普票：不能抵进项。点一下切换票种'
+                : (c.ticket === 2 ? (isSmall() ? '专票：小规模不能抵进项。点一下切换票种' : '专票：可抵进项。点一下切换票种')
+                : '代扣：金额栏填司机净价。点一下切换票种'));
             
             costHtml += `
                 <div class="list-row">
-                    <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)">
-                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" title="双击：已知不含税或司机净到手，倒推填入金额">
-                    <input class="${costRateHighlight}" type="number" value="${c.ticket===3 ? getVal('platRate') : c.rate}" step="0.01" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)" title="${c.ticket===3 ? '代扣税率（进项按左上角上游税点拆）' : (c.ticket===1 ? '普票税率：不能抵进项，仅用于印花税按不含税计' : '进项税率')}">
-                    <button class="btn-toggle ${tClass}" onclick="toggleCostTicket(${c.id})">${tText}</button>
-                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})">${stpText}</button>
-                    <button class="btn-del" onclick="delRow('cost', ${c.id})">✖</button>
+                    <input class="name-input" type="text" value="${c.name}" oninput="updateVal('cost', ${c.id}, 'name', this.value)" data-tip="支出科目名称，字多会自动加宽">
+                    <input class="num-input" type="number" value="${c.amt}" oninput="updateVal('cost', ${c.id}, 'amt', this.value)" ondblclick="reverseCalcCost(${c.id})" data-tip="${c.ticket === 3 ? '填司机净到手。双击可按净价倒推' : '填含税支出。双击可按不含税倒推填入'}">
+                    <span class="pct-field"><input class="${costRateHighlight}" type="number" value="${costRatePct}" step="0.1" ${c.ticket===3?'readonly':''} oninput="updateVal('cost', ${c.id}, 'rate', this.value)" data-tip="${costRateTip}"><span class="pct-mark">%</span></span>
+                    <button class="btn-toggle ${tClass}" onclick="toggleCostTicket(${c.id})" data-tip="${ticketTip}">${tText}</button>
+                    <button class="btn-toggle ${stpClass}" onclick="toggleStamp('cost', ${c.id})" data-tip="${c.stamp ? '已计入印花税税基。点一下免印花' : '不计入印花税。点一下改为计印花'}">${stpText}</button>
+                    <button class="btn-del" onclick="delRow('cost', ${c.id})" data-tip="删除这笔支出">✖</button>
                 </div>`;
         });
         document.getElementById('costContainer').innerHTML = costHtml;
+        document.querySelectorAll('.name-input').forEach(fitNameWidth);
     }
 
     function render() {
         let qty = getQty();
-        let pRate = getVal('platRate');
-        let surRate = getVal('surchargeRate');
-        let incRate = getVal('incomeRate');
-        let stampRate = getVal('stampRate');
-        let upRate = getVal('upstreamRate');
+        let pRate = getRate('platRate');
+        let surRate = getRate('surchargeRate');
+        let incRate = getRate('incomeRate');
+        let stampRate = getRate('stampRate');
+        let upRate = getRate('upstreamRate');
 
         let totals = {
             cashRev: 0, revExcl: 0, outVat: 0,
@@ -667,7 +895,7 @@
                 <div class="row-item sub-row">
                     <span class="row-label">${r.name}不含税</span>
                     <span class="row-detail">${r.inc && r.rate > 0
-                        ? dual('含税收入 ÷（1＋销项税率）', `${cash.toFixed(2)} ÷ ${(1 + r.rate).toFixed(2)}`)
+                        ? dual('含税收入 ÷（1＋' + rateLabel() + '）', `${cash.toFixed(2)} ÷ ${(1 + r.rate).toFixed(2)}`)
                         : dual('不含税等于实收', cash.toFixed(2))}</span>
                     <span class="row-value sub-val">${excl.toFixed(2)}</span>
                 </div>`;
@@ -716,7 +944,10 @@
             }
 
             let costCn, costNum;
-            if (c.ticket === 3) {
+            if (isSmall()) {
+                costCn = '小规模不能抵进项，成本等于含税支出';
+                costNum = cash.toFixed(2);
+            } else if (c.ticket === 3) {
                 costCn = '含税实付 ÷（1＋上游税点）';
                 costNum = `${cash.toFixed(2)} ÷ ${(1 + upRate).toFixed(2)} ＝ ${costDeduct.toFixed(2)}`;
             } else if (inVat > 0 && c.rate > 0) {
@@ -822,8 +1053,8 @@
                 <div class="strip-block">
                     <div class="strip-head">基础模块 · 不含税口径只算一次</div>
                     <div class="tax-strip">
-                        ${chipHtml('base', '不含税收入', '含税开票：含税收入 ÷（1＋销项税率）。不开票：不含税等于实收', revExclJoin, totals.revExcl.toFixed(2), false, totals.revExclItems)}
-                        ${chipHtml('base', '不含税成本', '专票剔进项；普票、没票等于含税支出', costExclJoin, totals.costExcl.toFixed(2), false, totals.costExclItems)}
+                        ${chipHtml('base', '不含税收入', isSmall() ? '含税开票：含税收入 ÷（1＋征收率）。不开票：不含税等于实收' : '含税开票：含税收入 ÷（1＋销项税率）。不开票：不含税等于实收', revExclJoin, totals.revExcl.toFixed(2), false, totals.revExclItems)}
+                        ${chipHtml('base cost', '不含税成本', isSmall() ? '小规模不能抵进项，专票、普票、没票都按含税支出' : '专票剔进项；普票、没票等于含税支出', costExclJoin, totals.costExcl.toFixed(2), false, totals.costExclItems)}
                         ${deductChip}
                     </div>
                 </div>`;
@@ -831,9 +1062,9 @@
                 <div class="strip-block">
                     <div class="strip-head">税费模块 · 引用上方结果</div>
                     <div class="tax-strip">
-                        ${chipHtml('tax', '销项税额', '含税收入 − 不含税收入', outVatJoin, totals.outVat.toFixed(2), false, totals.outVatItems)}
-                        ${chipHtml('tax', '进项税额', '专票、代扣：含税支出 − 不含税成本。普票、没票不能抵', inVatJoin, totals.inVat.toFixed(2), false, totals.inVatItems)}
-                        ${chipHtml('tax', '应缴增值税', vatPayCn, vatPayNum, payVat.toFixed(2), true)}
+                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '含税收入 − 不含税收入（按征收率）' : '含税收入 − 不含税收入', outVatJoin, totals.outVat.toFixed(2), false, totals.outVatItems)}
+                        ${chipHtml('tax', '进项税额', isSmall() ? '小规模不能抵扣进项' : '专票、代扣：含税支出 − 不含税成本。普票、没票不能抵', inVatJoin, totals.inVat.toFixed(2), false, totals.inVatItems)}
+                        ${chipHtml('tax', '应缴增值税', isSmall() ? '小规模应缴增值税等于征收额，不能抵进项' : vatPayCn, vatPayNum, payVat.toFixed(2), true)}
                         ${unusedChip}
                         ${chipHtml('tax', '附加税', '应缴增值税 × 附加税率', `${payVat.toFixed(2)} × ${(surRate * 100).toFixed(0)}% ＝ ${sur.toFixed(2)}`, sur.toFixed(2), true)}
                         ${chipHtml('tax', '印花税', '勾选项目不含税价款相加，再 × 印花税率', stampNum, stamp.toFixed(2), true, totals.stampItems)}
@@ -844,9 +1075,9 @@
         let reportHtml = `
             <div class="card">
                 <div class="card-header">
-                    <h2>📋 成本核算（一般纳税人 · 现金流 VS 利润表）</h2>
+                    <h2>📋 成本核算（${taxpayerName()} · 现金流 VS 利润表）</h2>
                     <div class="order-badge">
-                        <span class="tag">一般纳税人</span>
+                        <span class="tag">${taxpayerName()}</span>
                         <span class="tag">数量 ${qty}</span>
                         <span class="tag">附加税 ${(surRate*100).toFixed(0)}%</span>
                         <span class="tag">所得税 ${(incRate*100).toFixed(0)}%</span>
@@ -951,6 +1182,78 @@
         document.getElementById('reportView').innerHTML = reportHtml;
     }
 
+    let tipTimer = null;
+    let tipAnchor = null;
+
+    function hideAppTip() {
+        let el = document.getElementById('appTip');
+        if (el) el.style.opacity = '0';
+        tipAnchor = null;
+        if (tipTimer) { clearTimeout(tipTimer); tipTimer = null; }
+    }
+
+    function rectsHit(a, b) {
+        return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    }
+
+    function tipWouldCover(anchor, box) {
+        let nodes = document.querySelectorAll('.gs-item, .list-row, .grid-settings, .taxpayer-bar');
+        for (let i = 0; i < nodes.length; i++) {
+            let n = nodes[i];
+            if (n === anchor || n.contains(anchor) || anchor.contains(n)) continue;
+            if (rectsHit(box, n.getBoundingClientRect())) return true;
+        }
+        return false;
+    }
+
+    function placeAppTip(el, anchor) {
+        let r = anchor.getBoundingClientRect();
+        let tw = el.offsetWidth;
+        let th = el.offsetHeight;
+        let left = r.left;
+        if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+        if (left < 8) left = 8;
+        let below = { left: left, top: r.bottom + 8, right: left + tw, bottom: r.bottom + 8 + th };
+        let above = { left: left, top: r.top - th - 8, right: left + tw, bottom: r.top - 8 };
+        let useAbove = tipWouldCover(anchor, below) || (window.innerHeight - r.bottom < th + 12);
+        if (useAbove && above.top < 8) useAbove = false;
+        el.style.left = left + 'px';
+        el.style.top = (useAbove ? above.top : below.top) + 'px';
+    }
+
+    function showAppTip(anchor) {
+        let text = anchor.getAttribute('data-tip');
+        if (!text) return;
+        if (tipTimer) { clearTimeout(tipTimer); tipTimer = null; }
+        tipAnchor = anchor;
+        let el = document.getElementById('appTip');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'appTip';
+            document.body.appendChild(el);
+        }
+        el.textContent = text;
+        el.style.opacity = '1';
+        el.style.left = '-999px';
+        el.style.top = '0';
+        requestAnimationFrame(function () { placeAppTip(el, anchor); });
+        tipTimer = setTimeout(hideAppTip, 5000);
+    }
+
+    document.addEventListener('mouseover', function (e) {
+        let t = e.target.closest('[data-tip]');
+        if (!t || t === tipAnchor) return;
+        showAppTip(t);
+    });
+    document.addEventListener('mouseout', function (e) {
+        let t = e.target.closest('[data-tip]');
+        if (!t || t !== tipAnchor) return;
+        if (e.relatedTarget && t.contains(e.relatedTarget)) return;
+        hideAppTip();
+    });
+    document.addEventListener('scroll', hideAppTip, true);
+
+    applyTaxpayerUi();
     buildForms();
     render();
 </script>
