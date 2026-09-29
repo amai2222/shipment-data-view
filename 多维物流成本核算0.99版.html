@@ -1349,9 +1349,8 @@
             : fmtFig(0);
         let taxAddNum = `${fmtFig(sur)} ＋ ${fmtFig(stamp)}`;
         let surNum = `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`;
-        let totalTaxNum = `${fmtFig(payVat)} ＋ ${fmtFig(taxAdd)} ＋ ${fmtFig(incTax)}`;
         let cashMarginNum = `${fmtFig(totals.cashRev)} − ${fmtFig(totals.cashCost)}`;
-        let cashProfitNum = `${fmtFig(cashMargin)} − ${fmtFig(totalTax)}`;
+        let cashProfitNum = `${fmtFig(cashMargin)} − ${fmtFig(payVat)} − ${fmtFig(taxAdd)} − ${fmtFig(incTax)}`;
         let profitBeforeTaxNum = `${fmtFig(totals.revExcl)} − ${fmtFig(totals.costExcl)} − ${fmtFig(taxAdd)}`;
         let pnlProfitNum = `${fmtFig(profitBeforeTax)} − ${fmtFig(incTax)}`;
         let deductDiffers = Math.abs(totals.taxDeduct - totals.costExcl) >= 0.01;
@@ -1443,11 +1442,47 @@
                             </div>
                         </div>
                         <div class="block-tax">
-                            <div class="block-label"${tipAttr('本单实际缴纳的税费。增值税是价外税，现金要付，利润表不列。')}>⬇ 税费</div>
-                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('税费合计 = 应交增值税 ＋ 税金及附加 ＋ 所得税费用')}>
-                                <span class="row-label">税费合计</span>
-                                <span class="row-detail">${dual('应交增值税 ＋ 税金及附加 ＋ 所得税费用', totalTaxNum)}</span>
-                                <span class="row-value total-tax">−${fmtMoney(totalTax)}</span>
+                            <div class="block-label"${tipAttr('增值税是价外税：现金要付，利润表不列。本栏只列应交增值税，不并入税金及附加。')}>⬇ 应交增值税</div>
+                            <div class="row-item sub-row"${tipAttr(vatPayCn)}>
+                                <span class="row-label">${isSmall() ? '应纳税额' : '销项税额 − 进项税额'}</span>
+                                <span class="row-detail">${dual(isSmall() ? '应纳税额（不得抵扣进项税额）' : '销项税额 − 进项税额', vatPayNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(payVat)}</span>
+                            </div>
+                            <div class="row-item row-total"${tipAttr('应交增值税 = 销项税额 − 进项税额；进项大于销项时本期应交为 0。')}>
+                                <span class="row-label">应交增值税合计</span>
+                                <span class="row-detail">${dual(isSmall() ? '应纳税额' : '销项税额 − 进项税额', fmtFig(payVat))}</span>
+                                <span class="row-value total-tax">−${fmtMoney(payVat)}</span>
+                            </div>
+                        </div>
+                        <div class="block-tax">
+                            <div class="block-label"${tipAttr('现金缴纳的税金及附加，与利润表税金及附加同额。不含增值税，不含企业所得税。')}>⬇ 税金及附加</div>
+                            <div class="row-item sub-row"${tipAttr('附加税费 = 应交增值税 × 附加税费率，含城市维护建设税、教育费附加、地方教育附加。')}>
+                                <span class="row-label">附加税费</span>
+                                <span class="row-detail">${dual('应交增值税 × 附加税费率', surNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(sur)}</span>
+                            </div>
+                            <div class="row-item sub-row"${tipAttr('印花税列入税金及附加。= 勾选项目计税依据合计 × 印花税率。居间合同不征。')}>
+                                <span class="row-label">印花税</span>
+                                <span class="row-detail">${dual('计税依据 × 印花税率', stampNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(stamp)}</span>
+                            </div>
+                            <div class="row-item row-total"${tipAttr('税金及附加 = 附加税费 ＋ 印花税。本单收付与利润表同额。')}>
+                                <span class="row-label">税金及附加合计</span>
+                                <span class="row-detail">${dual('附加税费 ＋ 印花税', taxAddNum)}</span>
+                                <span class="row-value total-tax">−${fmtMoney(taxAdd)}</span>
+                            </div>
+                        </div>
+                        <div class="block-tax">
+                            <div class="block-label"${tipAttr('现金缴纳的企业所得税。本单收付实现制下与利润表所得税费用同额，不并入税金及附加。')}>⬇ 所得税费用</div>
+                            <div class="row-item sub-row"${tipAttr(incCn)}>
+                                <span class="row-label">企业所得税</span>
+                                <span class="row-detail">${dual('应纳税所得额 × 企业所得税率', incNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(incTax)}</span>
+                            </div>
+                            <div class="row-item row-total"${tipAttr('所得税费用合计 = 企业所得税。应纳税所得额为负时为 0。')}>
+                                <span class="row-label">所得税费用合计</span>
+                                <span class="row-detail">${dual('企业所得税', fmtFig(incTax))}</span>
+                                <span class="row-value total-tax">−${fmtMoney(incTax)}</span>
                             </div>
                         </div>
                         <div class="block-result">
@@ -1457,9 +1492,9 @@
                                 <span class="row-detail">${dual('价税合计流入 − 价税合计流出', cashMarginNum)}</span>
                                 <span class="row-value sub-val">${cashMargin>=0?'+':''}${fmtMoney(cashMargin)}</span>
                             </div>
-                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('现金净额 = 收付差额 − 税费合计。应与右侧净利润一致。')}>
+                            <div class="row-item row-total" style="border-bottom: none;"${tipAttr('现金净额 = 收付差额 − 应交增值税 − 税金及附加 − 所得税费用。应与右侧净利润一致。')}>
                                 <span class="row-label">① 现金净额</span>
-                                <span class="row-detail">${dual('收付差额 − 税费合计', cashProfitNum)}</span>
+                                <span class="row-detail">${dual('收付差额 − 应交增值税 − 税金及附加 − 所得税费用', cashProfitNum)}</span>
                                 <span class="row-value big ${netProfit>=0?'green':'negative'}">${netProfit>=0?'+':''}${fmtMoney(netProfit)}</span>
                             </div>
                         </div>
@@ -1500,17 +1535,25 @@
                                 <span class="row-value total-tax">−${fmtMoney(taxAdd)}</span>
                             </div>
                         </div>
+                        <div class="block-tax">
+                            <div class="block-label"${tipAttr('所得税费用为计提的企业所得税，单独列示，不并入税金及附加。')}>⬇ 所得税费用</div>
+                            <div class="row-item sub-row"${tipAttr(incCn)}>
+                                <span class="row-label">企业所得税</span>
+                                <span class="row-detail">${dual('应纳税所得额 × 企业所得税率', incNum)}</span>
+                                <span class="row-value sub-val">${fmtMoney(incTax)}</span>
+                            </div>
+                            <div class="row-item row-total"${tipAttr('所得税费用合计 = 企业所得税。应纳税所得额为负时为 0。')}>
+                                <span class="row-label">所得税费用合计</span>
+                                <span class="row-detail">${dual('企业所得税', fmtFig(incTax))}</span>
+                                <span class="row-value total-tax">−${fmtMoney(incTax)}</span>
+                            </div>
+                        </div>
                         <div class="block-result">
                             <div class="block-label"${tipAttr('先算利润总额，再减所得税费用得到净利润。应与左侧现金净额勾稽一致。')}>📊 结果</div>
                             <div class="row-item sub-row"${tipAttr('利润总额 = 营业收入合计 − 营业成本合计 − 税金及附加。本单无期间费用、营业外收支。')}>
                                 <span class="row-label">利润总额</span>
                                 <span class="row-detail">${dual('营业收入合计 − 营业成本合计 − 税金及附加', profitBeforeTaxNum)}</span>
                                 <span class="row-value sub-val">${profitBeforeTax>=0?'+':''}${fmtMoney(profitBeforeTax)}</span>
-                            </div>
-                            <div class="row-item sub-row"${tipAttr('所得税费用为计提的企业所得税。按应纳税所得额 × 企业所得税率；应纳税所得额为负时为 0。')}>
-                                <span class="row-label">所得税费用</span>
-                                <span class="row-detail">${dual('应纳税所得额 × 企业所得税率', incNum)}</span>
-                                <span class="row-value sub-val">−${fmtMoney(incTax)}</span>
                             </div>
                             <div class="row-item row-total" style="border-bottom: none;"${tipAttr('净利润 = 利润总额 − 所得税费用。应与左侧现金净额一致。增值税已从收入成本中剔除，不在本式出现。')}>
                                 <span class="row-label">② 净利润</span>
