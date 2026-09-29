@@ -178,7 +178,7 @@
     {
       "id": "blk_project_finance_paid",
       "type": "rank",
-      "title": "项目已回款总额",
+      "title": "项目已支付总额",
       "subtitle": "",
       "note": "",
       "showTitle": true,
@@ -261,7 +261,7 @@
     {
       "id": "blk_project_finance_unpaid",
       "type": "rank",
-      "title": "项目未回款总额",
+      "title": "项目未支付总额",
       "subtitle": "",
       "note": "",
       "showTitle": true,

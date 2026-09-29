@@ -60,17 +60,29 @@
             border-radius: 14px;
             padding: 10px 12px;
             min-width: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         .tax-chip.base { background: #f4f8fc; border-color: #d3e0ee; }
         .tax-chip .k { font-size: 12px; color: #7a5a1a; font-weight: 600; letter-spacing: 0.2px; }
         .tax-chip.base .k { color: #1f3a6b; }
-        .tax-chip .lines { margin: 6px 0 4px; }
+        .tax-chip .lines { margin: 6px 0 0; display: flex; flex-direction: column; gap: 3px; }
         .tax-chip .d-cn { font-size: 11px; color: #6b7280; font-weight: 400; margin-top: 4px; line-height: 1.45; }
         .tax-chip .d-num { font-size: 12px; color: #2c2418; font-weight: 500; margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; word-break: break-word; }
-        .tax-chip .line { display: flex; flex-direction: column; gap: 1px; }
-        .tax-chip .line .nm { font-size: 11px; color: #6b7280; }
-        .tax-chip .line .num { font-size: 12px; color: #2c2418; font-variant-numeric: tabular-nums; }
-        .tax-chip .v { font-size: 18px; font-weight: 700; color: #2c2418; font-variant-numeric: tabular-nums; margin-top: 4px; }
+        .tax-chip .line { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 8px; }
+        .tax-chip .line .nm { font-size: 11px; color: #6b7280; flex: 0 1 auto; white-space: nowrap; }
+        .tax-chip .line .num { font-size: 12px; color: #2c2418; font-variant-numeric: tabular-nums; text-align: right; flex: 1 1 auto; min-width: 0; }
+        .tax-chip .v {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2c2418;
+            font-variant-numeric: tabular-nums;
+            margin-top: auto;
+            padding-top: 10px;
+            text-align: right;
+            align-self: stretch;
+        }
         .tax-chip.base .v { color: #0b1a33; }
         .tax-chip .v.neg { color: #b45309; }
         .panel { background: #fafcff; border-radius: 20px; padding: 18px 18px 20px; border: 1px solid #e6ecf7; box-shadow: 0 4px 8px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
@@ -294,8 +306,18 @@
                 `<div class="line"><span class="nm">${it.name}</span><span class="num">${it.num}</span></div>`
             ).join('')}</div>`;
         }
+        // 分项已经写出数字公式时，不再追加一行重复合计；带乘税率的（如印花税）仍保留
+        let showNum = numText;
+        if (showNum && items && items.length) {
+            let compact = showNum.replace(/\s/g, '');
+            let val = String(value).replace(/\s/g, '');
+            let hasRate = /[×%]/.test(showNum);
+            if (!hasRate && (compact === val || compact.endsWith('＝' + val))) {
+                showNum = '';
+            }
+        }
         let dCn = cnText ? `<div class="d-cn">${cnText}</div>` : '';
-        let dNum = numText ? `<div class="d-num">${numText}</div>` : '';
+        let dNum = showNum ? `<div class="d-num">${showNum}</div>` : '';
         return `<div class="tax-chip ${kind}">
                         <div class="k">${title}</div>
                         ${dCn}${lineHtml}${dNum}
@@ -315,7 +337,8 @@
     
     function syncUpstreamRate(val) {
         let rate = parseFloat(val) || 0;
-        if (state.revs.length > 0) { state.revs[0].rate = rate; }
+        // 只同步第一项「含税开票」收入；不开票项税率必须保持 0，否则会误计销项
+        if (state.revs.length > 0 && state.revs[0].inc) { state.revs[0].rate = rate; }
         buildForms(); render();
     }
 
@@ -534,9 +557,12 @@
         tip.style.cssText = "position:absolute; background:#1a2b4c; color:white; padding:12px 18px; border-radius:10px; font-size:14px; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,0.25); transform:translateY(-110%); left:50%; margin-left:-160px; z-index:999; pointer-events:none; white-space:nowrap; opacity:0; transition: opacity 0.2s; line-height:1.7; text-align:left;";
         let invExcl = res.rate > 0 ? dRound(res.withInvoice / (1 + res.rate)) : res.withInvoice;
         let qty = getQty();
-        let qtyNote = qty !== 1
-            ? `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">以上为 ${qty} 倍合计 · 单价不开票 ${dRound(res.noInvoice / qty).toFixed(2)} / 开票含税 ${dRound(res.withInvoice / qty).toFixed(2)}</span>`
-            : '';
+        let qtyNote = '';
+        if (qty > 0 && qty !== 1) {
+            qtyNote = `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">以上为 ${qty} 倍合计 · 单价不开票 ${dRound(res.noInvoice / qty).toFixed(2)} / 开票含税 ${dRound(res.withInvoice / qty).toFixed(2)}</span>`;
+        } else if (qty === 0) {
+            qtyNote = `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">业务倍数为 0，不测算单价</span>`;
+        }
         let extra = state.revs.length > 1 ? `<br><span style="font-size:12px; color:#94a3b8; font-weight:400;">针对第一项收入保本，其余 ${state.revs.length - 1} 项收入已计入</span>` : '';
         tip.innerHTML = `⚖️ 保本测算<br>`
             + `<span style="color:#cbd5e1; font-weight:400;">货主不开票付给你</span> <span style="color:#4ade80; font-size:17px; font-weight:700;">${res.noInvoice.toFixed(2)}</span> 元<br>`
