@@ -37,6 +37,57 @@
         .form-group-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
         .title-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .taxpayer-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .policy-note { margin-top: 10px; font-size: 12px; line-height: 1.65; color: #64748b; }
+        .btn-guide { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; min-width: 72px; }
+        .guide-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            background: rgba(15, 23, 42, 0.45);
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+        }
+        .guide-mask.show { display: flex; }
+        .guide-box {
+            width: min(560px, 100%);
+            max-height: min(80vh, 640px);
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .guide-hd {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            flex-shrink: 0;
+        }
+        .guide-hd span { font-size: 16px; font-weight: 700; color: var(--text); }
+        .guide-close {
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--line-strong);
+            background: #f8fafc;
+            color: var(--text-2);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .guide-close:hover { background: #eef2f7; color: var(--text); }
+        .guide-body { padding: 14px 18px 18px; overflow-y: auto; font-size: 13px; line-height: 1.7; color: #334155; }
+        .guide-body .p-head { font-weight: 600; color: #1e293b; margin-bottom: 10px; }
+        .guide-body .p-line { margin-top: 8px; }
+        .be-box { width: min(480px, 100%); }
+        .be-box .be-row { font-size: 14px; color: #334155; margin-top: 8px; }
+        .be-box .be-row b { color: #059669; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .be-box .be-sub { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.6; }
         .taxpayer-bar .gs-label { margin-right: 2px; }
         #appTip {
             position: fixed;
@@ -54,29 +105,6 @@
             opacity: 0;
             transition: opacity 0.15s;
         }
-        #be-tip {
-            position: fixed;
-            z-index: 2100;
-            min-width: 280px;
-            width: max-content;
-            max-width: min(380px, calc(100vw - 16px));
-            padding: 14px 16px;
-            border-radius: 12px;
-            background: #0f172a;
-            color: #e2e8f0;
-            font-size: 14px;
-            font-weight: 500;
-            line-height: 1.7;
-            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.15s;
-            box-sizing: border-box;
-        }
-        #be-tip .be-h { font-weight: 600; color: #fff; margin-bottom: 6px; }
-        #be-tip .be-row { white-space: nowrap; }
-        #be-tip .be-row b { color: #4ade80; font-size: 17px; font-weight: 700; }
-        #be-tip .be-sub { font-size: 12px; color: #94a3b8; font-weight: 400; }
         
         .grid-settings {
             display: grid;
@@ -91,7 +119,8 @@
         .gs-ctl input[type="number"] { width: 72px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px; text-align: center; font-weight: 700; color: var(--text); background: var(--surface); }
         .gs-ctl input:focus, .list-row input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
         .pct-field { display: inline-flex; align-items: center; gap: 4px; }
-        .pct-mark { font-size: 13px; font-weight: 600; color: var(--text-3); width: 14px; }
+        .pct-mark { font-size: 13px; font-weight: 600; color: var(--text-3); min-width: 16px; }
+        .row-value, .tax-chip .v, .be-box .be-row b, .result-item .number { font-variant-numeric: tabular-nums; }
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
@@ -155,7 +184,7 @@
         .tax-chip .k { font-size: 12px; color: #92400e; font-weight: 600; letter-spacing: 0.2px; }
         .tax-chip.base .k { color: #1d4ed8; }
         .tax-chip .lines { margin: 6px 0 0; display: flex; flex-direction: column; gap: 3px; }
-        .tax-chip .d-cn { font-size: 11px; color: var(--text-3); font-weight: 400; margin-top: 4px; line-height: 1.45; }
+        .tax-chip[data-tip] { cursor: help; }
         .tax-chip .d-num { font-size: 12px; color: var(--text-2); font-weight: 500; margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; word-break: break-word; }
         .tax-chip .line { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 8px; }
         .tax-chip .line .nm { font-size: 11px; color: var(--text-3); flex: 0 1 auto; white-space: nowrap; }
@@ -277,7 +306,8 @@
             <div class="form-group-title">
                 <span>🎛 全局配置</span>
                 <div class="title-actions">
-                    <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" data-tip="开启后，支出可设为代扣：金额栏填司机净价，系统还原含税实付">已关闭 代扣代缴</button>
+                    <button class="btn-toggle btn-guide" id="btnGuide" onclick="openGuide(event)">必看说明</button>
+                    <button class="btn-toggle btn-gray" id="btnPlatform" onclick="togglePlatform()" data-tip="开启后可把某笔支出设为代扣：金额栏填司机净价，系统还原含税实付。不会自动改外包">已关闭 代扣代缴</button>
                 </div>
             </div>
             <div class="taxpayer-bar">
@@ -294,9 +324,9 @@
                     <span class="gs-label">所得税率</span>
                     <div class="gs-ctl"><input class="tone-inc" type="number" id="incomeRate" value="5" step="0.1" oninput="render()"><span class="pct-mark">%</span></div>
                 </div>
-                <div class="gs-item" data-tip="印花税按勾选项目的不含税价款合计计征。万分之三填 0.03">
+                <div class="gs-item" data-tip="印花税按勾选项目的不含税价款合计计征。万分之三填 3，减半填 1.5">
                     <span class="gs-label">印花税率</span>
-                    <div class="gs-ctl"><input class="tone-stamp" type="number" id="stampRate" value="0.03" step="0.01" oninput="render()"><span class="pct-mark">%</span></div>
+                    <div class="gs-ctl"><input class="tone-stamp" type="number" id="stampRate" value="1.5" step="0.1" oninput="render()"><span class="pct-mark">‱</span></div>
                 </div>
                 <div class="gs-item" data-tip="一般纳税人是销项税率；小规模是征收率。第一项含税收入会跟着变">
                     <span class="gs-label" id="lblUpstream">上游税点</span>
@@ -336,20 +366,106 @@
     <div class="report-view" id="reportView"></div>
 </div>
 
+<div id="guideMask" class="guide-mask" onclick="onGuideMaskClick(event)">
+    <div class="guide-box" onclick="event.stopPropagation()">
+        <div class="guide-hd">
+            <span>必看说明</span>
+            <button type="button" class="guide-close" onclick="closeGuide()">关闭</button>
+        </div>
+        <div class="guide-body" id="guideBody"></div>
+    </div>
+</div>
+
+<div id="beMask" class="guide-mask" onclick="onBeMaskClick(event)">
+    <div class="guide-box be-box" onclick="event.stopPropagation()">
+        <div class="guide-hd">
+            <span>⚖️ 保本测算</span>
+            <button type="button" class="guide-close" onclick="closeBreakeven()">关闭</button>
+        </div>
+        <div class="guide-body" id="beBody"></div>
+    </div>
+</div>
+
 <script>
     let state = {
         usePlatform: false,
         taxpayer: 'general',
         revs: [ { id: 1, name: "主营结算", amt: 55, rate: 0.09, inc: true, stamp: true } ],
         costs: [
-            { id: 1, name: "外包运费", amt: 40, rate: 0.01, ticket: 1, stamp: true },
-            { id: 2, name: "居间服务", amt: 10, rate: 0.01, ticket: 2, stamp: true }
+            { id: 1, name: "外包运费", amt: 40, rate: 0.01, ticket: 2, stamp: true },
+            { id: 2, name: "居间服务", amt: 10, rate: 0.01, ticket: 1, stamp: false }
         ],
         nextId: 10
     };
 
     function dRound(num) {
         return Math.round((parseFloat(num) + Number.EPSILON) * 100) / 100;
+    }
+
+    // 按电脑当前日期判断是否在 2023-01-01～2027-12-31 优惠期内
+    function inPrefTaxWindow(d) {
+        d = d || new Date();
+        return d.getTime() >= new Date(2023, 0, 1).getTime()
+            && d.getTime() <= new Date(2027, 11, 31, 23, 59, 59, 999).getTime();
+    }
+
+    function defaultRates() {
+        let pref = inPrefTaxWindow();
+        return {
+            pref: pref,
+            surchargePct: pref ? 6 : 12,
+            incomePct: pref ? 5 : 25,
+            stampPermil: pref ? 1.5 : 3,
+            smallVatPct: pref ? 1 : 3
+        };
+    }
+
+    function applyPolicyDefaults() {
+        let r = defaultRates();
+        let sur = document.getElementById('surchargeRate');
+        let inc = document.getElementById('incomeRate');
+        let stamp = document.getElementById('stampRate');
+        if (sur) sur.value = r.surchargePct;
+        if (inc) inc.value = r.incomePct;
+        if (stamp) stamp.value = r.stampPermil;
+        let box = document.getElementById('guideBody');
+        if (box) {
+            let head = r.pref
+                ? '已按电脑日期套用 2023-01-01～2027-12-31 的优惠默认值：附加税 6%、印花 1.5‱、所得税 5%；切到小规模时征收率默认 1%。居间服务默认免印花。'
+                : '优惠期已结束，默认改为：附加税 12%、印花 3‱、所得税 25%；切到小规模时征收率默认 3%。居间服务默认免印花。';
+            box.innerHTML = '<div class="p-head">' + head + '</div>'
+                + '<div class="p-line">1. 本页按「一单」测算，不算月销售额。切到小规模时，只是默认按 1% 征收率计税，不会因为「月销售额不超过 10 万」自动免税。业务数量开大了，税也会跟着加，要不要免税请自己对照当月销售额判断。</div>'
+                + '<div class="p-line">2. 所得税默认 5%，是小型微利企业的实际税负（减计所得后再按 20% 税率）。系统不会检查你是否满足：年应纳税所得额不超过 300 万、从业不超过 300 人、资产不超过 5000 万。如果公司不是小微，请把所得税率改成实际税率，否则会算低。</div>'
+                + '<div class="p-line">3. 附加税默认 6%，是按城里常见的「城建 + 教育费附加 + 地方教育附加 ≈ 12%」再减半。城建税各地不同（7%、5%、1%），你们当地合计不是 12% 时，请改左侧附加税率。</div>'
+                + '<div class="p-line">4. 右侧「不含税成本」：专票会去掉进项税；普票和没票去不掉，金额就是你付出去的含税全额。名称仍叫不含税，不要理解成已经全部剔了税。</div>'
+                + '<div class="p-line">5. 一般纳税人销项默认 9%，不享受小规模那套增值税减免（月销售额免税、3% 减按 1%）。这是按一般纳税人身份来的。</div>';
+        }
+    }
+
+    function openGuide(e) {
+        if (e) e.stopPropagation();
+        hideAppTip();
+        closeBreakeven();
+        let mask = document.getElementById('guideMask');
+        if (mask) mask.classList.add('show');
+    }
+
+    function closeGuide() {
+        let mask = document.getElementById('guideMask');
+        if (mask) mask.classList.remove('show');
+    }
+
+    function onGuideMaskClick(e) {
+        if (e.target && e.target.id === 'guideMask') closeGuide();
+    }
+
+    function closeBreakeven() {
+        let mask = document.getElementById('beMask');
+        if (mask) mask.classList.remove('show');
+    }
+
+    function onBeMaskClick(e) {
+        if (e.target && e.target.id === 'beMask') closeBreakeven();
     }
 
     // 应缴增值税与未抵扣进项：销项不够抵时差额转入成本，不退税
@@ -370,17 +486,19 @@
         return { excl: cash, vat: 0 };
     }
 
-    function splitRev(r, qty) {
-        let amt = r.amt * qty;
+    function splitRev(r, qty, force) {
+        let inc = force && force.inc != null ? force.inc : r.inc;
+        let rate = force && force.rate != null ? force.rate : r.rate;
+        let amt = force && force.cash != null ? force.cash : r.amt * qty;
         let cash, excl, outVat;
-        if (r.inc) {
+        if (inc) {
             cash = dRound(amt);
-            let split = vatSplit(cash, r.rate);
+            let split = vatSplit(cash, rate);
             excl = split.excl;
             outVat = split.vat;
         } else {
             excl = dRound(amt);
-            outVat = dRound(excl * r.rate);
+            outVat = dRound(excl * rate);
             cash = dRound(excl + outVat);
         }
         return { cash: cash, excl: excl, outVat: outVat };
@@ -394,7 +512,8 @@
 
     // 代扣进项按上游税点拆；普票不能抵进项，但印花税按不含税价款
     // 小规模不能抵进项：专票/代扣也按含税全额进成本
-    function splitCost(c, qty, pRate, upRate) {
+    function splitCost(c, qty, pRate, upRate, smallMode) {
+        if (smallMode === undefined) smallMode = isSmall();
         let raw;
         if (c.ticket === 3) {
             let net = dRound(c.amt * qty);
@@ -413,7 +532,7 @@
                 raw = { cash: cash, excl: cash, inVat: 0, costDeduct: cash, taxDeduct: 0, stampExcl: cash };
             }
         }
-        if (isSmall()) {
+        if (smallMode) {
             return {
                 cash: raw.cash,
                 excl: raw.cash,
@@ -426,6 +545,71 @@
         return raw;
     }
 
+    function calcTotals(cfg) {
+        let st = cfg.state || state;
+        let qty = cfg.qty;
+        let pRate = cfg.pRate;
+        let surRate = cfg.surRate;
+        let incRate = cfg.incRate;
+        let stampRate = cfg.stampRate;
+        let upRate = cfg.upRate || 0;
+        let small = cfg.small != null ? cfg.small : (st.taxpayer === 'small');
+        let forceFirst = cfg.forceFirst;
+
+        let cashRev = 0, revExcl = 0, outVat = 0;
+        let cashCost = 0, costExcl = 0, taxDeduct = 0, inVat = 0, stampBase = 0;
+
+        st.revs.forEach((r, i) => {
+            let s = splitRev(r, qty, (forceFirst && i === 0) ? forceFirst : null);
+            cashRev += s.cash;
+            revExcl += s.excl;
+            outVat += s.outVat;
+            if (r.stamp) stampBase += s.excl;
+        });
+        st.costs.forEach(c => {
+            let s = splitCost(c, qty, pRate, upRate, small);
+            cashCost += s.cash;
+            costExcl += s.costDeduct;
+            taxDeduct += s.taxDeduct;
+            inVat += s.inVat;
+            if (c.stamp) stampBase += s.stampExcl;
+        });
+
+        cashRev = dRound(cashRev);
+        revExcl = dRound(revExcl);
+        outVat = dRound(outVat);
+        cashCost = dRound(cashCost);
+        costExcl = dRound(costExcl);
+        taxDeduct = dRound(taxDeduct);
+        inVat = dRound(inVat);
+        stampBase = dRound(stampBase);
+
+        let vat = vatSettle(outVat, inVat);
+        let unusedVat = vat.unusedVat;
+        let payVat = vat.payVat;
+        if (unusedVat > 0) {
+            taxDeduct = dRound(taxDeduct + unusedVat);
+            costExcl = dRound(costExcl + unusedVat);
+        }
+        let sur = dRound(payVat * surRate);
+        let stamp = dRound(stampBase * stampRate);
+        let taxableInc = dRound(revExcl - taxDeduct - sur - stamp);
+        let incTax = dRound(Math.max(0, taxableInc * incRate));
+        let totalTax = dRound(payVat + sur + stamp + incTax);
+        let otherTax = dRound(sur + stamp + incTax);
+        let cashMargin = dRound(cashRev - cashCost);
+        let netProfit = dRound(cashMargin - totalTax);
+        let f2Profit = dRound(revExcl - costExcl - otherTax);
+        return {
+            cashRev: cashRev, revExcl: revExcl, outVat: outVat,
+            cashCost: cashCost, costExcl: costExcl, taxDeduct: taxDeduct, inVat: inVat,
+            stampBase: stampBase, unusedVat: unusedVat, payVat: payVat,
+            sur: sur, stamp: stamp, taxableInc: taxableInc, incTax: incTax,
+            totalTax: totalTax, otherTax: otherTax,
+            cashMargin: cashMargin, netProfit: netProfit, f2Profit: f2Profit
+        };
+    }
+
     function setTaxpayer(mode) {
         if (mode !== 'general' && mode !== 'small') return;
         let prev = state.taxpayer;
@@ -434,12 +618,13 @@
         applyTaxpayerUi();
         if (prev !== mode && upEl) {
             let nowPct = getVal('upstreamRate');
+            let rates = defaultRates();
             if (mode === 'small' && nowPct === 9) {
-                upEl.value = 1;
-                syncUpstreamRate(1);
+                upEl.value = rates.smallVatPct;
+                syncUpstreamRate(rates.smallVatPct);
                 return;
             }
-            if (mode === 'general' && nowPct === 1) {
+            if (mode === 'general' && (nowPct === 1 || nowPct === 3 || nowPct === rates.smallVatPct)) {
                 upEl.value = 9;
                 syncUpstreamRate(9);
                 return;
@@ -474,6 +659,13 @@
         return `<span class="f-cn">${cn}</span><span class="f-num">${num}</span>`;
     }
 
+    function escapeAttr(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;');
+    }
+
     function chipHtml(kind, title, cnText, numText, value, neg, items) {
         let lineHtml = '';
         if (items && items.length) {
@@ -484,18 +676,18 @@
         // 分项已经写出数字公式时，不再追加一行重复合计；带乘税率的（如印花税）仍保留
         let showNum = numText;
         if (showNum && items && items.length) {
-            let compact = showNum.replace(/\s/g, '');
-            let val = String(value).replace(/\s/g, '');
-            let hasRate = /[×%]/.test(showNum);
+            let compact = String(showNum).replace(/[\s,（）]/g, '');
+            let val = String(value).replace(/[\s,]/g, '');
+            let hasRate = /[×%‱]/.test(showNum);
             if (!hasRate && (compact === val || compact.endsWith('＝' + val))) {
                 showNum = '';
             }
         }
-        let dCn = cnText ? `<div class="d-cn">${cnText}</div>` : '';
         let dNum = showNum ? `<div class="d-num">${showNum}</div>` : '';
-        return `<div class="tax-chip ${kind}">
+        let tip = cnText ? ` data-tip="${escapeAttr(cnText)}"` : '';
+        return `<div class="tax-chip ${kind}"${tip}>
                         <div class="k">${title}</div>
-                        ${dCn}${lineHtml}${dNum}
+                        ${lineHtml}${dNum}
                         <div class="v${neg ? ' neg' : ''}">${value}</div>
                     </div>`;
     }
@@ -519,6 +711,29 @@
     function toPct(rate) { return parseFloat(((parseFloat(rate) || 0) * 100).toFixed(4)); }
     function fromPct(val) { return (parseFloat(val) || 0) / 100; }
     function getRate(id) { return fromPct(getVal(id)); }
+    // 印花输入用万分（1.5 = 1.5‱），内部计算用小数
+    function getStampRate() { return (getVal('stampRate') || 0) / 10000; }
+    function stampPermyriad(rate) {
+        let n = Math.round((parseFloat(rate) || 0) * 10000 * 10) / 10;
+        return n.toFixed(1).replace(/\.0$/, '');
+    }
+    // 财务数字：千分位 + 两位小数
+    function fmtMoney(n) {
+        let x = dRound(n);
+        let sign = x < 0 ? '-' : '';
+        let parts = Math.abs(x).toFixed(2).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return sign + parts[0] + '.' + parts[1];
+    }
+    function fmtInt(n) {
+        let x = Math.round(parseFloat(n) || 0);
+        let sign = x < 0 ? '-' : '';
+        return sign + String(Math.abs(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    // 数字公式：两位小数、不带千分位，避免逗号歧义
+    function fmtFig(n) {
+        return dRound(n).toFixed(2);
+    }
 
     function getQty() {
         let el = document.getElementById('qty');
@@ -572,20 +787,20 @@
         if (state.usePlatform) {
             btn.className = 'btn-toggle btn-purple';
             btn.innerHTML = '已开启 代扣代缴';
-            btn.setAttribute('data-tip', '关闭后，代扣支出会改回普票。金额栏填司机净价时才会还原含税实付');
+            btn.setAttribute('data-tip', '已开启。请自己把某笔支出切成代扣，不会自动改第一笔。金额栏填司机净价');
             wrap.style.display = 'flex';
-            
-            if (state.costs.length > 0) {
-                state.costs[0].ticket = 3;
-                state.costs[0].rate = getRate('platRate') || 0.075;
-            }
         } else {
             btn.className = 'btn-toggle btn-gray';
             btn.innerHTML = '已关闭 代扣代缴';
-            btn.setAttribute('data-tip', '开启后，支出可设为代扣：金额栏填司机净价，系统还原含税实付');
+            btn.setAttribute('data-tip', '开启后可把某笔支出设为代扣：金额栏填司机净价，系统还原含税实付。不会自动改外包');
             wrap.style.display = 'none';
-            
-            state.costs.forEach(c => { if(c.ticket === 3) { c.ticket = 1; c.rate = 0.01; } });
+            state.costs.forEach(c => {
+                if (c.ticket !== 3) return;
+                c.ticket = (c.prevTicket === 0 || c.prevTicket === 1 || c.prevTicket === 2) ? c.prevTicket : 2;
+                c.rate = (typeof c.prevRate === 'number') ? c.prevRate : (c.ticket === 2 ? 0.01 : (c.ticket === 1 ? 0.01 : 0));
+                delete c.prevTicket;
+                delete c.prevRate;
+            });
         }
         buildForms();
         render();
@@ -608,12 +823,20 @@
     function toggleCostTicket(id) {
         let c = state.costs.find(x => x.id === id);
         let maxState = state.usePlatform ? 4 : 3;
+        let prevTicket = c.ticket;
+        let prevRate = c.rate;
         c.ticket = (c.ticket + 1) % maxState;
-        
-        if(c.ticket === 0) c.rate = 0;
-        else if(c.ticket === 1) c.rate = 0.01;
-        else if(c.ticket === 2) c.rate = 0.09;
-        else if(c.ticket === 3) c.rate = getRate('platRate') || 0.075;
+        if (c.ticket === 3) {
+            c.prevTicket = prevTicket;
+            c.prevRate = prevRate;
+            c.rate = getRate('platRate') || 0.075;
+        } else if (c.ticket === 0) {
+            c.rate = 0;
+        } else if (c.ticket === 1) {
+            c.rate = 0.01;
+        } else if (c.ticket === 2) {
+            c.rate = (typeof prevRate === 'number' && prevTicket === 2) ? prevRate : 0.01;
+        }
         
         buildForms(); render();
     }
@@ -650,7 +873,7 @@
             }
             let gross = dRound(net / (1 - pRate));
             let excl = vatSplit(gross, upRate).excl;
-            if (confirm(`净到手 ${dRound(net).toFixed(2)} 元\n含税实付 ${gross.toFixed(2)} ＝ 净到手 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按上游税点 ${(upRate*100).toFixed(0)}% 拆进项，不含税 ${excl.toFixed(2)} 元\n\n金额栏填入净价 ${dRound(net).toFixed(2)} 元？`)) {
+            if (confirm(`净到手 ${fmtMoney(dRound(net))} 元\n含税实付 ${fmtMoney(gross)} ＝ 净到手 ÷（1 − 代扣税率 ${(pRate*100).toFixed(2)}%）\n按上游税点 ${(upRate*100).toFixed(0)}% 拆进项，不含税 ${fmtMoney(excl)} 元\n\n金额栏填入净价 ${fmtMoney(dRound(net))} 元？`)) {
                 updateVal('cost', id, 'amt', dRound(net));
                 buildForms();
             }
@@ -661,7 +884,7 @@
         let excl = parseFloat(raw);
         let rate = c.ticket === 0 ? 0 : (c.rate || 0);
         let gross = rate > 0 ? dRound(excl * (1 + rate)) : dRound(excl);
-        if (confirm(`不含税 ${dRound(excl).toFixed(2)} 元\n含税支出 ${gross.toFixed(2)} ＝ 不含税 ×（1＋税率 ${(rate*100).toFixed(0)}%）\n\n是否填入含税支出？`)) {
+        if (confirm(`不含税 ${fmtMoney(dRound(excl))} 元\n含税支出 ${fmtMoney(gross)} ＝ 不含税 ×（1＋税率 ${(rate*100).toFixed(0)}%）\n\n是否填入含税支出？`)) {
             updateVal('cost', id, 'amt', gross);
             buildForms();
         }
@@ -669,69 +892,42 @@
 
     function getBreakevenRev() {
         let qty = getQty();
-        let surRate = getRate('surchargeRate');
-        let incRate = getRate('incomeRate');
-        let stampRate = getRate('stampRate');
-        let upRate = getRate('upstreamRate') || 0;
-        let pRate = getRate('platRate');
+        let rates = {
+            state: state,
+            qty: qty,
+            pRate: getRate('platRate'),
+            surRate: getRate('surchargeRate'),
+            incRate: getRate('incomeRate'),
+            stampRate: getStampRate(),
+            upRate: getRate('upstreamRate') || 0,
+            small: isSmall()
+        };
+        let upRate = rates.upRate;
+        if (!state.revs.length) return { noInvoice: 0, withInvoice: 0, rate: upRate };
+        let probe = calcTotals(rates);
+        if (probe.cashCost === 0 && state.revs.slice(1).every(r => r.amt === 0)) {
+            return { noInvoice: 0, withInvoice: 0, rate: upRate };
+        }
 
-        let inVat = 0, taxDeduct = 0, stampBaseCost = 0, cashCost = 0;
-        state.costs.forEach(c => {
-            let s = splitCost(c, qty, pRate, upRate);
-            cashCost += s.cash;
-            taxDeduct += s.taxDeduct;
-            inVat += s.inVat;
-            if (c.stamp) stampBaseCost += s.stampExcl;
-        });
-        cashCost = dRound(cashCost);
-        taxDeduct = dRound(taxDeduct);
-        inVat = dRound(inVat);
-        stampBaseCost = dRound(stampBaseCost);
-
-        let otherCash = 0, otherExcl = 0, otherOut = 0, otherStamp = 0;
-        state.revs.slice(1).forEach(r => {
-            let s = splitRev(r, qty);
-            otherCash += s.cash;
-            otherExcl += s.excl;
-            otherOut += s.outVat;
-            if (r.stamp) otherStamp += s.excl;
-        });
-        otherCash = dRound(otherCash);
-        otherExcl = dRound(otherExcl);
-        otherOut = dRound(otherOut);
-        otherStamp = dRound(otherStamp);
-        let mainStamp = state.revs.length > 0 && state.revs[0].stamp;
-
-        if (cashCost === 0 && otherCash === 0) return { noInvoice: 0, withInvoice: 0, rate: upRate };
+        function trial(R, invoiceRate) {
+            return calcTotals(Object.assign({}, rates, {
+                forceFirst: { cash: R, inc: invoiceRate > 0, rate: invoiceRate }
+            }));
+        }
 
         function findMinRev(invoiceRate) {
-            let lowCents = Math.max(0, Math.floor((cashCost - otherCash) * 100) - 500);
-            let highCents = Math.ceil((cashCost + Math.abs(otherCash) + 1) * 300);
+            let lowCents = 0;
+            let highCents = Math.max(100, Math.ceil((probe.cashCost + 1) * 400));
+            let tHigh = trial(highCents / 100, invoiceRate);
+            while (tHigh.netProfit < 0 && highCents < 1e12) {
+                highCents = highCents * 2;
+                tHigh = trial(highCents / 100, invoiceRate);
+            }
+            if (tHigh.netProfit < 0) return highCents / 100;
             let bestCents = highCents;
-
             while (lowCents <= highCents) {
                 let midCents = Math.floor((lowCents + highCents) / 2);
-                let R = midCents / 100;
-                let r_excl, out_vat;
-                if (invoiceRate > 0) {
-                    r_excl = dRound(R / (1 + invoiceRate));
-                    out_vat = dRound(R - r_excl);
-                } else {
-                    r_excl = dRound(R);
-                    out_vat = 0;
-                }
-                let vat = vatSettle(dRound(out_vat + otherOut), inVat);
-                let payVat = vat.payVat;
-                let deduct = dRound(taxDeduct + vat.unusedVat);
-                let sur = dRound(payVat * surRate);
-                let stampRev = dRound((mainStamp ? r_excl : 0) + otherStamp);
-                let stamp = dRound((stampBaseCost + stampRev) * stampRate);
-                let taxableInc = dRound(r_excl + otherExcl - deduct - sur - stamp);
-                let incTax = dRound(Math.max(0, taxableInc * incRate));
-                let totalTax = dRound(payVat + sur + stamp + incTax);
-                let netProfit = dRound(dRound(R + otherCash - cashCost) - totalTax);
-
-                if (netProfit >= 0) {
+                if (trial(midCents / 100, invoiceRate).netProfit >= 0) {
                     bestCents = midCents;
                     highCents = midCents - 1;
                 } else {
@@ -751,46 +947,46 @@
     function showBreakeven(e) {
         if (e) e.stopPropagation();
         hideAppTip();
+        closeGuide();
+        if (state.revs.length === 0) {
+            alert('请先添加一笔收入，再做保本测算');
+            return;
+        }
         let res = getBreakevenRev();
         let invExcl = res.rate > 0 ? dRound(res.withInvoice / (1 + res.rate)) : res.withInvoice;
         let qty = getQty();
         let qtyNote = '';
         if (qty > 0 && qty !== 1) {
-            qtyNote = `<div class="be-sub">以上为 ${qty} 倍合计 · 单价不开票 ${dRound(res.noInvoice / qty).toFixed(2)} / 开票含税 ${dRound(res.withInvoice / qty).toFixed(2)}</div>`;
+            qtyNote = `<div class="be-sub">以上为 ${fmtInt(qty)} 倍合计 · 单价不开票 ${fmtMoney(dRound(res.noInvoice / qty))} / 开票含税 ${fmtMoney(dRound(res.withInvoice / qty))}</div>`;
         } else if (qty === 0) {
             qtyNote = `<div class="be-sub">业务数量为 0，不测算单价</div>`;
         }
         let extra = state.revs.length > 1 ? `<div class="be-sub">针对第一项收入保本，其余 ${state.revs.length - 1} 项收入已计入</div>` : '';
-        let tip = document.getElementById('be-tip');
-        if (!tip) {
-            tip = document.createElement('div');
-            tip.id = 'be-tip';
-            document.body.appendChild(tip);
+        let tNo = calcTotals(Object.assign({}, {
+            qty: qty, pRate: getRate('platRate'), surRate: getRate('surchargeRate'),
+            incRate: getRate('incomeRate'), stampRate: getStampRate(),
+            upRate: getRate('upstreamRate') || 0, small: isSmall(),
+            forceFirst: { cash: res.noInvoice, inc: false, rate: 0 }
+        }));
+        let tInv = calcTotals(Object.assign({}, {
+            qty: qty, pRate: getRate('platRate'), surRate: getRate('surchargeRate'),
+            incRate: getRate('incomeRate'), stampRate: getStampRate(),
+            upRate: getRate('upstreamRate') || 0, small: isSmall(),
+            forceFirst: { cash: res.withInvoice, inc: true, rate: res.rate }
+        }));
+        let ratePct = (res.rate * 100).toFixed(2).replace(/\.00$/, '');
+        let box = document.getElementById('beBody');
+        if (box) {
+            box.innerHTML = `<div class="be-row">货主不开票付给你 <b>${fmtMoney(res.noInvoice)}</b> 元</div>`
+                + `<div class="be-sub">此时现金流净利 ${fmtMoney(tNo.netProfit)} 元，比保本少 0.01 就会亏损</div>`
+                + `<div class="be-row">向货主开票含税 <b>${fmtMoney(res.withInvoice)}</b> 元</div>`
+                + `<div class="be-sub">开票不含税货款 ${fmtMoney(invExcl)} 元</div>`
+                + `<div class="be-sub">＝ 开票含税 ÷（1＋${rateLabel()} ${ratePct}%）</div>`
+                + `<div class="be-sub">此时现金流净利 ${fmtMoney(tInv.netProfit)} 元，比保本少 0.01 就会亏损</div>`
+                + qtyNote + extra;
         }
-        tip.innerHTML = `<div class="be-h">⚖️ 保本测算</div>`
-            + `<div class="be-row">货主不开票付给你 <b>${res.noInvoice.toFixed(2)}</b> 元</div>`
-            + `<div class="be-row">向货主开票含税 <b>${res.withInvoice.toFixed(2)}</b> 元</div>`
-            + `<div class="be-sub">开票不含税货款 ${invExcl.toFixed(2)} 元</div>`
-            + `<div class="be-sub">＝ 开票含税 ÷（1＋${rateLabel()} ${(res.rate * 100).toFixed(0)}%）</div>${qtyNote}${extra}`;
-        tip.style.opacity = '1';
-        tip.style.left = '-999px';
-        tip.style.top = '0';
-        let btn = (e && (e.currentTarget || (e.target && e.target.closest('button')))) || document.getElementById('btnBreakeven');
-        requestAnimationFrame(function () {
-            let r = btn.getBoundingClientRect();
-            let tw = tip.offsetWidth;
-            let th = tip.offsetHeight;
-            let left = r.right - tw;
-            if (left < 8) left = 8;
-            if (left + tw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - tw - 8);
-            let top = r.top - th - 10;
-            if (top < 8) top = r.bottom + 10;
-            if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
-            tip.style.left = left + 'px';
-            tip.style.top = top + 'px';
-        });
-        if (showBreakeven.timer) clearTimeout(showBreakeven.timer);
-        showBreakeven.timer = setTimeout(function () { tip.style.opacity = '0'; }, 6000);
+        let mask = document.getElementById('beMask');
+        if (mask) mask.classList.add('show');
     }
 
     function buildForms() {
@@ -855,7 +1051,7 @@
         let pRate = getRate('platRate');
         let surRate = getRate('surchargeRate');
         let incRate = getRate('incomeRate');
-        let stampRate = getRate('stampRate');
+        let stampRate = getStampRate();
         let upRate = getRate('upstreamRate');
 
         let totals = {
@@ -877,31 +1073,31 @@
             totals.outVat += outVat;
             if(r.stamp) {
                 totals.stampBase += excl;
-                totals.stampItems.push({ name: r.name, num: excl.toFixed(2) });
+                totals.stampItems.push({ name: r.name + '税基', num: fmtFig(excl) });
             }
 
-            totals.revCashNums.push(cash.toFixed(2));
-            totals.revExclNums.push(excl.toFixed(2));
+            totals.revCashNums.push(fmtMoney(cash));
+            totals.revExclNums.push(fmtFig(excl));
             totals.revExclItems.push(r.inc && r.rate > 0
-                ? { name: r.name, num: `${cash.toFixed(2)} ÷ ${ (1 + r.rate).toFixed(2) } ＝ ${excl.toFixed(2)}` }
-                : { name: r.name, num: cash.toFixed(2) });
+                ? { name: r.name + '不含税', num: `${fmtFig(cash)} ÷ ${(1 + r.rate).toFixed(2)} ＝ ${fmtFig(excl)}` }
+                : { name: r.name + (r.inc ? '不含税' : '不开票'), num: fmtFig(cash) });
             totals.outVatItems.push(r.rate > 0
-                ? { name: r.name, num: `${cash.toFixed(2)} − ${excl.toFixed(2)} ＝ ${outVat.toFixed(2)}` }
-                : { name: r.name, num: '0.00' });
+                ? { name: r.name + (isSmall() ? '征收额' : '销项'), num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(outVat)}` }
+                : { name: r.name + (isSmall() ? '征收额' : '销项'), num: fmtFig(0) });
 
             totals.revsHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">📥 ${r.name}</span>
                     <span class="row-detail">${r.inc ? '含税开票实收' : '不开票实收'}</span>
-                    <span class="row-value positive">+${cash.toFixed(2)}</span>
+                    <span class="row-value positive">+${fmtMoney(cash)}</span>
                 </div>`;
             totals.revExclHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">${r.name}不含税</span>
                     <span class="row-detail">${r.inc && r.rate > 0
-                        ? dual('含税收入 ÷（1＋' + rateLabel() + '）', `${cash.toFixed(2)} ÷ ${(1 + r.rate).toFixed(2)}`)
-                        : dual('不含税等于实收', cash.toFixed(2))}</span>
-                    <span class="row-value sub-val">${excl.toFixed(2)}</span>
+                        ? dual('含税收入 ÷（1＋' + rateLabel() + '）', `${fmtMoney(cash)} ÷ ${(1 + r.rate).toFixed(2)}`)
+                        : dual('不含税等于实收', fmtMoney(cash))}</span>
+                    <span class="row-value sub-val">${fmtMoney(excl)}</span>
                 </div>`;
         });
 
@@ -914,13 +1110,13 @@
                 totals.costHtml += `
                     <div class="row-item sub-row">
                         <span class="row-label">🚛 ${c.name}</span>
-                        <span class="row-detail">${dual('金额栏为净价，还原含税实付', cash.toFixed(2))}</span>
-                        <span class="row-value negative">−${cash.toFixed(2)}</span>
+                        <span class="row-detail">${dual('金额栏为净价，还原含税实付', fmtMoney(cash))}</span>
+                        <span class="row-value negative">−${fmtMoney(cash)}</span>
                     </div>
                     <div class="row-item sub-row">
                         <span class="row-label">代扣还原</span>
-                        <span class="row-detail">${dual('净价 ÷（1 − 代扣税率）', `${dRound(c.amt * qty).toFixed(2)} ÷ ${(1 - pRate).toFixed(3)}`)}</span>
-                        <span class="row-value sub-val">${cash.toFixed(2)}</span>
+                        <span class="row-detail">${dual('净价 ÷（1 − 代扣税率）', `${fmtMoney(dRound(c.amt * qty))} ÷ ${(1 - pRate).toFixed(3)}`)}</span>
+                        <span class="row-value sub-val">${fmtMoney(cash)}</span>
                     </div>`;
             } else {
                 if(c.ticket === 2) {
@@ -934,7 +1130,7 @@
                     <div class="row-item sub-row">
                         <span class="row-label">🤝 ${c.name}</span>
                         <span class="row-detail">${ticketStr}</span>
-                        <span class="row-value negative">−${cash.toFixed(2)}</span>
+                        <span class="row-value negative">−${fmtMoney(cash)}</span>
                     </div>`;
             }
 
@@ -944,39 +1140,39 @@
             totals.taxDeduct += taxDeduct;
             if(c.stamp) {
                 totals.stampBase += s.stampExcl;
-                totals.stampItems.push({ name: c.name, num: s.stampExcl.toFixed(2) });
+                totals.stampItems.push({ name: c.name + '税基', num: fmtFig(s.stampExcl) });
             }
 
             let costCn, costNum;
             if (isSmall()) {
                 costCn = '小规模不能抵进项，成本等于含税支出';
-                costNum = cash.toFixed(2);
+                costNum = fmtFig(cash);
             } else if (c.ticket === 3) {
                 costCn = '含税实付 ÷（1＋上游税点）';
-                costNum = `${cash.toFixed(2)} ÷ ${(1 + upRate).toFixed(2)} ＝ ${costDeduct.toFixed(2)}`;
+                costNum = `${fmtFig(cash)} ÷ ${(1 + upRate).toFixed(2)} ＝ ${fmtFig(costDeduct)}`;
             } else if (inVat > 0 && c.rate > 0) {
                 costCn = '含税支出 ÷（1＋进项税率）';
-                costNum = `${cash.toFixed(2)} ÷ ${(1 + c.rate).toFixed(2)} ＝ ${costDeduct.toFixed(2)}`;
+                costNum = `${fmtFig(cash)} ÷ ${(1 + c.rate).toFixed(2)} ＝ ${fmtFig(costDeduct)}`;
             } else {
                 costCn = c.ticket === 1 ? '普票无进项，不含税成本等于含税支出' : '没票无进项，不含税成本等于含税支出';
-                costNum = cash.toFixed(2);
+                costNum = fmtFig(cash);
             }
             totals.costExclHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">${c.name}不含税成本</span>
                     <span class="row-detail">${dual(costCn, costNum)}</span>
-                    <span class="row-value sub-val">${costDeduct.toFixed(2)}</span>
+                    <span class="row-value sub-val">${fmtMoney(costDeduct)}</span>
                 </div>`;
-            totals.costCashNums.push(cash.toFixed(2));
-            totals.costExclNums.push(costDeduct.toFixed(2));
-            totals.costExclItems.push({ name: c.name, num: costNum });
+            totals.costCashNums.push(fmtMoney(cash));
+            totals.costExclNums.push(fmtFig(costDeduct));
+            totals.costExclItems.push({ name: c.name + '不含税', num: costNum });
             totals.inVatItems.push(inVat > 0
-                ? { name: c.name, num: `${cash.toFixed(2)} − ${excl.toFixed(2)} ＝ ${inVat.toFixed(2)}` }
-                : { name: c.name, num: '0.00' });
+                ? { name: c.name + '进项', num: `${fmtFig(cash)} − ${fmtFig(excl)} ＝ ${fmtFig(inVat)}` }
+                : { name: c.name + '进项', num: fmtFig(0) });
             if (taxDeduct > 0) {
                 totals.taxDeductItems.push({
-                    name: c.name,
-                    num: (c.ticket === 2 || c.ticket === 3) ? excl.toFixed(2) : cash.toFixed(2)
+                    name: c.name + '扣除',
+                    num: (c.ticket === 2 || c.ticket === 3) ? fmtFig(excl) : fmtFig(cash)
                 });
             }
         });
@@ -992,14 +1188,14 @@
         if (unusedVat > 0) {
             totals.taxDeduct = dRound(totals.taxDeduct + unusedVat);
             totals.costExcl = dRound(totals.costExcl + unusedVat);
-            totals.costExclNums.push(unusedVat.toFixed(2));
-            totals.costExclItems.push({ name: '未抵扣进项', num: `${totals.inVat.toFixed(2)} − ${totals.outVat.toFixed(2)} ＝ ${unusedVat.toFixed(2)}` });
-            totals.taxDeductItems.push({ name: '未抵扣进项', num: unusedVat.toFixed(2) });
+            totals.costExclNums.push(fmtFig(unusedVat));
+            totals.costExclItems.push({ name: '未抵扣进项', num: `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)} ＝ ${fmtFig(unusedVat)}` });
+            totals.taxDeductItems.push({ name: '未抵扣进项', num: fmtFig(unusedVat) });
             totals.costExclHtml += `
                 <div class="row-item sub-row">
                     <span class="row-label">未抵扣进项转入成本</span>
-                    <span class="row-detail">${dual('进项税额 − 销项税额，单趟用不掉计入成本', `${totals.inVat.toFixed(2)} − ${totals.outVat.toFixed(2)}`)}</span>
-                    <span class="row-value sub-val">${unusedVat.toFixed(2)}</span>
+                    <span class="row-detail">${dual('进项税额 − 销项税额，单趟用不掉计入成本', `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)}`)}</span>
+                    <span class="row-value sub-val">${fmtMoney(unusedVat)}</span>
                 </div>`;
         }
         let sur = dRound(payVat * surRate);
@@ -1012,53 +1208,62 @@
         let cashMargin = dRound(totals.cashRev - totals.cashCost);
         let netProfit = dRound(cashMargin - totalTax);
         let f2Profit = dRound(totals.revExcl - totals.costExcl - otherTax);
+        let chk = calcTotals({
+            qty: qty, pRate: pRate, surRate: surRate, incRate: incRate,
+            stampRate: stampRate, upRate: upRate || 0, small: isSmall()
+        });
+        if (Math.abs(chk.netProfit - netProfit) >= 0.01 || Math.abs(chk.f2Profit - f2Profit) >= 0.01) {
+            console.error('核算内核与报表不一致', { chk: chk.netProfit, netProfit: netProfit, chk2: chk.f2Profit, f2Profit: f2Profit });
+        }
         let compTaxRate = totals.cashRev > 0 ? ((totalTax / totals.cashRev) * 100).toFixed(2) : "0.00";
-        let costExclNum = totals.costExclNums.join(' ＋ ') || '0.00';
-        let revCashNum = totals.revCashNums.join(' ＋ ') || '0.00';
-        let revExclNum = totals.revExclNums.join(' ＋ ') || '0.00';
-        let costCashNum = totals.costCashNums.join(' ＋ ') || '0.00';
+        let costExclNum = totals.costExclNums.join(' ＋ ') || fmtFig(0);
+        let revCashNum = totals.revCashNums.join(' ＋ ') || fmtMoney(0);
+        let revExclNum = totals.revExclNums.join(' ＋ ') || fmtFig(0);
+        let costCashNum = totals.costCashNums.join(' ＋ ') || fmtMoney(0);
         let stampNum = totals.stampItems.length
-            ? `${totals.stampItems.map(it => it.num).join(' ＋ ')} ＝ ${totals.stampBase.toFixed(2)}，× ${(stampRate * 100).toFixed(2)}% ＝ ${stamp.toFixed(2)}`
-            : '0.00';
-        let otherTaxNum = `${sur.toFixed(2)} ＋ ${stamp.toFixed(2)} ＋ ${incTax.toFixed(2)}`;
-        let totalTaxNum = `${payVat.toFixed(2)} ＋ ${sur.toFixed(2)} ＋ ${stamp.toFixed(2)} ＋ ${incTax.toFixed(2)}`;
-        let cashMarginNum = `${totals.cashRev.toFixed(2)} − ${totals.cashCost.toFixed(2)}`;
-        let cashProfitNum = `${cashMargin.toFixed(2)} − ${totalTax.toFixed(2)}`;
-        let pnlProfitNum = `${totals.revExcl.toFixed(2)} − ${totals.costExcl.toFixed(2)} − ${otherTax.toFixed(2)}`;
+            ? `（${totals.stampItems.map(it => it.num).join(' ＋ ')} ＝ ${fmtFig(totals.stampBase)}）× ${stampPermyriad(stampRate)}‱ ＝ ${fmtFig(stamp)}`
+            : fmtFig(0);
+        let otherTaxNum = `${fmtFig(sur)} ＋ ${fmtFig(stamp)} ＋ ${fmtFig(incTax)}`;
+        let totalTaxNum = `${fmtFig(payVat)} ＋ ${fmtFig(sur)} ＋ ${fmtFig(stamp)} ＋ ${fmtFig(incTax)}`;
+        let cashMarginNum = `${fmtFig(totals.cashRev)} − ${fmtFig(totals.cashCost)}`;
+        let cashProfitNum = `${fmtFig(cashMargin)} − ${fmtFig(totalTax)}`;
+        let pnlProfitNum = `${fmtFig(totals.revExcl)} − ${fmtFig(totals.costExcl)} − ${fmtFig(otherTax)}`;
         let deductDiffers = Math.abs(totals.taxDeduct - totals.costExcl) >= 0.01;
         let incCn = deductDiffers
-            ? '不含税收入 − 税前扣除 − 附加税 − 印花税，再 × 所得税率；没票不能扣，亏损不征'
-            : '不含税收入 − 不含税成本 − 附加税 − 印花税，再 × 所得税率；亏损不征';
+            ? '企业所得税 =（不含税收入 − 税前扣除 − 附加税 − 印花税）× 所得税率；没票不能扣，亏损不征'
+            : '企业所得税 =（不含税收入 − 不含税成本 − 附加税 − 印花税）× 所得税率；亏损不征';
         let incBase = deductDiffers ? totals.taxDeduct : totals.costExcl;
         let incNum = taxableInc > 0
-            ? `${totals.revExcl.toFixed(2)} − ${incBase.toFixed(2)} − ${sur.toFixed(2)} − ${stamp.toFixed(2)} ＝ ${taxableInc.toFixed(2)}，× ${(incRate * 100).toFixed(0)}% ＝ ${incTax.toFixed(2)}`
-            : `${totals.revExcl.toFixed(2)} − ${incBase.toFixed(2)} − ${sur.toFixed(2)} − ${stamp.toFixed(2)} ＝ ${taxableInc.toFixed(2)}，所得为负 ＝ 0.00`;
-        let vatPayCn = unusedVat > 0 ? '销项税额 − 进项税额；不够抵按零缴纳' : '销项税额 − 进项税额';
+            ? `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(sur)} − ${fmtFig(stamp)} ＝ ${fmtFig(taxableInc)}）× ${(incRate * 100).toFixed(0)}% ＝ ${fmtFig(incTax)}`
+            : `（${fmtFig(totals.revExcl)} − ${fmtFig(incBase)} − ${fmtFig(sur)} − ${fmtFig(stamp)} ＝ ${fmtFig(taxableInc)}）＝ ${fmtFig(0)}`;
+        let vatPayCn = unusedVat > 0
+            ? '应缴增值税 = 销项税额 − 进项税额；不够抵按 0 缴纳'
+            : '应缴增值税 = 销项税额 − 进项税额';
         let vatPayNum = unusedVat > 0
-            ? `${totals.outVat.toFixed(2)} − ${totals.inVat.toFixed(2)} ＝ 0.00`
-            : `${totals.outVat.toFixed(2)} − ${totals.inVat.toFixed(2)} ＝ ${payVat.toFixed(2)}`;
+            ? `${fmtFig(totals.outVat)} − ${fmtFig(totals.inVat)} ＝ ${fmtFig(0)}`
+            : `${fmtFig(totals.outVat)} − ${fmtFig(totals.inVat)} ＝ ${fmtFig(payVat)}`;
 
         let unusedChip = unusedVat > 0
-            ? chipHtml('tax', '未抵扣进项', '进项税额 − 销项税额；单趟用不掉计入成本', `${totals.inVat.toFixed(2)} − ${totals.outVat.toFixed(2)} ＝ ${unusedVat.toFixed(2)}`, unusedVat.toFixed(2), false)
+            ? chipHtml('tax', '未抵扣进项', '未抵扣进项 = 进项税额 − 销项税额；单趟用不掉计入成本', `${fmtFig(totals.inVat)} − ${fmtFig(totals.outVat)} ＝ ${fmtFig(unusedVat)}`, fmtMoney(unusedVat), false)
             : '';
         let deductChip = deductDiffers
-            ? chipHtml('base', '税前扣除', '专票按不含税、普票按全额、没票不扣', totals.taxDeductItems.map(it => it.num).join(' ＋ ') + ` ＝ ${totals.taxDeduct.toFixed(2)}`, totals.taxDeduct.toFixed(2), false, totals.taxDeductItems)
+            ? chipHtml('base', '税前扣除', '税前扣除 = 专票按不含税 ＋ 普票按全额；没票不扣', totals.taxDeductItems.map(it => it.num).join(' ＋ ') + ` ＝ ${fmtFig(totals.taxDeduct)}`, fmtMoney(totals.taxDeduct), false, totals.taxDeductItems)
             : '';
-        let revExclJoin = totals.revExclNums.join(' ＋ ') + (totals.revExclNums.length > 1 ? ` ＝ ${totals.revExcl.toFixed(2)}` : '');
-        let costExclJoin = totals.costExclNums.join(' ＋ ') + (totals.costExclNums.length > 1 ? ` ＝ ${totals.costExcl.toFixed(2)}` : '');
+        let revExclJoin = totals.revExclNums.join(' ＋ ') + (totals.revExclNums.length > 1 ? ` ＝ ${fmtFig(totals.revExcl)}` : '');
+        let costExclJoin = totals.costExclNums.join(' ＋ ') + (totals.costExclNums.length > 1 ? ` ＝ ${fmtFig(totals.costExcl)}` : '');
         let outVatJoin = totals.outVatItems.map(it => it.num.split(' ＝ ').pop()).join(' ＋ ');
-        if (totals.outVatItems.length > 1) outVatJoin += ` ＝ ${totals.outVat.toFixed(2)}`;
+        if (totals.outVatItems.length > 1) outVatJoin += ` ＝ ${fmtFig(totals.outVat)}`;
         else if (totals.outVatItems.length === 1) outVatJoin = totals.outVatItems[0].num;
         let inVatJoin = totals.inVatItems.map(it => it.num.includes('＝') ? it.num.split(' ＝ ').pop() : it.num).join(' ＋ ');
-        if (totals.inVatItems.length > 1) inVatJoin += ` ＝ ${totals.inVat.toFixed(2)}`;
+        if (totals.inVatItems.length > 1) inVatJoin += ` ＝ ${fmtFig(totals.inVat)}`;
         else if (totals.inVatItems.length === 1) inVatJoin = totals.inVatItems[0].num;
 
         let baseStrip = `
                 <div class="strip-block">
                     <div class="strip-head">基础模块 · 不含税口径只算一次</div>
                     <div class="tax-strip">
-                        ${chipHtml('base', '不含税收入', isSmall() ? '含税开票：含税收入 ÷（1＋征收率）。不开票：不含税等于实收' : '含税开票：含税收入 ÷（1＋销项税率）。不开票：不含税等于实收', revExclJoin, totals.revExcl.toFixed(2), false, totals.revExclItems)}
-                        ${chipHtml('base cost', '不含税成本', isSmall() ? '小规模不能抵进项，专票、普票、没票都按含税支出' : '专票剔进项；普票、没票等于含税支出', costExclJoin, totals.costExcl.toFixed(2), false, totals.costExclItems)}
+                        ${chipHtml('base', '不含税收入', isSmall() ? '不含税收入 = 含税收入 ÷（1＋征收率）。不开票时：不含税收入 = 实收' : '不含税收入 = 含税收入 ÷（1＋销项税率）。不开票时：不含税收入 = 实收', revExclJoin, fmtMoney(totals.revExcl), false, totals.revExclItems)}
+                        ${chipHtml('base cost', '不含税成本', isSmall() ? '不含税成本 = 含税支出（小规模不能抵进项）' : '不含税成本 = 专票剔进项后的价款；普票、没票时：不含税成本 = 含税支出', costExclJoin, fmtMoney(totals.costExcl), false, totals.costExclItems)}
                         ${deductChip}
                     </div>
                 </div>`;
@@ -1066,13 +1271,13 @@
                 <div class="strip-block">
                     <div class="strip-head">税费模块 · 引用上方结果</div>
                     <div class="tax-strip">
-                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '含税收入 − 不含税收入（按征收率）' : '含税收入 − 不含税收入', outVatJoin, totals.outVat.toFixed(2), false, totals.outVatItems)}
-                        ${chipHtml('tax', '进项税额', isSmall() ? '小规模不能抵扣进项' : '专票、代扣：含税支出 − 不含税成本。普票、没票不能抵', inVatJoin, totals.inVat.toFixed(2), false, totals.inVatItems)}
-                        ${chipHtml('tax', '应缴增值税', isSmall() ? '小规模应缴增值税等于征收额，不能抵进项' : vatPayCn, vatPayNum, payVat.toFixed(2), true)}
+                        ${chipHtml('tax', isSmall() ? '应纳税额' : '销项税额', isSmall() ? '应纳税额 = 含税收入 − 不含税收入（按征收率）' : '销项税额 = 含税收入 − 不含税收入', outVatJoin, fmtMoney(totals.outVat), false, totals.outVatItems)}
+                        ${chipHtml('tax', '进项税额', isSmall() ? '进项税额 = 0（小规模不能抵扣进项）' : '进项税额 = 专票/代扣的（含税支出 − 不含税成本）；普票、没票不能抵，进项 = 0', inVatJoin, fmtMoney(totals.inVat), false, totals.inVatItems)}
+                        ${chipHtml('tax', '应缴增值税', isSmall() ? '应缴增值税 = 应纳税额（小规模不能抵进项）' : vatPayCn, vatPayNum, fmtMoney(payVat), true)}
                         ${unusedChip}
-                        ${chipHtml('tax', '附加税', '应缴增值税 × 附加税率', `${payVat.toFixed(2)} × ${(surRate * 100).toFixed(0)}% ＝ ${sur.toFixed(2)}`, sur.toFixed(2), true)}
-                        ${chipHtml('tax', '印花税', '勾选项目不含税价款相加，再 × 印花税率', stampNum, stamp.toFixed(2), true, totals.stampItems)}
-                        ${chipHtml('tax', '企业所得税', incCn, incNum, incTax.toFixed(2), true)}
+                        ${chipHtml('tax', '附加税', '附加税 = 应缴增值税 × 附加税率', `${fmtFig(payVat)} × ${(surRate * 100).toFixed(0)}% ＝ ${fmtFig(sur)}`, fmtMoney(sur), true)}
+                        ${chipHtml('tax', '印花税', '印花税 = 勾选项目不含税价款合计 × 印花税率', stampNum, fmtMoney(stamp), true, totals.stampItems)}
+                        ${chipHtml('tax', '企业所得税', incCn, incNum, fmtMoney(incTax), true)}
                     </div>
                 </div>`;
 
@@ -1082,10 +1287,10 @@
                     <h2>📋 成本核算（${taxpayerName()} · 现金流 VS 利润表）</h2>
                     <div class="order-badge">
                         <span class="tag">${taxpayerName()}</span>
-                        <span class="tag tone-qty">数量 ${qty}</span>
+                        <span class="tag tone-qty">数量 ${fmtInt(qty)}</span>
                         <span class="tag tone-sur">附加税 ${(surRate*100).toFixed(0)}%</span>
                         <span class="tag tone-inc">所得税 ${(incRate*100).toFixed(0)}%</span>
-                        <span class="tag tone-stamp">印花税 ${(stampRate*10000).toFixed(0)}‱</span>
+                        <span class="tag tone-stamp">印花税 ${stampPermyriad(stampRate)}‱</span>
                     </div>
                 </div>
                 ${baseStrip}
@@ -1099,7 +1304,7 @@
                             <div class="row-item row-total">
                                 <span class="row-label">收入合计</span>
                                 <span class="row-detail">${dual('各项含税收入相加', revCashNum)}</span>
-                                <span class="row-value positive">+${totals.cashRev.toFixed(2)}</span>
+                                <span class="row-value positive">+${fmtMoney(totals.cashRev)}</span>
                             </div>
                         </div>
                         <div class="block-negative">
@@ -1108,7 +1313,7 @@
                             <div class="row-item row-total">
                                 <span class="row-label">成本支出合计</span>
                                 <span class="row-detail">${dual('各项含税支出相加', costCashNum)}</span>
-                                <span class="row-value negative">−${totals.cashCost.toFixed(2)}</span>
+                                <span class="row-value negative">−${fmtMoney(totals.cashCost)}</span>
                             </div>
                         </div>
                         <div class="block-tax">
@@ -1116,7 +1321,7 @@
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">税费总计</span>
                                 <span class="row-detail">${dual('应缴增值税 ＋ 附加税 ＋ 印花税 ＋ 企业所得税', totalTaxNum)}</span>
-                                <span class="row-value total-tax">−${totalTax.toFixed(2)}</span>
+                                <span class="row-value total-tax">−${fmtMoney(totalTax)}</span>
                             </div>
                         </div>
                         <div class="block-result">
@@ -1124,12 +1329,12 @@
                             <div class="row-item row-line">
                                 <span class="row-label">账面现金毛利</span>
                                 <span class="row-detail">${dual('收入合计 − 成本支出合计', cashMarginNum)}</span>
-                                <span class="row-value">${cashMargin>=0?'+':''}${cashMargin.toFixed(2)}</span>
+                                <span class="row-value">${cashMargin>=0?'+':''}${fmtMoney(cashMargin)}</span>
                             </div>
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">① 现金流净利</span>
                                 <span class="row-detail">${dual('账面现金毛利 − 税费总计', cashProfitNum)}</span>
-                                <span class="row-value big ${netProfit>=0?'green':'negative'}">${netProfit>=0?'+':''}${netProfit.toFixed(2)}</span>
+                                <span class="row-value big ${netProfit>=0?'green':'negative'}">${netProfit>=0?'+':''}${fmtMoney(netProfit)}</span>
                             </div>
                         </div>
                     </div>
@@ -1141,14 +1346,14 @@
                             <div class="row-item row-total">
                                 <span class="row-label">不含税收入合计</span>
                                 <span class="row-detail">${dual('各项不含税收入相加', revExclNum)}</span>
-                                <span class="row-value positive">${totals.revExcl.toFixed(2)}</span>
+                                <span class="row-value positive">${fmtMoney(totals.revExcl)}</span>
                             </div>
                         </div>
                         <div class="block-negative">
                             <div class="block-label">⬇ 不含税成本</div>
                             ${totals.costExclHtml}
                             <div class="row-item row-total">
-                                <span class="row-label">📦 不含税成本合计</span><span class="row-detail">${dual('各项不含税成本相加', costExclNum)}</span><span class="row-value negative">−${totals.costExcl.toFixed(2)}</span>
+                                <span class="row-label">📦 不含税成本合计</span><span class="row-detail">${dual('各项不含税成本相加', costExclNum)}</span><span class="row-value negative">−${fmtMoney(totals.costExcl)}</span>
                             </div>
                         </div>
                         <div class="block-tax">
@@ -1156,7 +1361,7 @@
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">其他税费合计</span>
                                 <span class="row-detail">${dual('附加税 ＋ 印花税 ＋ 企业所得税', otherTaxNum)}</span>
-                                <span class="row-value total-tax">−${otherTax.toFixed(2)}</span>
+                                <span class="row-value total-tax">−${fmtMoney(otherTax)}</span>
                             </div>
                         </div>
                         <div class="block-result">
@@ -1164,7 +1369,7 @@
                             <div class="row-item row-total" style="border-bottom: none;">
                                 <span class="row-label">② 利润表净利</span>
                                 <span class="row-detail">${dual('不含税收入合计 − 不含税成本合计 − 其他税费合计', pnlProfitNum)}</span>
-                                <span class="row-value big ${f2Profit>=0?'green':'negative'}">${f2Profit>=0?'+':''}${f2Profit.toFixed(2)}</span>
+                                <span class="row-value big ${f2Profit>=0?'green':'negative'}">${f2Profit>=0?'+':''}${fmtMoney(f2Profit)}</span>
                             </div>
                         </div>
                     </div>
@@ -1172,14 +1377,14 @@
                 <div class="result-area">
                     <div class="result-item">
                         <span class="label">✅ 交叉验证</span>
-                        <span class="number ${netProfit>=0?'green':'red'}">${netProfit.toFixed(2)}</span>
-                        <span style="color:#2a4f77; font-weight:500;">= ${f2Profit.toFixed(2)}</span>
+                        <span class="number ${netProfit>=0?'green':'red'}">${fmtMoney(netProfit)}</span>
+                        <span style="color:#2a4f77; font-weight:500;">= ${fmtMoney(f2Profit)}</span>
                         <span class="check-mark ${Math.abs(netProfit - f2Profit)<0.01 ? 'success':'error'}">${Math.abs(netProfit - f2Profit)<0.01 ? '✔ 两项净利一致':'❌ 数据有误差'}</span>
                     </div>
                 </div>
                 <div class="footnote">
-                    <span>📌 含税收入 ${totals.cashRev.toFixed(2)}</span><span>📌 不含税收入 ${totals.revExcl.toFixed(2)}</span>
-                    <span>📌 含税成本 ${totals.cashCost.toFixed(2)}</span><span>📌 不含税成本 ${totals.costExcl.toFixed(2)}</span>
+                    <span>📌 含税收入 ${fmtMoney(totals.cashRev)}</span><span>📌 不含税收入 ${fmtMoney(totals.revExcl)}</span>
+                    <span>📌 含税成本 ${fmtMoney(totals.cashCost)}</span><span>📌 不含税成本 ${fmtMoney(totals.costExcl)}</span>
                     <span style="margin-left: auto;">📊 税费占含税收入 ${compTaxRate}%</span>
                 </div>
             </div>`;
@@ -1188,6 +1393,7 @@
 
     let tipTimer = null;
     let tipAnchor = null;
+    let tipXY = { x: 0, y: 0 };
 
     function hideAppTip() {
         let el = document.getElementById('appTip');
@@ -1196,38 +1402,26 @@
         if (tipTimer) { clearTimeout(tipTimer); tipTimer = null; }
     }
 
-    function rectsHit(a, b) {
-        return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
-    }
-
-    function tipWouldCover(anchor, box) {
-        let nodes = document.querySelectorAll('.gs-item, .list-row, .grid-settings, .taxpayer-bar');
-        for (let i = 0; i < nodes.length; i++) {
-            let n = nodes[i];
-            if (n === anchor || n.contains(anchor) || anchor.contains(n)) continue;
-            if (rectsHit(box, n.getBoundingClientRect())) return true;
-        }
-        return false;
-    }
-
-    function placeAppTip(el, anchor) {
-        let r = anchor.getBoundingClientRect();
+    function placeAppTip(el) {
         let tw = el.offsetWidth;
         let th = el.offsetHeight;
-        let left = r.left;
-        if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+        let left = tipXY.x + 14;
+        let top = tipXY.y - th - 12;
+        if (top < 8) top = tipXY.y + 16;
+        if (left + tw > window.innerWidth - 8) left = tipXY.x - tw - 14;
         if (left < 8) left = 8;
-        let below = { left: left, top: r.bottom + 8, right: left + tw, bottom: r.bottom + 8 + th };
-        let above = { left: left, top: r.top - th - 8, right: left + tw, bottom: r.top - 8 };
-        let useAbove = tipWouldCover(anchor, below) || (window.innerHeight - r.bottom < th + 12);
-        if (useAbove && above.top < 8) useAbove = false;
+        if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
         el.style.left = left + 'px';
-        el.style.top = (useAbove ? above.top : below.top) + 'px';
+        el.style.top = top + 'px';
     }
 
-    function showAppTip(anchor) {
+    function showAppTip(anchor, e) {
         let text = anchor.getAttribute('data-tip');
         if (!text) return;
+        if (e) {
+            tipXY.x = e.clientX;
+            tipXY.y = e.clientY;
+        }
         if (tipTimer) { clearTimeout(tipTimer); tipTimer = null; }
         tipAnchor = anchor;
         let el = document.getElementById('appTip');
@@ -1240,14 +1434,22 @@
         el.style.opacity = '1';
         el.style.left = '-999px';
         el.style.top = '0';
-        requestAnimationFrame(function () { placeAppTip(el, anchor); });
+        requestAnimationFrame(function () { placeAppTip(el); });
         tipTimer = setTimeout(hideAppTip, 5000);
     }
 
     document.addEventListener('mouseover', function (e) {
         let t = e.target.closest('[data-tip]');
         if (!t || t === tipAnchor) return;
-        showAppTip(t);
+        showAppTip(t, e);
+    });
+    document.addEventListener('mousemove', function (e) {
+        tipXY.x = e.clientX;
+        tipXY.y = e.clientY;
+        if (!tipAnchor) return;
+        if (e.target.closest('[data-tip]') !== tipAnchor) return;
+        let el = document.getElementById('appTip');
+        if (el && el.style.opacity !== '0') placeAppTip(el);
     });
     document.addEventListener('mouseout', function (e) {
         let t = e.target.closest('[data-tip]');
@@ -1256,7 +1458,14 @@
         hideAppTip();
     });
     document.addEventListener('scroll', hideAppTip, true);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeGuide();
+            closeBreakeven();
+        }
+    });
 
+    applyPolicyDefaults();
     applyTaxpayerUi();
     buildForms();
     render();
