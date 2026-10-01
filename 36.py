@@ -11,7 +11,7 @@ import traceback
 
 class LogisticsCalculator:
     """多维物流成本与税务核算工具"""
-
+    
     DEFAULT_CONFIG = {
         'platform_rate': 0.071,
         'surcharge_rate': 0.06,
@@ -20,7 +20,7 @@ class LogisticsCalculator:
         'default_vat_rate': 0.09,
         'qty': 1.0
     }
-
+    
     COST_STATE_MAP = {
         0: {'label': '🚫 没票', 'color': 'red', 'rate': '0', 'desc': '无票支出'},
         1: {'label': '✅ 普票', 'color': '#0078D7', 'rate': '0.01', 'desc': '普票(全额计成本)'},
@@ -35,19 +35,19 @@ class LogisticsCalculator:
             self.root.state("zoomed")
         except Exception:
             self.root.geometry("1800x900")
-
+        
         self._setup_styles()
         self.rev_items = []
         self.cost_items = []
         self.report_data = {}
         self.taxpayer = 'general'
         self.v_use_platform = tk.BooleanVar(value=False)
-
+        
         self.setup_ui()
         self.add_rev_row("物流收入", "55", "0.09", True)
-        self.add_cost_row("司机运费", "40", "0.01", 1)
+        self.add_cost_row("司机运费", "40", "0.01", 1) 
         self.add_cost_row("居间费含", "10", "0.01", 2)
-
+        
     def _d_round(self, value):
         return float(Decimal(str(value)).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP))
 
@@ -97,37 +97,37 @@ class LogisticsCalculator:
         """全局与税务设置"""
         settings_frame = ttk.LabelFrame(self.scrollable_frame, text=" ⚙️ 全局与税务设置 ", padding=12)
         settings_frame.pack(fill="x", pady=5, padx=5)
-
+        
         self.btn_platform = tk.Button(
             settings_frame, text="⬜ 启用下游平台模式(关闭)",
-            fg="gray", font=("Microsoft YaHei", 11, "bold"),
+                                      fg="gray", font=("Microsoft YaHei", 11, "bold"),
             relief="flat", cursor="hand2", command=self.toggle_platform_mode
         )
         self.btn_platform.grid(row=0, column=0, columnspan=2, padx=5, pady=8, sticky="w")
-
+        
         self.lbl_plat_rate = tk.Label(
             settings_frame, text="平台真实税点:", fg="purple", font=("Microsoft YaHei", 10, "bold")
         )
         self.entry_plat_rate = ttk.Entry(settings_frame, width=8, font=("Microsoft YaHei", 10))
         self.entry_plat_rate.insert(0, str(self.DEFAULT_CONFIG['platform_rate']))
-
+        
         tk.Label(
             settings_frame, text="业务份数/规模(份):", fg="#d93025", font=("Microsoft YaHei", 10, "bold")
         ).grid(row=0, column=4, padx=5, pady=8, sticky="e")
         self.entry_qty = ttk.Entry(settings_frame, width=8, font=("Microsoft YaHei", 10, "bold"))
         self.entry_qty.insert(0, str(self.DEFAULT_CONFIG['qty']))
         self.entry_qty.grid(row=0, column=5, padx=5, pady=8, sticky="w")
-
+        
         ttk.Label(settings_frame, text="附加税率:").grid(row=1, column=0, padx=5, pady=8, sticky="w")
         self.entry_surcharge = ttk.Entry(settings_frame, width=8)
         self.entry_surcharge.insert(0, str(self.DEFAULT_CONFIG['surcharge_rate']))
         self.entry_surcharge.grid(row=1, column=1, padx=5, sticky="w")
-
+        
         ttk.Label(settings_frame, text="所得税率:").grid(row=1, column=2, padx=5, pady=8, sticky="e")
         self.entry_income_tax = ttk.Entry(settings_frame, width=8)
         self.entry_income_tax.insert(0, str(self.DEFAULT_CONFIG['income_tax_rate']))
         self.entry_income_tax.grid(row=1, column=3, padx=5, sticky="w")
-
+        
         ttk.Label(settings_frame, text="印花税率:").grid(row=1, column=4, padx=5, pady=8, sticky="e")
         self.entry_stamp = ttk.Entry(settings_frame, width=8)
         self.entry_stamp.insert(0, str(self.DEFAULT_CONFIG['stamp_tax_rate']))
@@ -268,7 +268,7 @@ class LogisticsCalculator:
         """切换平台模式"""
         current = self.v_use_platform.get()
         self.v_use_platform.set(not current)
-
+        
         if self.v_use_platform.get():
             self.btn_platform.config(text="✅ 启用下游平台模式(开启)", fg="purple")
             self.lbl_plat_rate.grid(row=0, column=2, padx=5, pady=8, sticky="e")
@@ -283,7 +283,7 @@ class LogisticsCalculator:
             self.entry_plat_rate.grid_remove()
             for item in self.cost_items:
                 if item['state'].get() == 3:
-                    item['state'].set(1)
+                    item['state'].set(1) 
                     self.update_cost_visuals(item, auto_fill=True)
         self.calculate_cost()
 
@@ -328,7 +328,7 @@ class LogisticsCalculator:
             if val == 3:
                 e_rate.insert(0, self.entry_plat_rate.get().strip() or str(self.DEFAULT_CONFIG['platform_rate']))
             else:
-                e_rate.insert(0, state_info['rate'])
+            e_rate.insert(0, state_info['rate'])
         if val in (0, 3):
             e_rate.config(state="readonly")
 
@@ -336,38 +336,38 @@ class LogisticsCalculator:
         """添加收入行"""
         row = ttk.Frame(self.rev_container)
         row.pack(fill="x", pady=4)
-
+        
         ttk.Label(row, text="名称:").pack(side="left", padx=1)
         e_name = ttk.Entry(row, width=12)
         e_name.insert(0, name)
         e_name.pack(side="left", padx=2)
-
+        
         ttk.Label(row, text="单价:").pack(side="left", padx=1)
         e_amt = ttk.Entry(row, width=9)
         e_amt.insert(0, amt)
         e_amt.pack(side="left", padx=2)
-
+        
         ttk.Label(row, text="税率:").pack(side="left", padx=1)
         e_rate = ttk.Entry(row, width=6)
         e_rate.insert(0, rate if is_inclusive else "0")
         e_rate.pack(side="left", padx=2)
-
+        
         v_inc = tk.BooleanVar(value=is_inclusive)
         v_stamp = tk.BooleanVar(value=stamp)
         btn_inc = tk.Button(
             row, text="✅ 含税金额" if is_inclusive else "⬜ 不含税金额",
-            fg="green" if is_inclusive else "gray", relief="flat",
+                           fg="green" if is_inclusive else "gray", relief="flat", 
             cursor="hand2", font=("Microsoft YaHei", 9, "bold")
         )
         btn_inc.config(command=lambda: self.toggle_rev_btn(v_inc, btn_inc, e_rate))
         btn_inc.pack(side="left", padx=6)
-
+        
         btn_del = ttk.Button(row, text="❌", width=3, command=lambda: self.delete_row(row, self.rev_items))
         btn_del.pack(side="left", padx=4)
-
+        
         for e in (e_name, e_amt, e_rate):
             e.bind("<KeyRelease>", lambda event: self.calculate_cost())
-
+            
         self.rev_items.append({
             'frame': row, 'name': e_name, 'amt': e_amt, 'rate': e_rate,
             'inc': v_inc, 'stamp': v_stamp
@@ -378,47 +378,47 @@ class LogisticsCalculator:
         """添加成本行"""
         row = ttk.Frame(self.cost_container)
         row.pack(fill="x", pady=4)
-
+        
         ttk.Label(row, text="名称:").pack(side="left", padx=1)
         e_name = ttk.Entry(row, width=12)
         e_name.insert(0, name)
         e_name.pack(side="left", padx=2)
-
+        
         ttk.Label(row, text="单价:").pack(side="left", padx=1)
         e_amt = ttk.Entry(row, width=9)
         e_amt.insert(0, amt)
         e_amt.pack(side="left", padx=2)
-
+        
         ttk.Label(row, text="税率:").pack(side="left", padx=1)
         e_rate = ttk.Entry(row, width=6)
         e_rate.pack(side="left", padx=2)
-
+        
         v_state = tk.IntVar(value=state)
         if stamp is None:
             stamp = "居间" not in name
         v_stamp = tk.BooleanVar(value=stamp)
         btn_state = tk.Button(row, relief="flat", cursor="hand2", font=("Microsoft YaHei", 9, "bold"))
         lbl_dynamic = tk.Label(row, text="", fg="purple", font=("Microsoft YaHei", 9, "bold"), anchor="w")
-
+        
         item_dict = {
-            'frame': row, 'name': e_name, 'amt': e_amt, 'rate': e_rate,
+            'frame': row, 'name': e_name, 'amt': e_amt, 'rate': e_rate, 
             'state': v_state, 'stamp': v_stamp, 'btn_state': btn_state, 'lbl_dynamic': lbl_dynamic
         }
         btn_state.config(command=lambda: self.toggle_cost_state(item_dict))
         btn_state.pack(side="left", padx=6)
         lbl_dynamic.pack(side="left", padx=2)
-
+        
         btn_del = ttk.Button(row, text="❌", width=3, command=lambda: self.delete_row(row, self.cost_items))
         btn_del.pack(side="left", padx=8)
-
+        
         if not rate:
             rate = self.COST_STATE_MAP.get(state, self.COST_STATE_MAP[1])['rate']
         e_rate.insert(0, rate)
         self.update_cost_visuals(item_dict, auto_fill=False)
-
+        
         for e in (e_name, e_amt, e_rate):
             e.bind("<KeyRelease>", lambda event: self.calculate_cost())
-
+            
         self.cost_items.append(item_dict)
         self.calculate_cost()
 
@@ -468,12 +468,12 @@ class LogisticsCalculator:
             if force.get('cash') is not None:
                 amt = force['cash']
         if inc:
-            cash = self._d_round(amt)
+                cash = self._d_round(amt)
             split = self._vat_split(cash, rate)
             return {'cash': cash, 'excl': split['excl'], 'out_vat': split['vat'], 'inc': inc, 'rate': rate}
-        excl = self._d_round(amt)
-        out_vat = self._d_round(excl * rate)
-        cash = self._d_round(excl + out_vat)
+                excl = self._d_round(amt)
+                out_vat = self._d_round(excl * rate)
+                cash = self._d_round(excl + out_vat)
         return {'cash': cash, 'excl': excl, 'out_vat': out_vat, 'inc': inc, 'rate': rate}
 
     def _split_cost(self, c, qty, p_rate, up_rate, small_mode):
@@ -668,13 +668,13 @@ class LogisticsCalculator:
             if st == 3:
                 lbl.config(
                     text=f"含税支出: {unit_cash:.2f}  进项抵扣: {unit_vat:.2f}  净成本: {unit_excl:.2f}",
-                    fg="purple"
-                )
+                fg="purple"
+            )
             elif st == 2:
                 lbl.config(text=f"进项抵扣: {unit_vat:.2f}  净成本: {unit_excl:.2f}", fg="green")
             elif st == 1:
                 lbl.config(text=f"进项抵扣: 0.00  净成本: {unit_cost:.2f}", fg="#0078D7")
-            else:
+        else:
                 lbl.config(text=f"无抵扣  净成本: {unit_cost:.2f} (不得税前扣除)", fg="red")
 
     def _get_breakeven_rev(self, cfg):
@@ -709,10 +709,10 @@ class LogisticsCalculator:
                 if trial(mid_cents / 100.0, invoice_rate)['net_profit'] >= 0:
                     best_cents = mid_cents
                     high_cents = mid_cents - 1
-                else:
+            else:
                     low_cents = mid_cents + 1
             return best_cents / 100.0
-
+        
         return {
             'no_invoice': find_min_rev(0),
             'with_invoice': find_min_rev(up_rate),
@@ -831,11 +831,11 @@ class LogisticsCalculator:
 
         self.tree.insert('', 'end', values=(f"【营业成本明细】 (共 {qty:g} 单)", "", "", ""), tags=('header',))
         for row in t['cost_rows']:
-            self.tree.insert('', 'end', values=(
+        self.tree.insert('', 'end', values=(
                 f" - {row['name']}", f"{row['cash']:.2f}", f"{row['cost_deduct']:.2f}", row['desc']
-            ))
+        ))
         if t['unused_vat'] > 0:
-            self.tree.insert('', 'end', values=(
+        self.tree.insert('', 'end', values=(
                 " - 未抵扣进项税额", "", f"{t['unused_vat']:.2f}",
                 f"进项税额 {t['in_vat']:.2f} − 销项税额 {t['out_vat']:.2f}，本单未抵完部分计入营业成本"
             ))
@@ -1091,7 +1091,7 @@ body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20
 
     def generate_html_report(self):
         """生成完整 0.99 页：左侧设置/填写区 + 右侧核算报表"""
-        self.calculate_cost()
+            self.calculate_cost()
         cfg = self._collect_ui()
         template = self._load_099_template()
         if template:
@@ -1312,7 +1312,7 @@ body.full-app, body { height: 100vh; overflow: hidden; padding: 0 !important; }
         <div class="form-group-title title-params">
             <span>🎛 测算参数</span>
             <span class="{plat_cls}">{plat_txt}</span>
-        </div>
+                </div>
         <div class="taxpayer-bar">
             <span class="gs-label">纳税身份</span>
             <span class="{gen_cls}">一般纳税人</span>
@@ -1554,7 +1554,7 @@ body.full-app, body { height: 100vh; overflow: hidden; padding: 0 !important; }
                 "（" + " ＋ ".join(it["num"] for it in stamp_items)
                 + f" ＝ {self._fmt_fig(t['stamp_base'])}）× {self._stamp_pm(stamp_rate)}‱ ＝ {self._fmt_fig(stamp)}"
             )
-        else:
+            else:
             stamp_num = self._fmt_fig(0)
         tax_add_num = f"{self._fmt_fig(sur)} ＋ {self._fmt_fig(stamp)}"
         sur_num = f"{self._fmt_fig(pay_vat)} × {(sur_rate * 100):.0f}% ＝ {self._fmt_fig(sur)}"
@@ -1698,7 +1698,7 @@ body.full-app, body { height: 100vh; overflow: hidden; padding: 0 !important; }
                     <span class="row-detail">{self._dual("应纳税额" if small else "销项税额 − 进项税额", self._fmt_fig(pay_vat))}</span>
                     <span class="row-value total-tax">−{self._fmt_money(pay_vat)}</span>
                 </div>
-            </div>
+                </div>
             <div class="block-tax">
                 <div class="block-label"{self._tip("现金缴纳的税金及附加，假设与利润表税金及附加同额并于当期缴纳。不含增值税，不含企业所得税。")}>⬇ 实缴税金及附加</div>
                 <div class="row-item sub-row"{self._tip("附加税费 = 实缴增值税 × 附加税费率，含城市维护建设税、教育费附加、地方教育附加。")}>
@@ -1716,14 +1716,14 @@ body.full-app, body { height: 100vh; overflow: hidden; padding: 0 !important; }
                     <span class="row-detail">{self._dual("附加税费 ＋ 印花税", tax_add_num)}</span>
                     <span class="row-value total-tax">−{self._fmt_money(tax_add)}</span>
                 </div>
-            </div>
+                </div>
             <div class="block-tax">
                 <div class="block-label"{self._tip("现金缴纳的企业所得税。本单假设与利润表所得税费用同额并于当期缴纳，不并入税金及附加。")}>⬇ 实缴所得税</div>
                 <div class="row-item sub-row"{self._tip(inc_cn)}>
                     <span class="row-label">企业所得税</span>
                     <span class="row-detail">{self._dual("应纳税所得额 × 企业所得税率", inc_num)}</span>
                     <span class="row-value sub-val">{self._fmt_money(inc_tax)}</span>
-                </div>
+            </div>
                 <div class="row-item row-total"{self._tip("实缴所得税合计 = 企业所得税。本单假设于当期缴纳；应纳税所得额为负时为 0。")}>
                     <span class="row-label">实缴所得税合计</span>
                     <span class="row-detail">{self._dual("企业所得税", self._fmt_fig(inc_tax))}</span>
