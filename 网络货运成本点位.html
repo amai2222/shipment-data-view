@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>网络货运成本点位</title>
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --line: #e5e7eb;
+            --line-strong: #d1d5db;
+            --text: #111827;
+            --text-2: #4b5563;
+            --text-3: #6b7280;
+            --brand: #2563eb;
+            --brand-soft: #eff6ff;
+            --ok: #059669;
+            --ok-soft: #ecfdf5;
+            --danger: #dc2626;
+            --danger-soft: #fef2f2;
+            --warn: #d97706;
+            --warn-soft: #fffbeb;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px 16px 40px;
+        }
+        .card {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 20px;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06);
+            border: 1px solid var(--line);
+            padding: 24px 26px 28px;
+            min-width: 0;
+            overflow-x: hidden;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 14px;
+            gap: 8px;
+        }
+        .card-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+        .order-badge {
+            background: var(--surface-soft);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            color: var(--text-2);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            border: 1px solid var(--line);
+        }
+        .tag {
+            background: var(--surface);
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-weight: 500;
+            border: 1px solid var(--line);
+        }
+        .strip-head {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            margin: 6px 0 10px;
+            letter-spacing: 0.2px;
+        }
+        .form-group {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 16px;
+            background: var(--surface-soft);
+            min-width: 0;
+            overflow: hidden;
+        }
+        .form-group-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            letter-spacing: 0.2px;
+            color: #1d4ed8;
+        }
+        .form-group-title .sub { font-size: 12px; font-weight: 500; color: #94a3b8; }
+        .grid-settings {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            column-gap: 12px;
+            row-gap: 10px;
+            align-items: center;
+        }
+        .gs-item {
+            display: grid;
+            grid-template-columns: 7.2em max-content;
+            align-items: center;
+            column-gap: 8px;
+            min-width: 0;
+        }
+        .gs-label { font-size: 12px; color: var(--text); font-weight: 600; min-width: 0; line-height: 1.3; }
+        .gs-ctl { display: flex; align-items: center; gap: 4px; }
+        .gs-ctl input[type="number"] {
+            width: 72px;
+            padding: 6px 8px;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            font-weight: 700;
+            color: var(--text);
+            background: var(--surface);
+            font-variant-numeric: tabular-nums;
+        }
+        .gs-ctl input:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+        .pct-mark { font-size: 13px; font-weight: 600; color: var(--text-3); min-width: 16px; }
+        .highlight-linked { background-color: var(--ok-soft) !important; border-color: #a7f3d0 !important; color: #047857 !important; }
+        .tone-qty { background: #eff6ff !important; border-color: #bfdbfe !important; color: #1d4ed8 !important; }
+        .tone-sur { background: #fffbeb !important; border-color: #fde68a !important; color: #b45309 !important; }
+        .tone-inc { background: #f5f3ff !important; border-color: #ddd6fe !important; color: #6d28d9 !important; }
+        .tone-stamp { background: #fff1f2 !important; border-color: #fecdd3 !important; color: #be123c !important; }
+        .tone-cost { background: var(--danger-soft) !important; border-color: #fecaca !important; color: #b91c1c !important; }
+        .policy-note { margin-top: 10px; font-size: 11px; line-height: 1.65; color: #94a3b8; }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+        .tax-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .tax-strip.concl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .tax-chip {
+            background: var(--warn-soft);
+            border: 1px solid #fde68a;
+            border-radius: 14px;
+            padding: 12px 14px;
+            min-width: 0;
+            flex: 1 1 140px;
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+            cursor: default;
+            font: inherit;
+            text-align: left;
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+        button.tax-chip { cursor: pointer; }
+        .tax-chip.cost { background: var(--danger-soft); border-color: #fecaca; }
+        .tax-chip.muted { background: #f8fafc; border-color: #e5e7eb; }
+        .tax-chip .k { font-size: 14px; color: #78350f; font-weight: 700; line-height: 1.45; }
+        .tax-chip.base .k { color: #047857; }
+        .tax-chip.cost .k { color: #b91c1c; }
+        .tax-chip .now {
+            display: inline-block;
+            margin-top: 6px;
+            align-self: flex-start;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ok);
+            background: #d1fae5;
+            border: 1px solid #a7f3d0;
+            border-radius: 999px;
+            padding: 1px 8px;
+        }
+        .tax-chip .d-num {
+            font-size: 12px;
+            color: var(--text-2);
+            font-weight: 500;
+            margin-top: 6px;
+            line-height: 1.5;
+            font-variant-numeric: tabular-nums;
+        }
+        .tax-chip .v {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--warn);
+            font-variant-numeric: tabular-nums;
+            margin-top: auto;
+            padding-top: 10px;
+            text-align: right;
+        }
+        .tax-chip.base .v { color: var(--ok); }
+        .tax-chip.cost .v { color: var(--danger); }
+
+        /* 结论卡：未选中全灰，选中恢复绿色 */
+        .tax-strip.concl .tax-chip { min-height: 148px; min-width: 0; overflow: hidden; }
+        .tax-strip.concl .k { font-size: 13px; overflow-wrap: break-word; word-break: break-word; }
+        .tax-strip.concl .tax-chip.muted {
+            background: #f8fafc;
+            border-color: #e5e7eb;
+            box-shadow: none;
+        }
+        .tax-strip.concl .tax-chip.muted .k,
+        .tax-strip.concl .tax-chip.muted .d-num,
+        .tax-strip.concl .tax-chip.muted .v,
+        .tax-strip.concl .tax-chip.muted .now {
+            color: #9ca3af;
+            font-weight: 500;
+        }
+        .tax-strip.concl .tax-chip.muted .k { font-weight: 600; }
+        .tax-strip.concl .tax-chip.muted .v { font-size: 20px; font-weight: 600; }
+        .tax-strip.concl .tax-chip.muted .now {
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+        }
+        .tax-strip.concl .tax-chip.muted:hover {
+            background: #f1f5f9;
+            border-color: #d1d5db;
+        }
+        .tax-strip.concl .tax-chip.base {
+            background: var(--ok-soft);
+            border-color: #6ee7b7;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14), 0 8px 18px rgba(5, 150, 105, 0.08);
+        }
+        .tax-strip.concl .tax-chip.base .k { color: #047857; font-weight: 700; }
+        .tax-strip.concl .tax-chip.base .d-num { color: #059669; }
+        .tax-strip.concl .tax-chip.base .v { color: #047857; font-size: 22px; font-weight: 800; }
+        .tax-strip.concl .tax-chip.base .now {
+            color: var(--ok);
+            background: #d1fae5;
+            border-color: #a7f3d0;
+            font-weight: 700;
+        }
+
+        .split-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 0 0 8px; min-width: 0; }
+        .panel {
+            background: #fff;
+            border-radius: 16px;
+            padding: 16px 16px 18px;
+            border: 1px solid var(--line);
+            min-width: 0;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.03);
+        }
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 10px;
+        }
+        .panel-cash .panel-title { color: #1e3a8a; }
+        .panel-tax .panel-title { color: #92400e; }
+        .badge {
+            font-size: 12px;
+            background: var(--surface);
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-weight: 500;
+            color: var(--text-2);
+            border: 1px solid var(--line);
+        }
+        .badge.ok { color: var(--ok); border-color: #a7f3d0; background: var(--ok-soft); }
+        .panel-assume { font-size: 11px; color: #94a3b8; line-height: 1.55; margin: -2px 0 10px; }
+
+        .block-positive { background: var(--ok-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; border-left: 3px solid var(--ok); }
+        .block-positive .block-label { font-size: 15px; font-weight: 700; color: #047857; margin-bottom: 4px; }
+        .block-tax { background: var(--warn-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; border-left: 3px solid var(--warn); }
+        .block-tax .block-label { font-size: 15px; font-weight: 700; color: #b45309; margin-bottom: 4px; }
+        .block-result { background: var(--brand-soft); border-radius: 12px; padding: 10px 14px; border-left: 3px solid var(--brand); margin-top: 8px; }
+        .block-result .block-label { font-size: 15px; font-weight: 700; color: #1d4ed8; margin-bottom: 4px; }
+
+        .row-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            font-size: 13.5px;
+            align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            gap: 8px;
+            min-width: 0;
+        }
+        .row-item:last-of-type { border-bottom: none; }
+        .row-label { color: var(--text-2); flex: 0 1 7.5em; min-width: 0; }
+        .row-detail {
+            color: var(--text-3);
+            font-size: 12px;
+            flex: 1 1 auto;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+            line-height: 1.4;
+            min-width: 0;
+        }
+        .f-cn { color: var(--text-3); font-size: 12px; text-align: center; max-width: 100%; word-break: keep-all; }
+        .f-num { color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+        .row-value {
+            font-variant-numeric: tabular-nums;
+            flex: 0 0 auto;
+            min-width: 72px;
+            text-align: right;
+            color: var(--text-2);
+        }
+        .row-total .row-label { font-weight: 600; color: var(--text); }
+        .row-total .row-value { font-weight: 700; font-size: 15px; }
+        .row-value.green { color: var(--ok); }
+        .row-value.big { font-size: 17px; font-weight: 700; }
+        .row-value.tax, .row-total .row-value.tax { color: #b45309 !important; }
+
+        .scene { display: none; margin-top: 10px; }
+        .scene.on { display: block; }
+        .scene-hint {
+            margin: 8px 0 4px;
+            padding: 16px 18px;
+            border: 1px dashed var(--line-strong);
+            border-radius: 14px;
+            background: var(--surface-soft);
+            color: var(--text-3);
+            font-size: 13px;
+            text-align: center;
+        }
+        .scene-hint.hide { display: none; }
+        .sec {
+            margin: 22px 0 10px;
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            color: var(--text);
+        }
+        .sec .n {
+            width: 26px; height: 26px; border-radius: 999px;
+            background: #ecfdf5; border: 1px solid #a7f3d0;
+            font-size: 13px; font-weight: 700; color: #047857;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex: 0 0 auto;
+        }
+        .scene.current .sec { color: var(--ok); }
+        .footnote {
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--text-3);
+            background: var(--surface-soft);
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            justify-content: space-between;
+        }
+        .footnote span { flex: 1 1 0; min-width: 180px; text-align: center; color: var(--text-2); }
+        @media (max-width: 800px) {
+            .grid-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; }
+            .tax-strip.concl { grid-template-columns: 1fr 1fr; }
+            .split-panel { grid-template-columns: 1fr; }
+            .card { padding: 18px 14px; }
+            .row-item { flex-wrap: wrap; }
+            .row-detail { flex: 1 1 100%; order: 3; align-items: flex-start; text-align: left; }
+            .row-value { margin-left: auto; }
+            .gs-ctl input[type="number"] { font-size: 16px; }
+        }
+        @media (max-width: 520px) {
+            .grid-settings { grid-template-columns: minmax(0, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <h1>网络货运成本点位</h1>
+        <div class="order-badge">
+            一般纳税人
+            <span class="tag" id="tagVat">销项 9%</span>
+            <span class="tag" id="tagRebate">奖补 3%</span>
+            <span class="tag" id="tagSurcharge">附加 6%</span>
+            <span class="tag" id="tagCit">所得税 5%</span>
+            <span class="tag" id="tagAssess">税务核定征收 10%</span>
+            <span class="tag" id="tagStamp">印花 0.03%</span>
+        </div>
+    </div>
+
+    <div class="form-group" id="paramGroup">
+        <div class="form-group-title">
+            <span>测算条件</span>
+            <span class="sub">现金保本，不是利润 · 所得税税点 <b id="citPointView">0.5%</b></span>
+        </div>
+        <div class="grid-settings">
+            <div class="gs-item">
+                <span class="gs-label">附加税率</span>
+                <div class="gs-ctl"><input class="tone-sur" id="pSurcharge" type="number" min="0" step="0.01" value="6"><span class="pct-mark">%</span></div>
+            </div>
+            <div class="gs-item">
+                <span class="gs-label">核定所得率</span>
+                <div class="gs-ctl"><input class="tone-inc" id="pAssess" type="number" min="0" step="0.1" value="10"><span class="pct-mark">%</span></div>
+            </div>
+            <div class="gs-item">
+                <span class="gs-label">所得税率</span>
+                <div class="gs-ctl"><input class="tone-inc" id="pCit" type="number" min="0" step="0.1" value="5"><span class="pct-mark">%</span></div>
+            </div>
+            <div class="gs-item">
+                <span class="gs-label">印花税率</span>
+                <div class="gs-ctl"><input class="tone-stamp" id="pStamp" type="number" min="0" step="0.01" value="0.03"><span class="pct-mark">%</span></div>
+            </div>
+            <div class="gs-item">
+                <span class="gs-label">销项税率</span>
+                <div class="gs-ctl"><input class="highlight-linked" id="pVat" type="number" min="0" step="0.01" value="9"><span class="pct-mark">%</span></div>
+            </div>
+            <div class="gs-item">
+                <span class="gs-label">增值税奖补</span>
+                <div class="gs-ctl"><input class="tone-qty" id="pRebate" type="number" min="0" step="0.01" value="3"><span class="pct-mark">%</span></div>
+            </div>
+            <div class="gs-item">
+                <span class="gs-label">司机运费</span>
+                <div class="gs-ctl"><input class="tone-cost" id="pWage" type="number" min="0" step="0.01" value="100"><span class="pct-mark">元</span></div>
+            </div>
+        </div>
+        <div class="policy-note">附加按应交增值税计；奖补只冲增值税现金、不冲附加。有 1% 专票时，司机运费为价税合计。</div>
+    </div>
+
+    <div class="strip-head">结论 · 四套现金保本点位 · 点位升序 · 点击卡片查看拆项</div>
+    <div class="tax-strip concl" id="conclStrip">
+        <button type="button" class="tax-chip muted" data-scene="s2">
+            <div class="k" id="title-s2">条件：司机1%进项抵扣+不核定征收</div>
+            <div class="d-num" id="pay-s2">向货主收款 105.30</div>
+            <div class="v" id="k-s2">5.3%</div>
+        </button>
+        <button type="button" class="tax-chip muted" data-scene="s1">
+            <div class="k" id="title-s1">条件：司机1%进项抵扣+税务核定征收</div>
+            <span class="now assess" id="assess-s1">核定 10%</span>
+            <div class="d-num" id="pay-s1">向货主收款 105.81</div>
+            <div class="v" id="k-s1">5.81%</div>
+        </button>
+        <button type="button" class="tax-chip muted" data-scene="s4">
+            <div class="k" id="title-s4">条件：无司机进项抵扣+不核定征收</div>
+            <div class="d-num" id="pay-s4">向货主收款 106.41</div>
+            <div class="v" id="k-s4">6.41%</div>
+        </button>
+        <button type="button" class="tax-chip base" data-scene="s3">
+            <div class="k" id="title-s3">条件：无司机进项抵扣+税务核定征收</div>
+            <span class="now assess" id="assess-s3">核定 10%</span>
+            <div class="d-num" id="pay-s3">向货主收款 106.94 · 现金打平</div>
+            <div class="v" id="k-s3">6.9%</div>
+        </button>
+    </div>
+
+
+    <div class="scene" id="s2"></div>
+    <div class="scene" id="s1"></div>
+    <div class="scene" id="s4"></div>
+    <div class="scene on" id="s3"></div>
+
+    <div class="footnote">
+        <span>奖补只冲增值税现金，附加仍按应交增值税算</span>
+        <span>专票进项降增值税和附加；普票只解决所得税列支</span>
+        <span id="footNow">当前档保本：6.9% / 106.94 元 · 2026-10-02</span>
+    </div>
+</div>
+<script>
+(function () {
+    var IN_RATE = 0.01;
+    var currentId = 's3';
+
+    function num(id) {
+        var v = parseFloat(document.getElementById(id).value);
+        return isFinite(v) && v >= 0 ? v : 0;
+    }
+    function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+    function fmtMoney(n) { return round2(n).toFixed(2); }
+    function fmtPct(rate) {
+        var p = rate * 100;
+        var s = p.toFixed(2);
+        if (s.charAt(s.length - 1) === '0') s = p.toFixed(1);
+        if (s.slice(-2) === '.0') s = String(Math.round(p));
+        return s + '%';
+    }
+    function fmtAlpha(vat) { return (1 + vat).toFixed(2); }
+    function setText(id, t) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = t;
+    }
+    function row(label, cn, numText, val, extraClass, valClass) {
+        extraClass = extraClass || '';
+        valClass = valClass || '';
+        return '<div class="row-item' + extraClass + '"><span class="row-label">' + label +
+            '</span><span class="row-detail"><span class="f-cn">' + cn + '</span><span class="f-num">' + numText +
+            '</span></span><span class="row-value ' + valClass + '">' + val + '</span></div>';
+    }
+
+    function readParams() {
+        var assess = num('pAssess') / 100;
+        var cit = num('pCit') / 100;
+        return {
+            surcharge: num('pSurcharge') / 100,
+            assess: assess,
+            cit: cit,
+            citPoint: assess * cit,
+            stamp: num('pStamp') / 100,
+            vat: num('pVat') / 100,
+            rebate: num('pRebate') / 100,
+            wage: num('pWage')
+        };
+    }
+
+    function noInput(p, useCit) {
+        var citPoint = useCit ? p.citPoint : 0;
+        var addOn = p.vat * p.surcharge;
+        var r = p.vat + addOn + p.stamp - p.rebate + citPoint;
+        var den = 1 + p.vat - r;
+        var k = den > 0 ? r / den : 0;
+        var P = round2(p.wage * (1 + k));
+        var excl = P / (1 + p.vat);
+        var tax = round2(r * excl);
+        return {
+            useCit: useCit, r: r, addOn: addOn, citPoint: citPoint,
+            k: p.wage > 0 ? P / p.wage - 1 : 0, kRaw: k, P: P,
+            tax: tax, check: round2(P - p.wage - tax)
+        };
+    }
+
+    function withInput(p, useCit) {
+        var citPoint = useCit ? p.citPoint : 0;
+        var alpha = 1 + p.vat;
+        var inVatRaw = p.wage / (1 + IN_RATE) * IN_RATE;
+        var beta = p.vat - p.rebate + p.vat * p.surcharge + p.stamp + citPoint;
+        var denom = 1 - beta / alpha;
+        var P = denom !== 0 ? (p.wage - inVatRaw * (1 + p.surcharge)) / denom : p.wage;
+        P = round2(P);
+        var excl = round2(P / alpha);
+        var outVat = round2(P - excl);
+        var inVat = round2(inVatRaw);
+        var vatPay = round2(outVat - inVat);
+        var rebateAmt = round2(excl * p.rebate);
+        var vatNet = round2(vatPay - rebateAmt);
+        var addAmt = round2(vatPay * p.surcharge);
+        var stampAmt = round2(excl * p.stamp);
+        var citAmt = round2(excl * citPoint);
+        var taxSum = round2(vatNet + addAmt + stampAmt + citAmt);
+        var taxCash = round2(P - p.wage);
+        return {
+            useCit: useCit, P: P, k: p.wage > 0 ? P / p.wage - 1 : 0,
+            excl: excl, outVat: outVat, inVat: inVat, vatPay: vatPay,
+            rebateAmt: rebateAmt, vatNet: vatNet, addAmt: addAmt,
+            stampAmt: stampAmt, citAmt: citAmt, tax: taxCash, taxSum: taxSum,
+            check: round2(P - p.wage - taxSum), citPoint: citPoint
+        };
+    }
+
+    function renderNoInput(d, p, n, title, isCurrent, hintLeft, hintRight) {
+        var alpha = fmtAlpha(p.vat);
+        var badge = '<span class="badge">' + fmtPct(d.k) + ' / ' + fmtMoney(d.P) + '</span>';
+        if (d.useCit) badge = '<span class="badge">核定 ' + fmtPct(p.assess) + '</span> ' + badge;
+        var citCn = d.useCit ? '核定所得率 × 所得税率' : '不核定、不交所得';
+        var citNum = d.useCit ? fmtPct(p.assess) + ' × ' + fmtPct(p.cit) : '0';
+        var rCn = '税负 ＝ 增值税 ＋（销项税率 × 附加税率）＋ 印花税率 － 奖补 ＋ 所得税税点';
+        var rNum = fmtPct(p.vat) + ' ＋（' + fmtPct(p.vat) + ' × ' + fmtPct(p.surcharge) + '）＋ ' + fmtPct(p.stamp) + ' － ' + fmtPct(p.rebate) + ' ＋ ' + (d.useCit ? '（' + fmtPct(p.assess) + ' × ' + fmtPct(p.cit) + '）' : '0');
+        return '<div class="sec"><span class="n">' + n + '</span> ' + title + ' ' + badge + '</div>' +
+            '<div class="split-panel">' +
+            '<div class="panel panel-tax"><div class="panel-title">税费拆项 <span class="badge">占营业收入</span></div>' +
+            '<p class="panel-assume">' + hintLeft + '</p>' +
+            '<div class="block-tax"><div class="block-label">税负</div>' +
+            row('增值税', '销项税率', fmtPct(p.vat), fmtPct(p.vat)) +
+            row('附加', '销项税率 × 附加税率', fmtPct(p.vat) + ' × ' + fmtPct(p.surcharge), fmtPct(d.addOn)) +
+            row('印花', '印花税率', fmtPct(p.stamp), fmtPct(p.stamp)) +
+            row('奖补', '只冲增值税，不冲附加', '− ' + fmtPct(p.rebate), '−' + fmtPct(p.rebate)) +
+            row('所得税税点', citCn, citNum, d.useCit ? fmtPct(d.citPoint) : '0') +
+            row('税负', rCn, rNum, fmtPct(d.r), ' row-total', 'tax') +
+            '</div></div>' +
+            '<div class="panel panel-cash"><div class="panel-title">含税报价 <span class="badge">现金保本</span></div>' +
+            '<p class="panel-assume">' + hintRight + '</p>' +
+            '<div class="block-positive"><div class="block-label">保本税率与向货主收款</div>' +
+            row('税负', rCn, rNum, fmtPct(d.r), '', 'tax') +
+            row('保本税率', '保本税率 ＝ 税负 ÷（1 ＋ 销项税率 － 税负）', fmtPct(d.r) + ' ÷（1 ＋ ' + fmtPct(p.vat) + ' － ' + fmtPct(d.r) + '）', fmtPct(d.k), '', 'big green') +
+            row('向货主收款', '向货主收款 ＝ 司机运费 ×（1 ＋ 保本税率）', fmtMoney(p.wage) + ' ×（1 ＋ ' + fmtPct(d.k) + '）', fmtMoney(d.P), ' row-total', 'big green') +
+            '</div>' +
+            '<div class="block-result"><div class="block-label">验算现金</div>' +
+            row('收款 − 司机 − 税费', '向货主收款 − 司机运费 − 税负 × 营业收入', fmtMoney(d.P) + ' − ' + fmtMoney(p.wage) + ' − ' + fmtMoney(d.tax), fmtMoney(d.check), '', d.check === 0 ? 'big green' : 'tax') +
+            '</div></div></div>';
+    }
+
+    function renderWithInput(d, p, n, title, hintLeft, hintRight, badgeText) {
+        var alpha = fmtAlpha(p.vat);
+        var inDen = (1 + IN_RATE).toFixed(2);
+        var citCn = d.useCit ? '营业收入 × ' + fmtPct(p.assess) + ' × ' + fmtPct(p.cit) : '不核定且无利润';
+        var citNum = d.useCit ? fmtMoney(d.excl) + ' × ' + fmtPct(p.assess) + ' × ' + fmtPct(p.cit) : '0';
+        var badge = '<span class="badge">' + fmtPct(d.k) + ' / ' + fmtMoney(d.P) + '</span>';
+        if (d.useCit) badge = '<span class="badge">核定 ' + fmtPct(p.assess) + '</span> ' + badge;
+        return '<div class="sec"><span class="n">' + n + '</span> ' + title + ' ' + badge + '</div>' +
+            '<div class="split-panel">' +
+            '<div class="panel panel-tax"><div class="panel-title">税费拆项 <span class="badge">' + badgeText + '</span></div>' +
+            '<p class="panel-assume">' + hintLeft + '</p>' +
+            '<div class="block-tax"><div class="block-label">税费</div>' +
+            row('营业收入', '向货主收款 ÷（1 + 销项税率）', fmtMoney(d.P) + ' ÷（1 + ' + fmtPct(p.vat) + '）', fmtMoney(d.excl)) +
+            row('销项', '营业收入 × 销项税率', fmtMoney(d.excl) + ' × ' + fmtPct(p.vat), fmtMoney(d.outVat)) +
+            row('进项', '司机运费 ÷（1 + 进项税率）× 进项税率', fmtMoney(p.wage) + ' ÷（1 + ' + fmtPct(IN_RATE) + '）× ' + fmtPct(IN_RATE), fmtMoney(d.inVat)) +
+            row('应交增值税', '销项 − 进项', fmtMoney(d.outVat) + ' − ' + fmtMoney(d.inVat), fmtMoney(d.vatPay)) +
+            row('奖补', '营业收入 × ' + fmtPct(p.rebate), fmtMoney(d.excl) + ' × ' + fmtPct(p.rebate), fmtMoney(d.rebateAmt)) +
+            row('增值税净额', '应交增值税 − 奖补', fmtMoney(d.vatPay) + ' − ' + fmtMoney(d.rebateAmt), fmtMoney(d.vatNet)) +
+            row('附加', '应交增值税 × ' + fmtPct(p.surcharge), fmtMoney(d.vatPay) + ' × ' + fmtPct(p.surcharge), fmtMoney(d.addAmt)) +
+            row('印花', '营业收入 × ' + fmtPct(p.stamp), fmtMoney(d.excl) + ' × ' + fmtPct(p.stamp), fmtMoney(d.stampAmt)) +
+            row('企业所得税', citCn, citNum, fmtMoney(d.citAmt)) +
+            row('税费合计', '增值税净额 ＋ 附加 ＋ 印花 ＋ 企业所得税（分项四舍五入）', fmtMoney(d.vatNet) + ' ＋ ' + fmtMoney(d.addAmt) + ' ＋ ' + fmtMoney(d.stampAmt) + ' ＋ ' + fmtMoney(d.citAmt), fmtMoney(d.taxSum), ' row-total', 'tax') +
+            '</div></div>' +
+            '<div class="panel panel-cash"><div class="panel-title">含税报价 <span class="badge">现金保本</span></div>' +
+            '<p class="panel-assume">' + hintRight + '</p>' +
+            '<div class="block-positive"><div class="block-label">保本税率与向货主收款</div>' +
+            row('保本税率', '保本税率 ＝（向货主收款 ÷ 司机运费）－ 1', '（' + fmtMoney(d.P) + ' ÷ ' + fmtMoney(p.wage) + '）－ 1', fmtPct(d.k), '', 'big green') +
+            row('向货主收款', '向货主收款 ＝ 司机运费 ＋ 现金税费（打平）', fmtMoney(p.wage) + ' ＋ ' + fmtMoney(d.tax), fmtMoney(d.P), ' row-total', 'big green') +
+            '</div>' +
+            '<div class="block-result"><div class="block-label">验算现金</div>' +
+            row('收款 − 司机 − 税费', '向货主收款 − 司机运费 − 现金税费', fmtMoney(d.P) + ' − ' + fmtMoney(p.wage) + ' − ' + fmtMoney(d.tax), '0', '', 'big green') +
+            '</div></div></div>';
+    }
+
+    function recalc() {
+        var y = window.scrollY;
+        var p = readParams();
+        setText('citPointView', fmtPct(p.citPoint));
+        setText('tagVat', '销项 ' + fmtPct(p.vat));
+        setText('tagRebate', '奖补 ' + fmtPct(p.rebate));
+        setText('tagSurcharge', '附加 ' + fmtPct(p.surcharge));
+        setText('tagCit', '所得税 ' + fmtPct(p.cit));
+        setText('tagAssess', '税务核定征收 ' + fmtPct(p.assess));
+        setText('tagStamp', '印花 ' + fmtPct(p.stamp));
+
+        var assessLabel = fmtPct(p.assess);
+        var t1 = '条件：司机1%进项抵扣+税务核定征收';
+        var t2 = '条件：司机1%进项抵扣+不核定征收';
+        var t3 = '条件：无司机进项抵扣+税务核定征收';
+        var t4 = '条件：无司机进项抵扣+不核定征收';
+        var s2 = withInput(p, false);
+        var s1 = withInput(p, true);
+        var s4 = noInput(p, false);
+        var s3 = noInput(p, true);
+
+        setText('title-s1', t1);
+        setText('title-s2', t2);
+        setText('title-s3', t3);
+        setText('title-s4', t4);
+        setText('assess-s1', '核定 ' + assessLabel);
+        setText('assess-s3', '核定 ' + assessLabel);
+        setText('pay-s1', '向货主收款 ' + fmtMoney(s1.P));
+        setText('pay-s2', '向货主收款 ' + fmtMoney(s2.P));
+        setText('pay-s4', '向货主收款 ' + fmtMoney(s4.P));
+        setText('pay-s3', '向货主收款 ' + fmtMoney(s3.P) + ' · 现金打平');
+        setText('k-s1', fmtPct(s1.k));
+        setText('k-s2', fmtPct(s2.k));
+        setText('k-s4', fmtPct(s4.k));
+        setText('k-s3', fmtPct(s3.k));
+
+        document.getElementById('s1').innerHTML = renderWithInput(s1, p, '2', t1,
+            '进项按司机运费 ' + fmtMoney(p.wage) + ' 计算，不能套税负公式，按现金打平逐项代入。',
+            '普票不能抵进项，不能用这一档。',
+            '购买方必须是平台');
+        document.getElementById('s2').innerHTML = renderWithInput(s2, p, '1', t2,
+            '不核定且无利润，企业所得税为 0。其余按 ' + fmtMoney(s2.P) + ' 代入。',
+            '购买方必须是平台的 1% 专票，才能用这一档。',
+            '所得税 = 0');
+        document.getElementById('s3').innerHTML = renderNoInput(s3, p, '4', t3, true,
+            '无司机进项时：税负＝增值税＋销项税率×附加税率＋印花税率−奖补＋所得税税点；保本税率＝税负÷（1＋销项税率−税负）。',
+            '税负 ' + fmtPct(s3.r) + ' 对着营业收入；保本税率 ' + fmtPct(s3.k) + ' 对着含税收款。分母不同，不是算错。');
+        document.getElementById('s4').innerHTML = renderNoInput(s4, p, '3', t4, false,
+            '不交企业所得税，所得税税点为 0。税负＝增值税＋销项税率×附加税率＋印花税率−奖补；保本税率＝税负÷（1＋销项税率−税负）。',
+            '税负 ' + fmtPct(s4.r) + ' 对着营业收入；保本税率 ' + fmtPct(s4.k) + ' 对着含税收款。');
+
+        setText('footNow', '当前档保本：' + fmtPct(s3.k) + ' / ' + fmtMoney(s3.P) + ' 元 · 2026-10-02');
+        window.scrollTo(0, y);
+    }
+
+    function showScene(id) {
+        currentId = id;
+        document.querySelectorAll('#conclStrip [data-scene]').forEach(function (chip) {
+            var on = chip.getAttribute('data-scene') === id;
+            chip.classList.toggle('base', on);
+            chip.classList.toggle('muted', !on);
+        });
+        document.querySelectorAll('.scene').forEach(function (scene) {
+            scene.classList.toggle('on', scene.id === id);
+        });
+    }
+
+    document.querySelectorAll('#conclStrip [data-scene]').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            showScene(chip.getAttribute('data-scene'));
+        });
+    });
+    document.querySelectorAll('#paramGroup input').forEach(function (inp) {
+        inp.addEventListener('input', recalc);
+        inp.addEventListener('change', recalc);
+    });
+    recalc();
+})();
+</script>
+</body>
+</html>
