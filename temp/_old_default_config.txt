@@ -1,0 +1,104 @@
+    def calculate_cost(self):
+        """核心核算逻辑"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
+        try:
+            qty = self.get_float(self.entry_qty, 1)
+            sys_surcharge_rate = self.get_pct(self.entry_surcharge, 6)
+            sys_income_rate = self.get_pct(self.entry_income_tax, 5)
+            sys_stamp_rate = self.get_stamp_rate()
+            plat_rate = self.get_pct(self.entry_plat_rate, 7.5)
+            up_rate = self.get_pct(self.entry_upstream, 9)
+            
+            # 初始化汇总数据
+            totals = self._init_totals()
+            
+            self.report_data = {
+                'qty': qty, 'sys_surcharge_rate': sys_surcharge_rate, 
+                'sys_income_rate': sys_income_rate, 'sys_stamp_rate': sys_stamp_rate, 
+                'plat_rate': plat_rate, 'up_rate': up_rate, 'v_use_platform': self.v_use_platform.get(),
+                'taxpayer': self.taxpayer,
+                'revs': [], 'costs': []
+            }
+
+            # 处理收入项
+            self._process_revenues(qty, totals)
+            
+            # 处理成本项
+            self._process_costs(qty, plat_rate, up_rate, totals)
+            
+            # 计算税费
+            tax_results = self._calculate_taxes(totals, sys_surcharge_rate, sys_income_rate, sys_stamp_rate)
+            
+            # 计算最终结果
+            final_results = self._calculate_final_results(totals, tax_results)
+            
+            # 更新报告数据
+            self.report_data.update(final_results)
+            
+            # 显示结果
+            self._display_results(totals, tax_results, final_results, qty)
+            
+            # 更新滚动区域
+            self._update_scroll_region()
+            
+        except Exception as e:
+            self.tree.insert('', 'end', values=("计算出错", "", "", f"错误详情: {str(e)}"))
+            traceback.print_exc()
+
+    def _init_totals(self):
+        """初始化汇总数据"""
+        return {
+            'total_cash_rev': 0.0,
+            'total_rev_excl': 0.0,
+            'total_output_vat': 0.0,
+            'total_cash_cost': 0.0,
+            'total_cost_excl': 0.0,
+            'total_taxable_cost_deduct': 0.0,
+            'total_input_vat': 0.0,
+            'vat_in_details': [],
+            'cost_deduct_details': [],
+            'cost_excl_details': [],
+            'stamp_base': 0.0
+        }
+
+    def _process_revenues(self, qty, totals):
+        """处理收入项"""
+        self.tree.insert('', 'end', values=(f"【营业总收入明细】 (共 {qty:g} 单)", "", "", ""), tags=('header',))
+        
+        for item in self.rev_items:
+            name = item['name'].get() or "未命名收入"
+            unit_amt = self.get_float(item['amt'])
+            amt = unit_amt * qty 
+            rate = self.get_pct(item['rate'])
+            is_inc = item['inc'].get()
+            
+            if is_inc:
+                cash = self._d_round(amt)
+                excl = self._d_round(cash / (1 + rate)) if rate > 0 else cash
+                out_vat = self._d_round(cash - excl)
+                type_str = "开票（含税销售额）"
+            else:
+                excl = self._d_round(amt)
+                out_vat = 0.0
+                cash = excl
+                type_str = "不开票（实收）"
+            
+            totals['total_cash_rev'] += cash
+            totals['total_rev_excl'] += excl
+            totals['total_output_vat'] += out_vat
+            if item.get('stamp') and item['stamp'].get():
+                totals['stamp_base'] = self._d_round(totals['stamp_base'] + excl)
+            
+            self.report_data['revs'].append({
+                'name': name, 'unit_amt': unit_amt, 'cash': cash, 
+                'excl': excl, 'out_vat': out_vat, 'type_str': type_str, 'is_inc': is_inc
+            })
+            
+            desc = f"单价:{unit_amt:.2f}×{qty:g}单 | 销项税:{out_vat:.2f} [{type_str}]"
+            self.tree.insert('', 'end', values=(f" + {name}", f"{cash:.2f}", f"{excl:.2f}", desc))
+
+    def _process_costs(self, qty, plat_rate, up_rate, totals):
+        """处理成本项"""
+        self.tree.insert(''

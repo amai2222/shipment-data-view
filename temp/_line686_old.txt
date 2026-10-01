@@ -1,0 +1,4 @@
+            'vat_in_details': [],
+            'cost_deduct_details': [],
+            'cost_excl_details': []
+        }

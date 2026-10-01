@@ -1,0 +1,165 @@
+    def toggle_platform_mode(self):
+        """切换平台模式"""
+        current = self.v_use_platform.get()
+        self.v_use_platform.set(not current)
+        
+        if self.v_use_platform.get():
+            self.btn_platform.config(text="✅ 启用下游平台模式(开启)", fg="purple")
+            self.lbl_plat_rate.grid(row=0, column=2, padx=5, pady=8, sticky="e")
+            self.entry_plat_rate.grid(row=0, column=3, padx=5, pady=8, sticky="w")
+            for item in self.cost_items:
+                if "司机" in item['name'].get():
+                    item['state'].set(3)
+                    self.update_cost_visuals(item, auto_fill=True)
+        else:
+            self.btn_platform.config(text="⬜ 启用下游平台模式(关闭)", fg="gray")
+            self.lbl_plat_rate.grid_remove()
+            self.entry_plat_rate.grid_remove()
+            for item in self.cost_items:
+                if item['state'].get() == 3:
+                    item['state'].set(1) 
+                    self.update_cost_visuals(item, auto_fill=True)
+        self.calculate_cost()
+
+    def toggle_rev_btn(self, var, btn, e_rate):
+        """切换收入项含税/不含税"""
+        is_inc = not var.get()
+        var.set(is_inc)
+        if is_inc:
+            btn.config(text="✅ 含税金额", fg="green")
+            e_rate.config(state="normal")
+            e_rate.delete(0, tk.END)
+            e_rate.insert(0, str(self.DEFAULT_CONFIG['default_vat_rate']))
+        else:
+            btn.config(text="⬜ 不含税金额", fg="gray")
+            e_rate.config(state="normal")
+            e_rate.delete(0, tk.END)
+            e_rate.insert(0, "0")
+        self.calculate_cost()
+
+    def toggle_cost_state(self, item_dict):
+        """切换成本项票据状态"""
+        name = item_dict['name'].get()
+        if "司机" in name and self.v_use_platform.get():
+            max_state = 4
+        else:
+            max_state = 3
+            
+        val = (item_dict['state'].get() + 1) % max_state
+        item_dict['state'].set(val)
+        self.update_cost_visuals(item_dict, auto_fill=True)
+        self.calculate_cost()
+
+    def update_cost_visuals(self, item, auto_fill=True):
+        """更新成本项显示"""
+        val = item['state'].get()
+        btn = item['btn_state']
+        e_rate = item['rate']
+        
+        state_info = self.COST_STATE_MAP.get(val, self.COST_STATE_MAP[0])
+        btn.config(text=state_info['label'], fg=state_info['color'])
+        
+        e_rate.config(state="normal")
+        if auto_fill:
+            e_rate.delete(0, tk.END)
+            e_rate.insert(0, state_info['rate'])
+        if val == 0 or val == 3:
+            e_rate.config(state="readonly")
+
+    def add_rev_row(self, name="", amt="", rate="0.09", is_inclusive=True):
+        """添加收入行"""
+        row = ttk.Frame(self.rev_container)
+        row.pack(fill="x", pady=4)
+        
+        ttk.Label(row, text="名称:").pack(side="left", padx=1)
+        e_name = ttk.Entry(row, width=12)
+        e_name.insert(0, name)
+        e_name.pack(side="left", padx=2)
+        
+        ttk.Label(row, text="单价:").pack(side="left", padx=1)
+        e_amt = ttk.Entry(row, width=9)
+        e_amt.insert(0, amt)
+        e_amt.pack(side="left", padx=2)
+        
+        ttk.Label(row, text="税率:").pack(side="left", padx=1)
+        e_rate = ttk.Entry(row, width=6)
+        e_rate.insert(0, rate if is_inclusive else "0")
+        e_rate.pack(side="left", padx=2)
+        
+        v_inc = tk.BooleanVar(value=is_inclusive)
+        btn_inc = tk.Button(row, text="✅ 含税金额" if is_inclusive else "⬜ 不含税金额", 
+                           fg="green" if is_inclusive else "gray", relief="flat", 
+                           cursor="hand2", font=("Microsoft YaHei", 9, "bold"))
+        btn_inc.config(command=lambda: self.toggle_rev_btn(v_inc, btn_inc, e_rate))
+        btn_inc.pack(side="left", padx=6)
+        
+        btn_del = ttk.Button(row, text="❌", width=3, command=lambda: self.delete_row(row, self.rev_items))
+        btn_del.pack(side="left", padx=4)
+        
+        for e in (e_name, e_amt, e_rate):
+            e.bind("<KeyRelease>", lambda event: self.calculate_cost())
+            
+        self.rev_items.append({'frame': row, 'name': e_name, 'amt': e_amt, 'rate': e_rate, 'inc': v_inc})
+        self.calculate_cost()
+
+    def add_cost_row(self, name="", amt="", rate="", state=1):
+        """添加成本行"""
+        row = ttk.Frame(self.cost_container)
+        row.pack(fill="x", pady=4)
+        
+        ttk.Label(row, text="名称:").pack(side="left", padx=1)
+        e_name = ttk.Entry(row, width=12)
+        e_name.insert(0, name)
+        e_name.pack(side="left", padx=2)
+        
+        ttk.Label(row, text="单价:").pack(side="left", padx=1)
+        e_amt = ttk.Entry(row, width=9)
+        e_amt.insert(0, amt)
+        e_amt.pack(side="left", padx=2)
+        
+        ttk.Label(row, text="税率:").pack(side="left", padx=1)
+        e_rate = ttk.Entry(row, width=6)
+        e_rate.pack(side="left", padx=2)
+        
+        v_state = tk.IntVar(value=state)
+        btn_state = tk.Button(row, relief="flat", cursor="hand2", font=("Microsoft YaHei", 9, "bold"))
+        
+        lbl_dynamic = tk.Label(row, text="", fg="purple", font=("Microsoft YaHei", 9, "bold"), anchor="w")
+        
+        item_dict = {
+            'frame': row, 'name': e_name, 'amt': e_amt, 'rate': e_rate, 
+            'state': v_state, 'btn_state': btn_state, 'lbl_dynamic': lbl_dynamic
+        }
+        
+        btn_state.config(command=lambda: self.toggle_cost_state(item_dict))
+        btn_state.pack(side="left", padx=6)
+        lbl_dynamic.pack(side="left", padx=2)
+        
+        btn_del = ttk.Button(row, text="❌", width=3, command=lambda: self.delete_row(row, self.cost_items))
+        btn_del.pack(side="left", padx=8)
+        
+        if not rate:
+            rate = self.COST_STATE_MAP.get(state, self.COST_STATE_MAP[1])['rate']
+        e_rate.insert(0, rate)
+        
+        self.update_cost_visuals(item_dict, auto_fill=False)
+        
+        for e in (e_name, e_amt, e_rate):
+            e.bind("<KeyRelease>", lambda event: self.calculate_cost())
+            
+        self.cost_items.append(item_dict)
+        self.calculate_cost()
+
+    def delete_row(self, frame, item_list):
+        """删除行"""
+        frame.destroy()
+        item_list[:] = [item for item in item_list if item['frame'] != frame]
+        self.calculate_cost()
+
+    def get_float(self, entry, default=0.0):
+        """安全获取浮点数"""
+        try:
+            val = entry.get().strip()
+            return float(val) if val else default
+        except ValueError:
+            return default

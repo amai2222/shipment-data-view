@@ -1,0 +1,60 @@
+import tkinter as tk
+from tkinter import ttk
+import webbrowser
+import os
+from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+import traceback
+
+class LogisticsCalculator:
+    """多维物流成本与税务核算工具"""
+    
+    # 默认配置
+    DEFAULT_CONFIG = {
+        'platform_rate': 0.071,
+        'surcharge_rate': 0.06,
+        'income_tax_rate': 0.05,
+        'stamp_tax_rate': 0.0003,
+        'default_vat_rate': 0.09,
+        'qty': 1.0
+    }
+    
+    # 成本项状态映射
+    COST_STATE_MAP = {
+        0: {'label': '🚫 没票', 'color': 'red', 'rate': '0', 'desc': '无票支出'},
+        1: {'label': '✅ 普票', 'color': '#0078D7', 'rate': '0.01', 'desc': '普票(全额计成本)'},
+        2: {'label': '✅ 专票', 'color': 'green', 'rate': '0.09', 'desc': '专票(可抵扣进项)'},
+        3: {'label': '🏢 平台', 'color': 'purple', 'rate': '-', 'desc': '平台9%专票'}
+    }
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("多维物流成本与税务 (复式记账与倒挤恒平版)")
+        
+        try:
+            self.root.state("zoomed")
+        except Exception:
+            self.root.geometry("1800x900")
+        
+        self._setup_styles()
+        
+        self.rev_items = []
+        self.cost_items = []
+        self.report_data = {}
+        
+        self.v_use_platform = tk.BooleanVar(value=True)
+        
+        self.setup_ui()
+        
+        # 加载默认示例数据
+        self.add_rev_row("邮政结算", "55", "0.09", True)
+        self.add_cost_row("司机运费", "40", "0.01", 1) 
+        self.add_cost_row("居间撮合", "10", "0.01", 2)
+        
+        self.toggle_platform_mode()
+        # 💡 优化点1：删除了这里重复的 self.root.after sashpos 定位代码，避免启动时UI二次重绘闪烁
+
+    # 💡 新增核心计算引擎：符合中国财务标准的 Decimal 四舍五入法 (四舍五入，非银行家舍入)
+    def _d_round(self, value):
+        # 先转string避免浮点数精度丢失，再量化保留两位小数
+        return float(Decimal(str(value)).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP))

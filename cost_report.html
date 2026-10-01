@@ -1683,9 +1683,30 @@
     });
 
     applyPolicyDefaults();
-    applyTaxpayerUi();
-    buildForms();
-    render();
+    (function () {
+        var d = {"usePlatform": false, "taxpayer": "general", "revs": [{"id": 1, "name": "主营业务收入", "amt": 55.0, "rate": 0.09, "inc": true, "stamp": true}], "costs": [{"id": 1, "name": "外包运费", "amt": 40.0, "rate": 0.01, "ticket": 2, "stamp": true}, {"id": 2, "name": "居间服务", "amt": 10.0, "rate": 0.01, "ticket": 1, "stamp": false}], "nextId": 30, "surchargePct": 6.0, "incomePct": 5.0, "stampPermyriad": 1.5, "upstreamPct": 9.0, "qty": 1.0, "platPct": 7.5};
+        state.usePlatform = !!d.usePlatform;
+        state.taxpayer = d.taxpayer || 'general';
+        state.revs = d.revs || [];
+        state.costs = d.costs || [];
+        state.nextId = d.nextId || 100;
+        function setv(id, v) { var el = document.getElementById(id); if (el) el.value = v; }
+        setv('surchargeRate', d.surchargePct);
+        setv('incomeRate', d.incomePct);
+        setv('stampRate', d.stampPermyriad);
+        setv('upstreamRate', d.upstreamPct);
+        setv('qty', d.qty);
+        setv('platRate', d.platPct);
+        applyTaxpayerUi();
+        var btn = document.getElementById('btnPlatform');
+        var wrap = document.getElementById('wrapPlatRate');
+        if (state.usePlatform) {
+            if (btn) { btn.className = 'btn-toggle btn-purple'; btn.innerHTML = '已开启 代扣代缴'; }
+            if (wrap) wrap.style.display = 'flex';
+        }
+        buildForms();
+        render();
+    })();
 </script>
 </body>
 </html>

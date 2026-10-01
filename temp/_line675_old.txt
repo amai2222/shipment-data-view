@@ -1,0 +1,17 @@
+    def _setup_left_panel(self):
+        """构建左侧输入面板"""
+        self.left_frame = ttk.Frame(self.paned)
+        self.paned.add(self.left_frame, weight=2)
+        
+        # 底部按钮
+        self._setup_action_buttons()
+        
+        # 滚动区域
+        self._setup_scrollable_area()
+        
+        # 全局设置
+        self._setup_settings_frame()
+        
+        # 收入/支出表格
+        self._setup_rev_frame()
+        self._setup_cost_frame()

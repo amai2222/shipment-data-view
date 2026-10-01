@@ -1,0 +1,66 @@
+    def toggle_platform_mode(self):
+        """切换平台模式"""
+        current = self.v_use_platform.get()
+        self.v_use_platform.set(not current)
+        
+        if self.v_use_platform.get():
+            self.btn_platform.config(text="✅ 启用下游平台模式(开启)", fg="purple")
+            self.lbl_plat_rate.grid(row=0, column=2, padx=5, pady=8, sticky="e")
+            self.entry_plat_rate.grid(row=0, column=3, padx=5, pady=8, sticky="w")
+            for item in self.cost_items:
+                if "司机" in item['name'].get():
+                    item['state'].set(3)
+                    self.update_cost_visuals(item, auto_fill=True)
+        else:
+            self.btn_platform.config(text="⬜ 启用下游平台模式(关闭)", fg="gray")
+            self.lbl_plat_rate.grid_remove()
+            self.entry_plat_rate.grid_remove()
+            for item in self.cost_items:
+                if item['state'].get() == 3:
+                    item['state'].set(1) 
+                    self.update_cost_visuals(item, auto_fill=True)
+        self.calculate_cost()
+
+    def toggle_rev_btn(self, var, btn, e_rate):
+        """切换收入项含税/不含税"""
+        is_inc = not var.get()
+        var.set(is_inc)
+        if is_inc:
+            btn.config(text="✅ 含税金额", fg="green")
+            e_rate.config(state="normal")
+            e_rate.delete(0, tk.END)
+            e_rate.insert(0, str(self.DEFAULT_CONFIG['default_vat_rate']))
+        else:
+            btn.config(text="⬜ 不含税金额", fg="gray")
+            e_rate.config(state="normal")
+            e_rate.delete(0, tk.END)
+            e_rate.insert(0, "0")
+        self.calculate_cost()
+
+    def toggle_cost_state(self, item_dict):
+        """切换成本项票据状态"""
+        name = item_dict['name'].get()
+        if "司机" in name and self.v_use_platform.get():
+            max_state = 4
+        else:
+            max_state = 3
+            
+        val = (item_dict['state'].get() + 1) % max_state
+        item_dict['state'].set(val)
+        self.update_cost_visuals(item_dict, auto_fill=True)
+        self.calculate_cost()
+
+    def update_cost_visuals(self, item, auto_fill=True):
+        """更新成本项显示"""
+        val = item['state'].get()
+        btn = item['btn_state']
+        e_rate = item['rate']
+        
+        state_info = self.COST_STATE_MAP.get(val, self.COST_STATE_MAP[0])
+        btn.config(text=state_info['label'], fg=state_info['color'])
+        
+        e_rate.config(state="normal")
+        if auto_fill:
+            e_rate.delete(0, tk.END)
+            e_rate.insert(0, state_info['rate'])
+    

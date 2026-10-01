@@ -1,0 +1,333 @@
+    def calculate_cost(self):
+        """核心核算逻辑"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
+        try:
+            qty = self.get_float(self.entry_qty, 1)
+            sys_surcharge_rate = self.get_pct(self.entry_surcharge, 6)
+            sys_income_rate = self.get_pct(self.entry_income_tax, 5)
+            sys_stamp_rate = self.get_stamp_rate()
+            plat_rate = self.get_pct(self.entry_plat_rate, 7.5)
+            up_rate = self.get_pct(self.entry_upstream, 9)
+            
+            # 初始化汇总数据
+            totals = self._init_totals()
+            
+            self.report_data = {
+                'qty': qty, 'sys_surcharge_rate': sys_surcharge_rate, 
+                'sys_income_rate': sys_income_rate, 'sys_stamp_rate': sys_stamp_rate, 
+                'plat_rate': plat_rate, 'up_rate': up_rate, 'v_use_platform': self.v_use_platform.get(),
+                'taxpayer': self.taxpayer,
+                'revs': [], 'costs': []
+            }
+
+            # 处理收入项
+            self._process_revenues(qty, totals)
+            
+            # 处理成本项
+            self._process_costs(qty, plat_rate, up_rate, totals)
+            
+            # 计算税费
+            tax_results = self._calculate_taxes(totals, sys_surcharge_rate, sys_income_rate, sys_stamp_rate)
+            
+            # 计算最终结果
+            final_results = self._calculate_final_results(totals, tax_results)
+            
+            # 更新报告数据
+            self.report_data.update(final_results)
+            
+            # 显示结果
+            self._display_results(totals, tax_results, final_results, qty)
+            
+            # 更新滚动区域
+            self._update_scroll_region()
+            
+        except Exception as e:
+            self.tree.insert('', 'end', values=("计算出错", "", "", f"错误详情: {str(e)}"))
+            traceback.print_exc()
+
+    def _init_totals(self):
+        """初始化汇总数据"""
+        return {
+            'total_cash_rev': 0.0,
+            'total_rev_excl': 0.0,
+            'total_output_vat': 0.0,
+            'total_cash_cost': 0.0,
+            'total_cost_excl': 0.0,
+            'total_taxable_cost_deduct': 0.0,
+            'total_input_vat': 0.0,
+            'vat_in_details': [],
+            'cost_deduct_details': [],
+            'cost_excl_details': [],
+            'stamp_base': 0.0
+        }
+
+    def _process_revenues(self, qty, totals):
+        """处理收入项"""
+        self.tree.insert('', 'end', values=(f"【营业总收入明细】 (共 {qty:g} 单)", "", "", ""), tags=('header',))
+        
+        for item in self.rev_items:
+            name = item['name'].get() or "未命名收入"
+            unit_amt = self.get_float(item['amt'])
+            amt = unit_amt * qty 
+            rate = self.get_pct(item['rate'])
+            is_inc = item['inc'].get()
+            
+            if is_inc:
+                cash = self._d_round(amt)
+                excl = self._d_round(cash / (1 + rate)) if rate > 0 else cash
+                out_vat = self._d_round(cash - excl)
+                type_str = "开票（含税销售额）"
+            else:
+                excl = self._d_round(amt)
+                out_vat = 0.0
+                cash = excl
+                type_str = "不开票（实收）"
+            
+            totals['total_cash_rev'] += cash
+            totals['total_rev_excl'] += excl
+            totals['total_output_vat'] += out_vat
+            if item.get('stamp') and item['stamp'].get():
+                totals['stamp_base'] = self._d_round(totals['stamp_base'] + excl)
+            
+            self.report_data['revs'].append({
+                'name': name, 'unit_amt': unit_amt, 'cash': cash, 
+                'excl': excl, 'out_vat': out_vat, 'type_str': type_str, 'is_inc': is_inc
+            })
+            
+            desc = f"单价:{unit_amt:.2f}×{qty:g}单 | 销项税:{out_vat:.2f} [{type_str}]"
+            self.tree.insert('', 'end', values=(f" + {name}", f"{cash:.2f}", f"{excl:.2f}", desc))
+
+    def _process_costs(self, qty, plat_rate, up_rate, totals):
+        """处理成本项"""
+        self.tree.insert('', 'end', values=(f"【各项营业成本明细】 (共 {qty:g} 单)", "", "", ""), tags=('header',))
+        
+        for item in self.cost_items:
+            name = item['name'].get() or "未命名成本"
+            unit_amt = self.get_float(item['amt'])
+            state = item['state'].get()
+            result = self._calculate_cost_item(name, unit_amt, qty, state, plat_rate, up_rate, item)
+            
+            totals['total_cash_cost'] = self._d_round(totals['total_cash_cost'] + result['cash'])
+            totals['total_cost_excl'] = self._d_round(totals['total_cost_excl'] + result['cost_deduct'])
+            totals['total_input_vat'] = self._d_round(totals['total_input_vat'] + result['in_vat'])
+            totals['total_taxable_cost_deduct'] = self._d_round(totals['total_taxable_cost_deduct'] + result['taxable_deduct'])
+            if item.get('stamp') and item['stamp'].get():
+                totals['stamp_base'] = self._d_round(totals['stamp_base'] + result['stamp_excl'])
+            
+            if result['in_vat'] > 0:
+                totals['vat_in_details'].append(f"{result['in_vat']:.2f}")
+            if result['taxable_deduct'] > 0:
+                totals['cost_deduct_details'].append(f"{name} {result['taxable_deduct']:.2f}")
+            totals['cost_excl_details'].append(f"{name} {result['cost_deduct']:.2f}")
+            
+            self.report_data['costs'].append(result)
+            self.tree.insert('', 'end', values=(f" - {name}", f"{result['cash']:.2f}", f"{result['cost_deduct']:.2f}", result['desc']))
+
+    def _calculate_cost_item(self, name, unit_amt, qty, state, plat_rate, item):
+        """计算单个成本项"""
+        # 💡 优化点3：去除了返回字典中对无用 rate 参数的传递逻辑
+        if state == 3:
+            actual_pay_unit = unit_amt / (1 - plat_rate)
+            excl_unit = actual_pay_unit / 1.09
+            in_vat_unit = actual_pay_unit - excl_unit
+            item['lbl_dynamic'].config(
+                text=f"👉平台含税单价: {actual_pay_unit:.2f}  👉抵扣进项: {in_vat_unit:.2f}  👉净成本: {excl_unit:.2f}", 
+                fg="purple"
+            )
+            
+            cash = self._d_round(actual_pay_unit * qty)
+            excl = self._d_round(cash / 1.09)
+            in_vat = self._d_round(cash - excl)
+            cost_deduct = excl
+            taxable_deduct = excl 
+            type_str = f"平台9%专票(税点{plat_rate*100:g}%)"
+            desc = f"司机净价:{unit_amt:.2f} (算法:{unit_amt}/(1-{plat_rate})×{qty:g}) | 获9%进项:{in_vat:.2f} [{type_str}]"
+        else:
+            amt = unit_amt * qty
+            cash = self._d_round(amt)
+            rate = self.get_float(item['rate'])
+            
+            if state == 2:
+                excl_unit = unit_amt / (1 + rate) if rate > 0 else unit_amt
+                in_vat_unit = unit_amt - excl_unit
+                item['lbl_dynamic'].config(text=f"👉抵扣进项: {in_vat_unit:.2f}  👉净成本: {excl_unit:.2f}", fg="green")
+                
+                excl = self._d_round(cash / (1 + rate)) if rate > 0 else cash
+                in_vat = self._d_round(cash - excl)
+                cost_deduct = excl
+                taxable_deduct = excl 
+                type_str = "专票(可抵扣进项)"
+            elif state == 1:
+                excl_unit = unit_amt
+                item['lbl_dynamic'].config(text=f"👉抵扣进项: 0.00  👉净成本: {excl_unit:.2f}", fg="#0078D7")
+                
+                excl = cash
+                in_vat = 0.0
+                cost_deduct = cash
+                taxable_deduct = cash 
+                type_str = "普票(全额计成本)"
+            else:
+                excl_unit = unit_amt
+                item['lbl_dynamic'].config(text=f"👉无抵扣  👉净成本: {excl_unit:.2f} (不得税前扣除)", fg="red")
+                
+                excl = cash
+                in_vat = 0.0
+                cost_deduct = cash 
+                taxable_deduct = 0.0 
+                type_str = "🚫没票(真实成本支出但不可税前扣除)"
+            
+            desc = f"单价:{unit_amt:.2f}×{qty:g}单 | 抵扣进项:{in_vat:.2f} [{type_str}]"
+        
+        return {
+            'name': name, 'unit_amt': unit_amt, 'cash': cash, 'excl': excl,
+            'taxable_deduct': taxable_deduct, 'cost_deduct': cost_deduct,
+            'in_vat': in_vat, 'type_str': type_str, 'state': state, 
+            'rate': rate if state != 3 else 0.09, 'desc': desc
+        }
+
+    def _calculate_taxes(self, totals, surcharge_rate, income_rate, stamp_rate):
+        """计算各项税费"""
+        total_output_vat = self._d_round(totals['total_output_vat'])
+        total_input_vat = self._d_round(totals['total_input_vat'])
+        total_rev_excl = self._d_round(totals['total_rev_excl'])
+        total_taxable_cost_deduct = self._d_round(totals['total_taxable_cost_deduct'])
+        
+        payable_vat = self._d_round(max(0, total_output_vat - total_input_vat))
+        surcharge = self._d_round(payable_vat * surcharge_rate)
+        
+        # 💡 优化点4：将印花税基数改为 total_cost_excl，从而将“无票支出的真实成本”纳入印花税的计算基数范畴
+        total_cost_excl = self._d_round(totals['total_cost_excl'])
+        stamp_base = self._d_round(total_rev_excl + total_cost_excl)
+        
+        stamp_duty = self._d_round(stamp_base * stamp_rate)
+        taxable_income = self._d_round(total_rev_excl - total_taxable_cost_deduct - surcharge - stamp_duty)
+        income_tax = self._d_round(max(0, taxable_income * income_rate))
+        total_tax = self._d_round(payable_vat + surcharge + stamp_duty + income_tax)
+        total_other_tax = self._d_round(surcharge + stamp_duty + income_tax)
+        
+        return {
+            'payable_vat': payable_vat,
+            'surcharge': surcharge,
+            'stamp_duty': stamp_duty,
+            'income_tax': income_tax,
+            'total_tax': total_tax,
+            'total_other_tax': total_other_tax,
+            'taxable_income': taxable_income,
+            'stamp_base': stamp_base
+        }
+
+    def _calculate_final_results(self, totals, tax_results):
+        """计算最终结果"""
+        cash_margin = self._d_round(totals['total_cash_rev'] - totals['total_cash_cost'])
+        net_profit = self._d_round(cash_margin - tax_results['total_tax'])
+        f2_profit = self._d_round(
+            totals['total_rev_excl'] - totals['total_cost_excl'] - 
+            tax_results['surcharge'] - tax_results['stamp_duty'] - tax_results['income_tax']
+        )
+        
+        return {
+            'total_cash_rev': totals['total_cash_rev'],
+            'total_rev_excl': totals['total_rev_excl'],
+            'total_output_vat': totals['total_output_vat'],
+            'total_cash_cost': totals['total_cash_cost'],
+            'total_cost_excl': totals['total_cost_excl'],
+            'total_taxable_cost_deduct': totals['total_taxable_cost_deduct'],
+            'total_input_vat': totals['total_input_vat'],
+            'payable_vat': tax_results['payable_vat'],
+            'surcharge': tax_results['surcharge'],
+            'stamp_duty': tax_results['stamp_duty'],
+            'income_tax': tax_results['income_tax'],
+            'total_tax': tax_results['total_tax'],
+            'total_other_tax': tax_results['total_other_tax'],
+            'taxable_income': tax_results['taxable_income'],
+            'cash_margin': cash_margin,
+            'net_profit': net_profit,
+            'f2_profit': f2_profit,
+            'cost_excl_details_str': " + ".join(totals['cost_excl_details']) if totals['cost_excl_details'] else str(totals['total_cost_excl'])
+        }
+
+    def _display_results(self, totals, tax_results, final_results, qty):
+        """显示核算结果"""
+        self.tree.insert('', 'end', values=("-"*25, "-"*15, "-"*15, "-"*55), tags=('separator',))
+        
+        # 法定税费核算
+        self.tree.insert('', 'end', values=("【法定税费核算】", "", "", ""), tags=('header',))
+        
+        vat_in_str = f"[{'+'.join(totals['vat_in_details'])}]" if len(totals['vat_in_details']) > 1 else ""
+        self.tree.insert('', 'end', values=(
+            "应交增值税", 
+            f"- {tax_results['payable_vat']:.2f}", 
+            "",
+            f"总销项({totals['total_output_vat']:.2f}) - 总进项{vat_in_str}({totals['total_input_vat']:.2f}) = {tax_results['payable_vat']:.2f}"
+        ))
+        
+        surcharge_rate = self.get_float(self.entry_surcharge, self.DEFAULT_CONFIG['surcharge_rate'])
+        self.tree.insert('', 'end', values=(
+            f"附加税 ({surcharge_rate*100:.0f}%)", 
+            f"- {tax_results['surcharge']:.2f}", 
+            "",
+            f"增值税({tax_results['payable_vat']:.2f}) × 附加税率({surcharge_rate*100:.0f}%) = {tax_results['surcharge']:.2f}"
+        ))
+        
+        self.tree.insert('', 'end', values=(
+            f"印花税 (3‱)", 
+            f"- {tax_results['stamp_duty']:.2f}", 
+            "",
+            f"合同总额基数({tax_results['stamp_base']:.2f}) × 3‱(0.0003) = {tax_results['stamp_duty']:.2f}"
+        ))
+        
+        income_rate = self.get_float(self.entry_income_tax, self.DEFAULT_CONFIG['income_tax_rate'])
+        cost_deduct_str = f"[{'+'.join([v.split(' ')[1] for v in totals['cost_deduct_details']])}]" if len(totals['cost_deduct_details']) > 1 else ""
+        inc_tax_desc = (
+            f"应纳税所得额({max(0, tax_results['taxable_income']):.2f}) = "
+            f"净收入({totals['total_rev_excl']:.2f}) - "
+            f"允许税前扣除成本{cost_deduct_str}({totals['total_taxable_cost_deduct']:.2f}) - "
+            f"附加 - 印花，乘以 {income_rate*100:.0f}%"
+        )
+        self.tree.insert('', 'end', values=(
+            f"企业所得税 ({income_rate*100:.0f}%)", 
+            f"- {tax_results['income_tax']:.2f}", 
+            "",
+            inc_tax_desc
+        ))
+        
+        self.tree.insert('', 'end', values=("="*25, "="*15, "="*15, "="*55), tags=('separator',))
+        
+        # 财务盈亏总决算
+        self.tree.insert('', 'end', values=("🌟 === 财务盈亏总决算 === 🌟", "", "", "全局倍数放大后的双公式交叉验证"), tags=('header',))
+        self.tree.insert('', 'end', values=(f"(1) 业务现金总收入", f"{totals['total_cash_rev']:.2f}", "", f"放大 {qty:g} 倍后的营业总流入"))
+        self.tree.insert('', 'end', values=(f"(2) 业务现金总支出", f"{totals['total_cash_cost']:.2f}", "", f"放大 {qty:g} 倍后的运营总流出 (含应付平台总额)"))
+        self.tree.insert('', 'end', values=(
+            "(3) 账面现金毛利", 
+            f"{final_results['cash_margin']:.2f}", 
+            "",
+            f"总入({totals['total_cash_rev']:.2f}) - 总支({totals['total_cash_cost']:.2f}) = 账面现金毛利 {final_results['cash_margin']:.2f}"
+        ))
+        self.tree.insert('', 'end', values=(
+            "(4) 实际交税总计", 
+            f"{tax_results['total_tax']:.2f}", 
+            "",
+            f"增值税({tax_results['payable_vat']:.2f})+附加税({tax_results['surcharge']:.2f})+印花税({tax_results['stamp_duty']:.2f})+所得税({tax_results['income_tax']:.2f})"
+        ))
+        
+        net_profit = final_results['net_profit']
+        self.tree.insert('', 'end', values=(
+            "(5) 公式一：现金流净利", 
+            f"{'+' if net_profit >= 0 else ''}{net_profit:.2f}", 
+            "",
+            f"现金毛利({final_results['cash_margin']:.2f}) - 总税费({tax_results['total_tax']:.2f}) = 落袋净利 {net_profit:.2f} 元"
+        ), tags=('success' if net_profit >= 0 else 'highlight',))
+        
+        self.tree.insert('', 'end', values=("-"*25, "-"*15, "-"*15, "-"*55), tags=('separator',))
+        self.tree.insert('', 'end', values=("(6) 不含税总收入", "", f"{totals['total_rev_excl']:.2f}", f"所有营业收入项剥离销项税后的净额之和 = {totals['total_rev_excl']:.2f}"))
+        self.tree.insert('', 'end', values=("(7) 不含税总成本", "", f"{totals['total_cost_excl']:.2f}", f"所有运营实际不含税成本之和 = {totals['total_cost_excl']:.2f}"))
+        
+        f2_profit = final_results['f2_profit']
+        self.tree.insert('', 'end', values=(
+            "(8) 公式二：利润表净利", 
+            "", 
+            f"{'+' if f2_profit >= 0 else ''}{f2_profit:.2f}",
+            f"净收入({totals['total_rev_excl']:.2f}) - 真实成本({totals['total_cost_excl']:.2f}) - 附加({tax_results['surcharge']:.2f}) - 印花({tax_results['stamp_duty']:.2f}) - 所得税({tax_results['income_tax']:.2f}) = {f2_profit:.2f}"
+        ), tags=('success' if f2_profit >= 0 else 'highlight',))

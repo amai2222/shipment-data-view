@@ -1,0 +1,58 @@
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar_y.pack(side="right", fill="y")
+        self.root.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _setup_settings_frame(self):
+        """全局与税务设置"""
+        settings_frame = ttk.LabelFrame(self.scrollable_frame, text=" ⚙️ 全局与税务设置 ", padding=12)
+        settings_frame.pack(fill="x", pady=5, padx=5)
+        
+        self.btn_platform = tk.Button(settings_frame, text="⬜ 启用下游平台模式(关闭)", 
+                                      fg="gray", font=("Microsoft YaHei", 11, "bold"),
+                                      relief="flat", cursor="hand2", command=self.toggle_platform_mode)
+        self.btn_platform.grid(row=0, column=0, columnspan=2, padx=5, pady=8, sticky="w")
+        
+        self.lbl_plat_rate = tk.Label(settings_frame, text="平台真实税点:", fg="purple", font=("Microsoft YaHei", 10, "bold"))
+        self.entry_plat_rate = ttk.Entry(settings_frame, width=8, font=("Microsoft YaHei", 10))
+        self.entry_plat_rate.insert(0, str(self.DEFAULT_CONFIG['platform_rate']))
+        
+        tk.Label(settings_frame, text="业务倍数(单量):", fg="#d93025", font=("Microsoft YaHei", 10, "bold")).grid(row=0, column=4, padx=5, pady=8, sticky="e")
+        self.entry_qty = ttk.Entry(settings_frame, width=8, font=("Microsoft YaHei", 10, "bold"))
+        self.entry_qty.insert(0, str(self.DEFAULT_CONFIG['qty']))
+        self.entry_qty.grid(row=0, column=5, padx=5, pady=8, sticky="w")
+        
+        ttk.Label(settings_frame, text="附加税率:").grid(row=1, column=0, padx=5, pady=8, sticky="w")
+        self.entry_surcharge = ttk.Entry(settings_frame, width=8)
+        self.entry_surcharge.insert(0, str(self.DEFAULT_CONFIG['surcharge_rate']))
+        self.entry_surcharge.grid(row=1, column=1, padx=5, sticky="w")
+        
+        ttk.Label(settings_frame, text="所得税率:").grid(row=1, column=2, padx=5, pady=8, sticky="e")
+        self.entry_income_tax = ttk.Entry(settings_frame, width=8)
+        self.entry_income_tax.insert(0, str(self.DEFAULT_CONFIG['income_tax_rate']))
+        self.entry_income_tax.grid(row=1, column=3, padx=5, sticky="w")
+        
+        ttk.Label(settings_frame, text="印花税率:").grid(row=1, column=4, padx=5, pady=8, sticky="e")
+        self.entry_stamp = ttk.Entry(settings_frame, width=8)
+        self.entry_stamp.insert(0, str(self.DEFAULT_CONFIG['stamp_tax_rate']))
+        self.entry_stamp.grid(row=1, column=5, padx=5, sticky="w")
+
+        for ent in (self.entry_qty, self.entry_surcharge, self.entry_income_tax, self.entry_stamp, self.entry_plat_rate):
+            ent.bind("<KeyRelease>", lambda e: self.calculate_cost())
+
+    def _setup_rev_frame(self):
+        """营业收入项"""
+        self.rev_frame = ttk.LabelFrame(self.scrollable_frame, text=" 💰 营业收入项 (填入单价，自动乘倍数) ", padding=12)
+        self.rev_frame.pack(fill="x", pady=10, padx=5)
+        ttk.Button(self.rev_frame, text="➕ 添加收入项", command=lambda: self.add_rev_row()).pack(anchor="w", pady=5)
+        self.rev_container = ttk.Frame(self.rev_frame)
+        self.rev_container.pack(fill="x")
+
+    def _setup_cost_frame(self):
+        """运营支出项"""
+        self.cost_frame = ttk.LabelFrame(self.scrollable_frame, text=" 💸 运营支出项 (填入单价，自动乘倍数) ", padding=12)
+        self.cost_frame.pack(fill="x", pady=10, padx=5)
+        ttk.Button(self.cost_frame, text="➕ 添加支出项", command=lambda: self.add_cost_row()).pack(anchor="w", pady=5)
+        self.cost_container = ttk.Frame(self.cost_frame)
+        self.cost_container.pack(fill="x")
+
+    def _setup_right_panel(self):
