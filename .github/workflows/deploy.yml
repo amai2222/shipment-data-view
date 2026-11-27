@@ -35,7 +35,7 @@ jobs:
     # 且与 Cloudflare 的构建不是同一份产物。这里复用上一步的 dist。
     # ---------------------------------------------------------------
     - name: Upload dist to Google Cloud
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
       continue-on-error: true
       uses: appleboy/scp-action@v0.1.7
       with:
@@ -48,7 +48,7 @@ jobs:
         rm: true
 
     - name: Activate on Google Cloud
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
       continue-on-error: true
       uses: appleboy/ssh-action@v0.1.5
       with:
@@ -69,7 +69,7 @@ jobs:
           rm -rf /tmp/shipment-deploy
 
     - name: Upload dist to Tencent Cloud
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
       continue-on-error: true
       uses: appleboy/scp-action@v0.1.7
       with:
@@ -82,7 +82,7 @@ jobs:
         rm: true
 
     - name: Activate on Tencent Cloud
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
       continue-on-error: true
       uses: appleboy/ssh-action@v0.1.5
       with:
