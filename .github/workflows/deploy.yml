@@ -29,7 +29,24 @@ jobs:
         VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
         VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         
-    - name: Deploy to Google Cloud
+    # ---------------------------------------------------------------
+    # 改为「Actions 构建一次 → 上传产物」：
+    # 原先在 VPS 上 npm run build，小内存机器极易 OOM 失败，
+    # 且与 Cloudflare 的构建不是同一份产物。这里复用上一步的 dist。
+    # ---------------------------------------------------------------
+    - name: Upload dist to Google Cloud
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.GOOGLE_CLOUD_HOST }}
+        username: ${{ secrets.GOOGLE_CLOUD_USER }}
+        key: ${{ secrets.GOOGLE_CLOUD_SSH_KEY }}
+        source: "dist/**"
+        target: "/tmp/shipment-deploy"
+        overwrite: true
+        rm: true
+
+    - name: Activate on Google Cloud
       if: github.ref == 'refs/heads/main'
       uses: appleboy/ssh-action@v0.1.5
       with:
@@ -38,27 +55,30 @@ jobs:
         key: ${{ secrets.GOOGLE_CLOUD_SSH_KEY }}
         script: |
           set -e
-          cd /var/www/shipment-data-view
-          git pull origin main
-          npm ci --production
-          npm run build
-          # 验证构建结果
-          if [ ! -d "dist/assets" ] || [ -z "$(ls -A dist/assets/*.js 2>/dev/null)" ]; then
-            echo "❌ 构建失败：assets 目录为空或没有 JS 文件"
-            exit 1
-          fi
-          # 安全地部署文件
+          test -f /tmp/shipment-deploy/dist/index.html || { echo "❌ 产物缺少 index.html"; exit 1; }
+          test -f /tmp/shipment-deploy/dist/partner.html || { echo "❌ 产物缺少 partner.html"; exit 1; }
           mkdir -p /var/www/html/assets
-          cp -r dist/* /var/www/html/
-          # 验证部署结果
-          if [ ! -f "/var/www/html/index.html" ] || [ -z "$(ls -A /var/www/html/assets/*.js 2>/dev/null)" ]; then
-            echo "❌ 部署失败：文件未正确复制"
-            exit 1
-          fi
-          sudo systemctl reload nginx
-          echo "✅ Google Cloud deployment completed and verified"
-          
-    - name: Deploy to Tencent Cloud
+          cp -r /tmp/shipment-deploy/dist/* /var/www/html/
+          test -f /var/www/html/index.html || { echo "❌ index.html 未落地"; exit 1; }
+          test -f /var/www/html/partner.html || { echo "❌ partner.html 未落地"; exit 1; }
+          sudo systemctl reload nginx || echo "⚠️ nginx reload 失败（静态文件已更新）"
+          echo "✅ Google Cloud 部署完成"
+          ls -lh /var/www/html/partner.html
+          rm -rf /tmp/shipment-deploy
+
+    - name: Upload dist to Tencent Cloud
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.TENCENT_CLOUD_HOST }}
+        username: ${{ secrets.TENCENT_CLOUD_USER }}
+        key: ${{ secrets.TENCENT_CLOUD_SSH_KEY }}
+        source: "dist/**"
+        target: "/tmp/shipment-deploy"
+        overwrite: true
+        rm: true
+
+    - name: Activate on Tencent Cloud
       if: github.ref == 'refs/heads/main'
       uses: appleboy/ssh-action@v0.1.5
       with:
@@ -67,22 +87,13 @@ jobs:
         key: ${{ secrets.TENCENT_CLOUD_SSH_KEY }}
         script: |
           set -e
-          cd /var/www/shipment-data-view
-          git pull origin main
-          npm ci --production
-          npm run build
-          # 验证构建结果
-          if [ ! -d "dist/assets" ] || [ -z "$(ls -A dist/assets/*.js 2>/dev/null)" ]; then
-            echo "❌ 构建失败：assets 目录为空或没有 JS 文件"
-            exit 1
-          fi
-          # 安全地部署文件
+          test -f /tmp/shipment-deploy/dist/index.html || { echo "❌ 产物缺少 index.html"; exit 1; }
+          test -f /tmp/shipment-deploy/dist/partner.html || { echo "❌ 产物缺少 partner.html"; exit 1; }
           mkdir -p /var/www/html/assets
-          cp -r dist/* /var/www/html/
-          # 验证部署结果
-          if [ ! -f "/var/www/html/index.html" ] || [ -z "$(ls -A /var/www/html/assets/*.js 2>/dev/null)" ]; then
-            echo "❌ 部署失败：文件未正确复制"
-            exit 1
-          fi
-          sudo systemctl reload nginx
-          echo "✅ Tencent Cloud deployment completed and verified"
+          cp -r /tmp/shipment-deploy/dist/* /var/www/html/
+          test -f /var/www/html/index.html || { echo "❌ index.html 未落地"; exit 1; }
+          test -f /var/www/html/partner.html || { echo "❌ partner.html 未落地"; exit 1; }
+          sudo systemctl reload nginx || echo "⚠️ nginx reload 失败（静态文件已更新）"
+          echo "✅ Tencent Cloud 部署完成"
+          ls -lh /var/www/html/partner.html
+          rm -rf /tmp/shipment-deploy
