@@ -2,9 +2,19 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { setupResourceLoadMonitor } from './utils/resourceLoader'
+import { tryRecoverFromChunkError, markAppLoadedOk } from './utils/chunkRecovery'
 
 // ✅ 启动资源加载监控（自动记录错误到数据库）
 setupResourceLoadMonitor();
+
+// 🔧 Vite 5 动态导入预加载失败：部署更新后旧 hash 被删除时最先触发，
+// 比 React 的 ErrorBoundary 更早，能抢在页面渲染出错误界面前自动恢复。
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  tryRecoverFromChunkError(
+    (event as unknown as { payload?: unknown }).payload ?? 'failed to fetch dynamically imported module',
+  );
+});
 
 // 全局错误处理器 - 忽略非关键错误
 window.addEventListener('error', (event) => {
@@ -61,6 +71,13 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('unhandledrejection', (event) => {
+  // 🔧 优先处理 chunk 加载失败（部署更新后旧 hash 被删除）：
+  // 必须在下面的忽略列表之前判断，否则会被 '404 (Not Found)' 等规则吞掉。
+  if (tryRecoverFromChunkError(event.reason)) {
+    event.preventDefault();
+    return;
+  }
+
   const reason = event.reason?.message || event.reason?.toString() || '';
   
   // 忽略浏览器扩展导致的Promise拒绝
@@ -107,3 +124,6 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// 启动成功后清空 chunk 重试计数，保证下次真出问题时还有自动恢复额度
+markAppLoadedOk();

@@ -5,6 +5,7 @@ import React, { Component, ReactNode, Suspense } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { logErrorToDatabase, extractChunkLoadErrorInfo, extractReactErrorInfo } from '@/utils/errorLogger';
+import { tryRecoverFromChunkError } from '@/utils/chunkRecovery';
 
 // 🔧 配置开关：是否启用自动3次刷新保护机制
 // 设置为 false 可以临时停用自动刷新，方便调试查看真实错误
@@ -17,6 +18,8 @@ interface Props {
 interface State {
   hasError: boolean;
   retryCount: number;
+  /** 自动恢复额度已用尽，需要人工介入 */
+  exhausted: boolean;
   errorMessage?: string;
   errorStack?: string;
 }
@@ -26,7 +29,7 @@ class LazyLoadErrorBoundary extends Component<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, retryCount: 0 };
+    this.state = { hasError: false, retryCount: 0, exhausted: false };
   }
 
   static getDerivedStateFromError(error: Error) {
@@ -94,15 +97,14 @@ class LazyLoadErrorBoundary extends Component<Props, State> {
       return;
     }
     
-    // 自动重试（最多3次，且只针对懒加载错误）
-    if (isChunkLoadError && this.state.retryCount < 3) {
-      setTimeout(() => {
-        this.setState(state => ({
-          hasError: false,
-          retryCount: state.retryCount + 1
-        }));
-        window.location.reload();
-      }, 1000);
+    // 自动恢复：计数存在 sessionStorage（跨 reload 有效），最多 2 次
+    if (isChunkLoadError) {
+      if (tryRecoverFromChunkError(error)) {
+        // 已触发整页刷新，不再渲染错误 UI
+        return;
+      }
+      // 额度用尽 → 标记为需要人工处理
+      this.setState({ exhausted: true });
     }
   }
 
@@ -119,10 +121,11 @@ class LazyLoadErrorBoundary extends Component<Props, State> {
             <div className="text-6xl">⚠️</div>
             <h2 className="text-2xl font-bold">页面加载失败</h2>
             <p className="text-muted-foreground">
-              {ENABLE_AUTO_RETRY && this.state.retryCount > 0 
-                ? `正在自动重试... (${this.state.retryCount}/3)`
-                : '页面组件加载失败，请刷新重试'
-              }
+              {!ENABLE_AUTO_RETRY
+                ? '页面组件加载失败，请刷新重试'
+                : this.state.exhausted
+                ? '系统可能刚发布了新版本，自动恢复未成功。请手动刷新；若反复出现，请退出后重新登录或联系管理员。'
+                : '正在自动恢复，请稍候…'}
             </p>
             
             {/* 🔧 调试模式：显示详细错误信息 */}

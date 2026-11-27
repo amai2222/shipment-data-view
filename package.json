@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/verify-build.js && node scripts/verify-resource-paths.js",
+    "build": "vite build && node scripts/carry-over-assets.mjs && node scripts/verify-build.js && node scripts/verify-resource-paths.js",
     "build:dev": "vite build --mode development && node scripts/verify-build.js && node scripts/verify-resource-paths.js",
     "verify-build": "node scripts/verify-build.js",
     "verify-resources": "node scripts/verify-resource-paths.js",
