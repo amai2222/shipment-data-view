@@ -36,6 +36,7 @@ jobs:
     # ---------------------------------------------------------------
     - name: Upload dist to Google Cloud
       if: github.ref == 'refs/heads/main'
+      continue-on-error: true
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.GOOGLE_CLOUD_HOST }}
@@ -48,6 +49,7 @@ jobs:
 
     - name: Activate on Google Cloud
       if: github.ref == 'refs/heads/main'
+      continue-on-error: true
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.GOOGLE_CLOUD_HOST }}
@@ -68,6 +70,7 @@ jobs:
 
     - name: Upload dist to Tencent Cloud
       if: github.ref == 'refs/heads/main'
+      continue-on-error: true
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.TENCENT_CLOUD_HOST }}
@@ -80,6 +83,7 @@ jobs:
 
     - name: Activate on Tencent Cloud
       if: github.ref == 'refs/heads/main'
+      continue-on-error: true
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.TENCENT_CLOUD_HOST }}
