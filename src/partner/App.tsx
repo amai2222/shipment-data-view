@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
+import InternalNotice from './InternalNotice';
 import Layout from './Layout';
 import Dashboard from './pages/Dashboard';
 import Waybills from './pages/Waybills';
@@ -39,6 +40,7 @@ if (HTML_ENTRY) {
 
 function AppRoutes() {
   const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -47,13 +49,16 @@ function AppRoutes() {
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
       setSession(data.session);
-      setChecking(false);
+      if (!data.session) setChecking(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!alive) return;
       setSession(nextSession);
-      setChecking(false);
+      if (!nextSession) {
+        setRole(null);
+        setChecking(false);
+      }
     });
 
     return () => {
@@ -61,6 +66,25 @@ function AppRoutes() {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // 拿到 session 后确认角色：内部员工不应进入合作方门户
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!alive) return;
+        setRole((data?.role as string | undefined) ?? null);
+        setChecking(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [session]);
 
   if (checking) {
     return (
@@ -79,6 +103,11 @@ function AppRoutes() {
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // 内部账号（admin/finance/business/operator/viewer）不进合作方门户
+  if (role && role !== 'partner') {
+    return <InternalNotice email={session.user.email ?? undefined} />;
   }
 
   return (
