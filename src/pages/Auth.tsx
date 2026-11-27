@@ -36,8 +36,9 @@ export default function Auth() {
     // 定义角色默认首页映射
     const roleHomePage: Record<string, { pc: string; mobile: string }> = {
       partner: {
-        pc: '/dashboard/shipper',
-        mobile: '/m/dashboard/shipper'
+        // 合作方门户为独立入口（与主站共享同一 Supabase 登录态），PC/移动同址
+        pc: '/partner.html',
+        mobile: '/partner.html'
       },
       fleet_manager: {
         pc: '/m/internal/fleet-dashboard',  // 暂时PC端也用移动端页面
@@ -111,7 +112,7 @@ export default function Auth() {
     if (profile) {
       // 复用角色首页映射表
       const roleHomePage: Record<string, { pc: string; mobile: string }> = {
-        partner: { pc: '/dashboard/shipper', mobile: '/m/dashboard/shipper' },
+        partner: { pc: '/partner.html', mobile: '/partner.html' },
         fleet_manager: { pc: '/m/internal/fleet-dashboard', mobile: '/m/internal/fleet-dashboard' },
         driver: { pc: '/m/internal/driver-dashboard', mobile: '/m/internal/driver-dashboard' },
         finance: { pc: '/dashboard/financial', mobile: '/m/dashboard/financial' },

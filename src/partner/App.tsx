@@ -1,5 +1,9 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import type { Session } from '@supabase/supabase-js';
+import { Loader2 } from 'lucide-react';
 
+import { supabase } from '@/integrations/supabase/client';
 import Layout from './Layout';
 import Dashboard from './pages/Dashboard';
 import Waybills from './pages/Waybills';
@@ -34,6 +38,49 @@ if (HTML_ENTRY) {
 }
 
 function AppRoutes() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      setSession(data.session);
+      setChecking(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!alive) return;
+      setSession(nextSession);
+      setChecking(false);
+    });
+
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    // 与内部系统共用同一登录入口：带着回跳地址去 /auth，登录后按角色回到门户
+    const back = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.replace(`/auth?redirect=${encodeURIComponent(back)}`);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <Routes>
       <Route element={<Layout />}>
