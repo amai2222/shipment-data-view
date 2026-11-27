@@ -3,7 +3,9 @@ import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router
 import type { Session } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 
-import { supabase } from '@/integrations/supabase/client';
+import { partnerSupabase as supabase } from '@/partner/client';
+import { applyTheme, cacheTheme, readCachedTheme, isThemeKey, type ThemeKey } from './theme';
+import Login from './Login';
 import InternalNotice from './InternalNotice';
 import Layout from './Layout';
 import Dashboard from './pages/Dashboard';
@@ -86,6 +88,26 @@ function AppRoutes() {
     };
   }, [session]);
 
+  // 主题：本地缓存先应用（避免闪白），再用企业配置覆盖
+  useEffect(() => {
+    applyTheme(readCachedTheme());
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    supabase
+      .rpc('partner_get_theme')
+      .then(({ data }) => {
+        if (!alive || !isThemeKey(data)) return;
+        cacheTheme(data as ThemeKey);
+        applyTheme(data as ThemeKey);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [session]);
+
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -95,14 +117,8 @@ function AppRoutes() {
   }
 
   if (!session) {
-    // 与内部系统共用同一登录入口：带着回跳地址去 /auth，登录后按角色回到门户
-    const back = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.replace(`/auth?redirect=${encodeURIComponent(back)}`);
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    // 门户使用独立 storageKey，与内部系统登录态隔离，这里给独立登录页
+    return <Login />;
   }
 
   // 内部账号（admin/finance/business/operator/viewer）不进合作方门户

@@ -5,7 +5,9 @@ import {
   Copy,
   Info,
   Landmark,
+  Loader2,
   Mail,
+  Palette,
   ShieldCheck,
   UserRound,
 } from 'lucide-react';
@@ -14,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { getProfile, toErrorMessage, type PartnerProfile } from '../api';
+import { partnerSupabase } from '../client';
+import { THEMES, applyTheme, cacheTheme, readCachedTheme, themeOf, type ThemeKey } from '../theme';
 import { ErrorState, EmptyState, InlineError, PageHead } from '../components/shared';
 
 function InfoRow({
@@ -75,6 +79,27 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemeKey>(() => readCachedTheme());
+  const [savingTheme, setSavingTheme] = useState<ThemeKey | null>(null);
+  const [themeHint, setThemeHint] = useState<string | null>(null);
+
+  const chooseTheme = async (next: ThemeKey) => {
+    if (savingTheme || next === theme) return;
+    setTheme(next);
+    applyTheme(next);
+    cacheTheme(next);
+    setSavingTheme(next);
+    setThemeHint(null);
+    try {
+      const { error: saveError } = await partnerSupabase.rpc('partner_set_theme', { p_theme: next });
+      if (saveError) throw saveError;
+      setThemeHint('已保存，该企业下所有账号下次登录生效');
+    } catch (err) {
+      setThemeHint(toErrorMessage(err, '主题已在本机生效，但未能同步到企业配置'));
+    } finally {
+      setSavingTheme(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -183,6 +208,54 @@ export default function Profile() {
                 <InlineError message={copyError} />
               </div>
             </div>
+          </SectionCard>
+
+          <SectionCard
+            icon={Palette}
+            title="界面主题"
+            description="按企业配置：该企业下所有账号登录后统一使用这套配色。"
+          >
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {THEMES.map((t) => {
+                const active = theme === t.key;
+                const saving = savingTheme === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => void chooseTheme(t.key)}
+                    disabled={savingTheme !== null}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border p-2.5 text-left transition',
+                      active
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                        : 'border-border hover:bg-muted/50',
+                      savingTheme !== null && !saving && 'opacity-60',
+                    )}
+                  >
+                    <span
+                      className="h-5 w-5 shrink-0 rounded-full ring-1 ring-black/10"
+                      style={{ background: t.swatch }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{t.label}</span>
+                      <span className="block truncate text-[10px] text-muted-foreground">{t.desc}</span>
+                    </span>
+                    {saving ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                    ) : active ? (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            {themeHint && (
+              <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">{themeHint}</p>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              当前：{themeOf(theme).label}
+            </p>
           </SectionCard>
 
           <SectionCard icon={UserRound} title="登录账号" description="当前登录门户的账号信息。">

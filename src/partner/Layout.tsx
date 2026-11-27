@@ -12,7 +12,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { partnerSupabase as supabase } from '@/partner/client';
 import { getOverview, getReconciliation } from './api';
 import { RECONCILE_EVENT, currentMonth, formatCount } from './components/shared';
 

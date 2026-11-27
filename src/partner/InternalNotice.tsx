@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { partnerSupabase as supabase } from '@/partner/client';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert } from 'lucide-react';
 

@@ -5,7 +5,7 @@
  * 所有金额字段在后端可能是 numeric（返回字符串），这里统一做一次归一化，
  * UI 层只处理 number，避免每处再写 Number()。
  */
-import { supabase } from '@/integrations/supabase/client';
+import { partnerSupabase as supabase } from '@/partner/client';
 
 /* ------------------------------------------------------------------ */
 /* 类型                                                                */
