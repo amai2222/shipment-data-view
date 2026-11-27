@@ -2,7 +2,7 @@
 // 描述: [rz64l-Final-V3] 完整版。根据用户要求，重命名并美化了主标题和卡片，
 //       优化了项目卡片中的单位显示，并增加了日期上下文信息。
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks, PieChart, AlertTriangle } from "lucide-react";
+import { Loader2, TrendingUp, Wallet, Truck, Users, Calendar as CalendarIcon, Briefcase, BarChart2, ListChecks, PieChart, AlertTriangle, ChevronRight } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,32 @@ interface ProjectDataPackage {
 interface SummaryStats { total_trips: number; total_cost: number; avg_cost: number; total_tonnage: number; }
 interface OverviewDashboardData { all_projects_data: ProjectDataPackage[]; global_seven_day_trend: TrendData[]; global_driver_report_table: DriverReportRow[]; global_summary: { total_projects: number; total_receivable: number; total_trips: number; } }
 
+// --- 链路数据类型 (partner_chains / project_partners / partners) ---
+// 注意：生成的 Database 类型里 partner_chains 尚未包含 owner_partner_id / owner_level，
+// 因此这里的行类型单独定义，查询结果做一次显式断言。
+interface ChainPartnerNode {
+  level: number;
+  partner_id: string;
+  partners: { name: string; partner_type: string | null } | null;
+}
+interface PartnerChainRow {
+  id: string;
+  project_id: string;
+  chain_name: string;
+  is_default: boolean;
+  owner_partner_id: string | null;
+  owner_level: number | null;
+  project_partners: ChainPartnerNode[] | null;
+}
+interface ChainLayer { level: number; name: string; }
+interface ProjectChainDisplay {
+  project_id: string;
+  layers: ChainLayer[];
+  owner_level: number | null;
+  owner_name: string | null;
+}
+type ChainQueryResponse = { data: PartnerChainRow[] | null; error: { message?: string } | null };
+
 // --- 辅助函数 (无修改) ---
 const formatNumber = (val: number | null | undefined, unit: string = '') => `${(val || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}${unit ? ' ' + unit : ''}`;
 
@@ -53,8 +79,109 @@ const CircularProgressChart = ({ value }: { value: number }) => {
   );
 };
 
+// --- 项目链路数据：页面级查询一次，按 project_id 分组 ---
+const EMPTY_CHAIN_MAP = new Map<string, ProjectChainDisplay>();
+
+const useProjectChains = (): Map<string, ProjectChainDisplay> => {
+  const { data } = useQuery({
+    queryKey: ['project-partner-chains'],
+    queryFn: async (): Promise<Map<string, ProjectChainDisplay>> => {
+      // 生成类型里还没有 owner_partner_id / owner_level，这里显式断言查询结果
+      const { data: chainRows, error: chainError } = await (supabase
+        .from('partner_chains')
+        .select('id, project_id, chain_name, is_default, owner_partner_id, owner_level, project_partners(level, partner_id, partners(name, partner_type))') as unknown as PromiseLike<ChainQueryResponse>);
+
+      // 静默失败：链路行不渲染，不影响卡片其他内容
+      if (chainError || !chainRows) {
+        if (import.meta.env.DEV) console.warn('获取项目链路失败:', chainError?.message);
+        return EMPTY_CHAIN_MAP;
+      }
+
+      // 同一项目只保留 is_default 的那条，没有默认则取第一条
+      const selected = new Map<string, PartnerChainRow>();
+      for (const chain of chainRows) {
+        const prev = selected.get(chain.project_id);
+        if (!prev || (chain.is_default && !prev.is_default)) {
+          selected.set(chain.project_id, chain);
+        }
+      }
+
+      // 归属方名称：链路表未内联 owner 关联，单独查一次 partners
+      const ownerIds = Array.from(new Set(
+        Array.from(selected.values())
+          .map(c => c.owner_partner_id)
+          .filter((id): id is string => !!id)
+      ));
+      const ownerNames = new Map<string, string>();
+      if (ownerIds.length > 0) {
+        const { data: ownerRows } = await supabase.from('partners').select('id, name').in('id', ownerIds);
+        ownerRows?.forEach(p => ownerNames.set(p.id, p.name));
+      }
+
+      const result = new Map<string, ProjectChainDisplay>();
+      for (const [projectId, chain] of selected) {
+        const layers = [...(chain.project_partners ?? [])]
+          .sort((a, b) => a.level - b.level)
+          .map(p => ({ level: p.level, name: p.partners?.name ?? '' }))
+          .filter(l => !!l.name);
+        if (layers.length === 0) continue; // 无层级数据 → 整行不渲染
+        result.set(projectId, {
+          project_id: projectId,
+          layers,
+          owner_level: chain.owner_level ?? null,
+          owner_name: chain.owner_partner_id ? ownerNames.get(chain.owner_partner_id) ?? null : null,
+        });
+      }
+      return result;
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 0,
+  });
+  return data ?? EMPTY_CHAIN_MAP;
+};
+
+// --- 卡片内的链路展示行（横向胶囊，可横向滚动） ---
+const ProjectChainRow = ({ chain }: { chain: ProjectChainDisplay | undefined }) => {
+  if (!chain || chain.layers.length === 0) return null;
+
+  const items = chain.layers.map((layer, index) => ({
+    key: `layer-${index}-${layer.level}`,
+    name: layer.name,
+    owner: false,
+  }));
+
+  // 归属方插到 owner_level - 1（索引从 0 开始，越界钳制）
+  if (chain.owner_name && chain.owner_level !== null) {
+    const insertAt = Math.min(Math.max(chain.owner_level - 1, 0), items.length);
+    items.splice(insertAt, 0, { key: 'owner', name: chain.owner_name, owner: true });
+  }
+
+  return (
+    <div className="overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1">
+        {items.map((item, index) => (
+          <Fragment key={item.key}>
+            {index > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+            <span
+              className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[10px]',
+                item.owner
+                  ? 'border border-dashed border-primary bg-primary/5 text-primary'
+                  : 'bg-muted text-foreground'
+              )}
+            >
+              {item.name}
+            </span>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- 单个项目卡片子组件 (★★★ 已修改 ★★★) ---
-const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectDataPackage, onClick: () => void }) => {
+const ProjectSummaryCard = ({ projectData, chain, onClick }: { projectData: ProjectDataPackage, chain?: ProjectChainDisplay, onClick: () => void }) => {
   const { project_details, daily_report, summary_stats } = projectData;
   const unitConfig = useMemo(() => {
     const { billing_type_id, planned_total_tons } = project_details;
@@ -93,6 +220,7 @@ const ProjectSummaryCard = ({ projectData, onClick }: { projectData: ProjectData
             </div>
           </div>
         </div>
+        <ProjectChainRow chain={chain} />
         <div className="border-t pt-4 grid grid-cols-2 gap-4 text-center">
           <div className="flex flex-col items-center">
             <p className="text-lg font-bold text-slate-800">{formatNumber(daily_report?.trip_count, '车')}</p>
@@ -193,6 +321,9 @@ export default function ProjectsOverview() {
       });
     }
   });
+
+  // 链路数据：页面级只查一次，卡片按 project_id 取用
+  const projectChains = useProjectChains();
 
   const projectOptions = useMemo((): OptionType[] => {
     if (!dashboardData?.all_projects_data) return [];
@@ -353,7 +484,7 @@ export default function ProjectsOverview() {
           <span className="text-base font-normal text-slate-500 ml-2">({format(reportDate, "yyyy-MM-dd")})</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {all_projects_data.map(projectData => (<ProjectSummaryCard key={projectData.project_details.id} projectData={projectData} onClick={() => navigate(`/project/${projectData.project_details.id}`)} />))}
+          {all_projects_data.map(projectData => (<ProjectSummaryCard key={projectData.project_details.id} projectData={projectData} chain={projectChains.get(projectData.project_details.id)} onClick={() => navigate(`/project/${projectData.project_details.id}`)} />))}
         </div>
         {all_projects_data.length === 0 && (<div className="text-center py-10 text-slate-500 bg-white rounded-lg shadow-sm">当前筛选条件下无项目数据。</div>)}
       </div>
