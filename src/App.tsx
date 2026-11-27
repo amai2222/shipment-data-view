@@ -54,6 +54,7 @@ import {
   PaymentRequestsList,
   FinancialOverview,
   ReceiptReport,
+  ChainProfit,
   ContractManagement,
   VehicleTracking,
   WaybillMaintenance,
@@ -445,6 +446,12 @@ const App = () => (
             <Route path="/finance/receipt-report" element={
               <ProtectedRoute requiredPermission="finance.receipt_report">
                 <AppLayout><ReceiptReport /></AppLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/finance/chain-profit" element={
+              <ProtectedRoute requiredPermission="finance.chain_profit">
+                <AppLayout><ChainProfit /></AppLayout>
               </ProtectedRoute>
             } />
             

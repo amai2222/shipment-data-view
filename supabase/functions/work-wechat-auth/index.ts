@@ -68,6 +68,13 @@ serve(async (req) => {
     const userDetail: WorkWechatUserInfo = await userDetailResponse.json();
     console.log('用户详细信息:', userDetail);
 
+    // 企微成员状态校验：1=已激活，2=已禁用，4=未激活，5=退出企业
+    // 离职/禁用成员即使拿到旧 code 也不允许登录
+    if (userDetail.status !== undefined && userDetail.status !== 1) {
+      console.warn(`企微成员状态异常: ${userData.UserId} status=${userDetail.status}`);
+      throw new Error('该企业微信账号已禁用或已离职，请联系管理员');
+    }
+
     // 提取手机号（企业微信API可能返回mobile或phone字段）
     const phoneNumber = userDetail.mobile || userDetail.phone || '';
     const wechatName = userDetail.alias || userDetail.name || '';
@@ -76,16 +83,41 @@ serve(async (req) => {
 
     // ==================== 使用 profiles 表查找用户的优化逻辑 ====================
 
-    const email = userDetail.email || `${userData.UserId}@company.local`;
+    // 邮箱统一小写：GoTrue 的 auth.users.email 为小写存储，generateLink 按精确匹配查用户
+    // 若传大小写混合（如企微 userid "LaoShen" 拼出的邮箱）会查不到用户导致 500
+    const email = (userDetail.email || `${userData.UserId}@company.local`).toLowerCase();
 
-    // 4. 先尝试创建用户，如果失败则从 profiles 表查找现有用户
+    // 4. 先查 profiles 决定复用还是创建（幂等，避开 GoTrue 错误文案变更）
     console.log(`处理用户邮箱: ${email}`);
     console.log(`企业微信用户ID: ${userData.UserId}`);
     let authUserId: string;
     let isNewUser = false;
 
-    try {
-      // 直接尝试创建用户
+    // 4. 先查 profiles：已存在用户直接复用，避免依赖会变化的 GoTrue 错误文案
+    //    （历史上因 "already been registered" 文案变更为 "User already registered" 导致登录 500）
+    const { data: existingProfile, error: lookupError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, is_active')
+      .ilike('email', email)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error('查询 profiles 失败:', lookupError);
+      throw new Error(`查询用户档案失败: ${lookupError.message}`);
+    }
+
+    if (existingProfile) {
+      // 禁用校验：管理员停用的账号不允许通过企微登录绕过
+      // （原逻辑在 upsert 里强制 is_active:true，等于每次登录自动解禁）
+      if (existingProfile.is_active === false) {
+        console.warn(`已禁用用户尝试登录: ${email}`);
+        throw new Error('账号已被禁用，请联系管理员');
+      }
+      authUserId = existingProfile.id;
+      isNewUser = false;
+      console.log(`用户 ${email} 已存在，复用档案 ID: ${authUserId}`);
+    } else {
+      // 用户不存在，创建
       const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -101,39 +133,12 @@ serve(async (req) => {
       });
 
       if (createAuthError) {
-        // 如果创建失败且错误是用户已存在，这是正常情况
-        if (createAuthError.message && createAuthError.message.includes('already been registered')) {
-          console.log(`用户 ${email} 已存在，从 profiles 表查找用户ID`);
-          
-          // 从 profiles 表查找用户ID
-          const { data: profile, error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .single();
-          
-          if (profileError || !profile) {
-            console.error('无法从 profiles 表找到用户:', profileError);
-            throw new Error(`用户已存在但无法获取用户档案: ${profileError?.message || '未找到档案'}`);
-          }
-          
-          authUserId = profile.id;
-          isNewUser = false;
-          console.log(`从 profiles 表找到用户ID: ${authUserId}`);
-        } else {
-          // 其他创建错误
-          console.error('创建用户时发生未知错误:', createAuthError);
-          throw createAuthError;
-        }
-      } else {
-        // 用户创建成功
-        authUserId = newAuthUser.user.id;
-        isNewUser = true;
-        console.log(`新用户 ${email} 创建成功: ${authUserId}`);
+        console.error('创建用户时发生错误:', createAuthError);
+        throw createAuthError;
       }
-    } catch (error) {
-      console.error('处理用户时发生错误:', error);
-      throw error;
+      authUserId = newAuthUser.user.id;
+      isNewUser = true;
+      console.log(`新用户 ${email} 创建成功: ${authUserId}`);
     }
 
     // 5. 使用 upsert 来创建或更新用户的公开信息 (profiles 表)
@@ -149,7 +154,7 @@ serve(async (req) => {
         phone: phoneNumber,
         work_wechat_name: wechatName,
         role: isNewUser ? 'viewer' : undefined,
-        is_active: true,
+        // 不覆盖 is_active：新用户由数据库默认值(true)激活，已存在用户保持管理员设置
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' })
       .select()
@@ -164,25 +169,36 @@ serve(async (req) => {
 
     // ==================== 最终修复逻辑结束 ====================
 
-    // 6. 直接生成访问令牌，避免重定向
-    const { data: authTokenData, error: tokenError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: profile.email
+    // 6. 签发登录会话
+    // 说明：Supabase 项目暂停恢复后，GoTrue 的 admin.generateLink(recovery/magiclink)
+    //       对所有用户全局返回 500（unexpected_failure），已实测确认。
+    //       改用「admin 重置密码 + signInWithPassword」直接签发 session，绕过 generateLink。
+    //       已实测 service_role 可同时完成 updateUserById 与 token?grant_type=password。
+    const loginPassword = `Wx@${userData.UserId}_${Date.now()}`;
+    const { error: resetError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+      password: loginPassword
     });
-
-    if (tokenError) {
-      console.error('生成令牌失败:', tokenError);
-      throw new Error('生成令牌失败');
+    if (resetError) {
+      console.error('重置登录密码失败:', resetError);
+      throw new Error(`重置登录密码失败: ${resetError.message}`);
     }
 
-    console.log('企业微信认证成功');
+    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email: profile.email,
+      password: loginPassword
+    });
+    if (signInError || !signInData?.session) {
+      console.error('密码登录失败:', signInError);
+      throw new Error(`签发会话失败: ${signInError?.message || '未返回 session'}`);
+    }
+
+    console.log('企业微信认证成功，会话已签发');
 
     return new Response(JSON.stringify({
       success: true,
       user: profile,
-      auth_url: authTokenData.properties.action_link,
-      access_token: authTokenData.session?.access_token,
-      refresh_token: authTokenData.session?.refresh_token
+      access_token: signInData.session.access_token,
+      refresh_token: signInData.session.refresh_token
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

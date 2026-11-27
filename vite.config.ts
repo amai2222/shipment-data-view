@@ -85,6 +85,10 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
 
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        partner: path.resolve(__dirname, 'partner.html'),
+      },
       output: {
         format: 'es',
         chunkFileNames: 'assets/[name]-[hash:8].js',

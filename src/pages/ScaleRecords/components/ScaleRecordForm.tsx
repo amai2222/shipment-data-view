@@ -8,6 +8,7 @@ import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X, Save, Plus } from 'lucide-react';
 import { formatChinaDateString } from '@/utils/dateUtils';
+import { toWebpUploadFiles } from '@/utils/imageToWebp';
 
 interface Project {
   id: string;
@@ -300,9 +301,12 @@ export function ScaleRecordForm({ projects, drivers, onSuccess, editingRecord }:
       });
     }
 
+    // 前端本地转 WebP(零服务端成本),失败自动回退原图
+    const webpFiles = await toWebpUploadFiles(filesToUpload);
+
     const { data, error } = await supabase.functions.invoke('qiniu-upload', {
       body: { 
-        files: filesToUpload,
+        files: webpFiles,
         namingParams: namingParams 
       }
     });

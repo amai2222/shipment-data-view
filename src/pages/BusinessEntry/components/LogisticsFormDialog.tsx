@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { formatChinaDateString, convertUTCDateToChinaDate } from "@/utils/dateUtils";
+import { toWebpUploadFiles } from "@/utils/imageToWebp";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -588,9 +589,12 @@ export function LogisticsFormDialog({ isOpen, onClose, editingRecord, projects, 
         : formatChinaDateString(new Date());
       const licensePlate = formData.licensePlate || 'UnknownPlate';
 
+      // 前端本地转 WebP(零服务端成本),失败自动回退原图
+      const webpFiles = await toWebpUploadFiles(filesToUpload);
+
       const { data, error } = await supabase.functions.invoke('qiniu-upload', {
         body: { 
-          files: filesToUpload,
+          files: webpFiles,
           namingParams: {
             date: loadingDate,
             licensePlate: licensePlate,

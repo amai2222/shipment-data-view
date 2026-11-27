@@ -215,13 +215,6 @@ export default function Auth() {
                   </Button>
                 </form>
                 
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h3 className="font-semibold text-blue-900 mb-2">初始管理员账号（测试用）</h3>
-                  <div className="space-y-1 text-sm text-blue-800">
-                    <p><strong>用户名:</strong> admin</p>
-                    <p><strong>密码:</strong> admin123</p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

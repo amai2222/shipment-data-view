@@ -92,6 +92,7 @@ export const PaymentInvoiceDetail = conditionalLazy(() => import('./pages/Paymen
 export const PaymentRequestsList = conditionalLazy(() => import('./pages/PaymentRequestsList'));
 export const FinancialOverview = conditionalLazy(() => import('./pages/FinancialOverview'));
 export const ReceiptReport = conditionalLazy(() => import('./pages/ReceiptReport'));
+export const ChainProfit = conditionalLazy(() => import('./pages/ChainProfit'));
 
 // 基础数据管理
 export const Drivers = conditionalLazy(() => import('./pages/Drivers'));

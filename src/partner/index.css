@@ -1,0 +1,92 @@
+/* 合作方门户样式入口：只复用主站设计 token，不重复引入 tailwind 指令 */
+@import "../index.css";
+
+/* ------------------------------------------------------------------ */
+/* 打印对账单                                                          */
+/* 屏幕端 .partner-print-doc 不渲染；打印时只保留它，并强制走浅色 token */
+/* ------------------------------------------------------------------ */
+.partner-print-doc {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  /* 打印用浅色 token（暗色模式下也能得到可读的纸质单据） */
+  :root,
+  .dark {
+    --background: 0 0% 100%;
+    --foreground: 215 25% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 20%;
+    --muted: 210 30% 96%;
+    --muted-foreground: 215 15% 38%;
+    --border: 214 20% 82%;
+    --primary: 217 60% 38%;
+    --primary-foreground: 0 0% 100%;
+    --destructive: 0 60% 42%;
+  }
+
+  html,
+  body {
+    background: hsl(var(--background));
+  }
+
+  /* 打印时隐藏站点框架与屏幕端交互区 */
+  header,
+  nav,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .partner-screen-only {
+    display: none !important;
+  }
+
+  .partner-print-doc {
+    display: block !important;
+    color: hsl(var(--foreground));
+  }
+
+  .partner-print-doc table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .partner-print-doc thead {
+    display: table-header-group;
+  }
+
+  .partner-print-doc th,
+  .partner-print-doc td {
+    border: 1px solid hsl(var(--border));
+    padding: 5px 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    vertical-align: top;
+  }
+
+  .partner-print-doc th {
+    background: hsl(var(--muted));
+    font-weight: 600;
+  }
+
+  .partner-print-doc tr {
+    break-inside: avoid;
+  }
+
+  .partner-print-page + .partner-print-page {
+    break-before: page;
+  }
+}

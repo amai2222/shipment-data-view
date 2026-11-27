@@ -24,12 +24,68 @@ export interface UserProfile {
   work_wechat_department?: number[];
   avatar_url?: string;
   created_at?: string;
-  partnerId?: string;  // 货主ID（仅partner角色使用）
+  partnerId?: string;      // 合作方ID（仅partner角色使用，来自 user_partners）
+  partnerType?: string;    // 合作方类型：货主 / 合作商 / 资方 / 本公司
+  partnerName?: string;    // 合作方名称
+  isPartnerUser?: boolean; // 是否合作方账号（role === 'partner'）
 }
 
-// 扩展User类型，添加partnerId属性（用于货主移动端）
+// 扩展User类型，添加合作方绑定属性（用于货主移动端）
 interface ExtendedUser extends User {
   partnerId?: string;
+  partnerType?: string;
+  partnerName?: string;
+  isPartnerUser?: boolean;
+}
+
+// 合作方绑定信息（来自 user_partners → partners）
+interface PartnerBinding {
+  partnerId?: string;
+  partnerType?: string;
+  partnerName?: string;
+}
+
+/**
+ * 解析当前用户的真实合作方绑定。
+ * 数据来源：public.user_partners（A 组迁移建立），is_primary 优先，否则取 created_at 最早一条。
+ * 不再使用「取第一个货主」的伪造逻辑。
+ */
+async function resolvePartnerBinding(userId: string): Promise<PartnerBinding> {
+  try {
+    const { data, error } = await supabase
+      .from('user_partners')
+      .select('partner_id, is_primary, created_at, partners(id, name, partner_type)')
+      .eq('user_id', userId)
+      .order('is_primary', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('查询合作方绑定失败:', error);
+      return {};
+    }
+    if (!data) {
+      console.warn('⚠️ 当前 partner 账号未绑定任何合作方，请联系管理员');
+      return {};
+    }
+
+    const row = data as {
+      partner_id?: string;
+      partners?: { id?: string; name?: string; partner_type?: string } | Array<{ id?: string; name?: string; partner_type?: string }> | null;
+    };
+    const rel = Array.isArray(row.partners) ? row.partners[0] : row.partners;
+    const partnerId = rel?.id || row.partner_id;
+
+    return {
+      partnerId,
+      partnerType: rel?.partner_type,
+      partnerName: rel?.name,
+    };
+  } catch (e) {
+    console.warn('查询合作方绑定异常:', e);
+    return {};
+  }
 }
 
 // 定义AuthContext的类型，明确提供给子组件的属性和方法
@@ -69,9 +125,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(session);
         const currentUser = session?.user ?? null;
-        // 扩展User对象，添加partnerId（从profile中获取）
-        if (currentUser && profile?.partnerId) {
+        // 扩展User对象，带上合作方绑定（来自已加载的 profile）
+        if (currentUser && profile?.isPartnerUser) {
           (currentUser as ExtendedUser).partnerId = profile.partnerId;
+          (currentUser as ExtendedUser).partnerType = profile.partnerType;
+          (currentUser as ExtendedUser).partnerName = profile.partnerName;
+          (currentUser as ExtendedUser).isPartnerUser = profile.isPartnerUser;
         }
         setUser(currentUser as ExtendedUser | null);
 
@@ -206,21 +265,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (retryData) {
                       console.log('✅ 重试成功，已获取 profile');
                       const anyProfile = retryData as Record<string, unknown>;
-                      let partnerId: string | undefined;
-                      if (anyProfile.role === 'partner') {
-                        try {
-                          const { data: partnerData } = await supabase
-                            .from('partners')
-                            .select('id')
-                            .eq('partner_type', '货主')
-                            .limit(1)
-                            .single();
-                          partnerId = partnerData?.id;
-                        } catch (e) {
-                          console.warn('查询货主ID失败:', e);
-                        }
-                      }
-                      
+                      const isPartnerUser = anyProfile.role === 'partner';
+                      // partner 角色：从 user_partners 读取真实绑定（is_primary 优先，其次 created_at 最早）
+                      const binding = isPartnerUser
+                        ? await resolvePartnerBinding(currentUser.id)
+                        : {};
+
                       const userProfile: UserProfile = {
                         id: String(anyProfile.id || ''),
                         email: String(anyProfile.email || ''),
@@ -228,12 +278,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         full_name: String(anyProfile.full_name || ''),
                         role: (anyProfile.role as UserRole) ?? 'operator',
                         is_active: Boolean(anyProfile.is_active ?? true),
-                        partnerId
+                        ...binding,
+                        isPartnerUser
                       };
                       setProfile(userProfile);
                       profileCache = userProfile;
-                      if (currentUser && partnerId) {
-                        (currentUser as ExtendedUser).partnerId = partnerId;
+                      if (currentUser) {
+                        Object.assign(currentUser as ExtendedUser, binding, { isPartnerUser });
                         setUser(currentUser as ExtendedUser);
                       }
                       setLoading(false);
@@ -248,23 +299,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
               } else if (profileData) {
                 const anyProfile = profileData as Record<string, unknown>;
-                
-                // 如果是partner角色，查询关联的货主ID
-                let partnerId: string | undefined;
-                if (anyProfile.role === 'partner') {
-                  try {
-                    const { data: partnerData } = await supabase
-                      .from('partners')
-                      .select('id')
-                      .eq('partner_type', '货主')
-                      .limit(1)
-                      .single();
-                    partnerId = partnerData?.id;
-                  } catch (error) {
-                    console.warn('查询货主ID失败:', error);
-                  }
-                }
-                
+                const isPartnerUser = anyProfile.role === 'partner';
+
+                // partner 角色：从 user_partners 读取真实绑定（is_primary 优先，其次 created_at 最早）
+                const binding = isPartnerUser
+                  ? await resolvePartnerBinding(currentUser.id)
+                  : {};
+
                 const userProfile: UserProfile = {
                   id: String(anyProfile.id || ''),
                   email: String(anyProfile.email || ''),
@@ -272,16 +313,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   full_name: String(anyProfile.full_name || ''),
                   role: (anyProfile.role as UserRole) ?? 'operator',
                   is_active: Boolean(anyProfile.is_active ?? true),
-                  partnerId
+                  ...binding,
+                  isPartnerUser
                 };
                 setProfile(userProfile);
                 profileCache = userProfile; // ✅ 缓存 profile
                 
-                // 更新user对象的partnerId
-                if (currentUser && partnerId) {
-                  (currentUser as ExtendedUser).partnerId = partnerId;
-                  setUser(currentUser as ExtendedUser);
-                }
+                // 同步合作方绑定到 user 对象（保留 user.partnerId 字段名）
+                Object.assign(currentUser as ExtendedUser, binding, { isPartnerUser });
+                setUser(currentUser as ExtendedUser);
                 
                 // 特殊处理：partner（货主）角色登录后直接跳转到货主看板
                 // 暂时注释，等Lovable应用新的package.json配置（精确版本React）

@@ -37,25 +37,59 @@ const getBillingUnitText = (billingTypeId: number): string => {
 };
 
 // 【美化组件】用于美化合作链路的横向展示
-const PartnerChainDisplay = ({ partners }: { partners: ProjectPartner[] }) => {
-  if (!partners || partners.length === 0) {
+const PartnerChainDisplay = ({
+  partners,
+  ownerName,
+  ownerLevel,
+}: {
+  partners: ProjectPartner[];
+  ownerName?: string;
+  ownerLevel?: number;
+}) => {
+  if ((!partners || partners.length === 0) && !ownerName) {
     return <div className="text-xs text-muted-foreground">暂无合作方</div>;
   }
+
+  const sorted = [...(partners || [])].sort((a, b) => a.level - b.level);
+  const subOf = (p: ProjectPartner) =>
+    p.calculationMethod === "tax"
+      ? `税点: ${(Number(p.taxRate) * 100).toFixed(2)}%`
+      : p.calculationMethod === "profit"
+      ? `利润: ${p.profitRate}元`
+      : `单价: ${p.unitPrice}元`;
+
+  const nodes: { key: string; name: string; sub: string; isSelf: boolean }[] = sorted.map((p) => ({
+    key: p.id,
+    name: p.partnerName || '未命名',
+    sub: subOf(p),
+    isSelf: false,
+  }));
+
+  // 按归属方所在位置插入「本公司」节点（仅结构展示，不产生成本行、不参与计价）
+  if (ownerName && ownerLevel) {
+    const idx = Math.max(0, Math.min(ownerLevel - 1, nodes.length));
+    nodes.splice(idx, 0, { key: '__self__', name: ownerName, sub: '本公司 · 平台方', isSelf: true });
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {partners.map((partner, index) => (
-        <div key={partner.id} className="flex items-center">
-          <div className="flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm">
-            <span className="text-sm font-semibold">{partner.partnerName}</span>
-            <span className="text-xs text-primary-foreground/80">
-              {partner.calculationMethod === "tax" 
-                ? `税点: ${(partner.taxRate * 100).toFixed(1)}%` 
-                : partner.calculationMethod === "profit"
-                ? `利润: ${partner.profitRate}元`
-                : `单价: ${partner.unitPrice}元`}
+      {nodes.map((n, i) => (
+        <div key={n.key} className="flex items-center">
+          <div
+            className={
+              n.isSelf
+                ? "flex flex-col items-center p-2 border-2 border-dashed border-primary rounded-md bg-primary/5 shadow-sm"
+                : "flex flex-col items-center p-2 border rounded-md bg-primary text-primary-foreground shadow-sm"
+            }
+          >
+            <span className={n.isSelf ? "text-sm font-semibold text-primary" : "text-sm font-semibold"}>
+              {n.name}
+            </span>
+            <span className={n.isSelf ? "text-xs text-muted-foreground" : "text-xs text-primary-foreground/80"}>
+              {n.sub}
             </span>
           </div>
-          {index < partners.length - 1 && (<ChevronRight className="h-5 w-5 text-muted-foreground mx-2" />)}
+          {i < nodes.length - 1 && <ChevronRight className="h-5 w-5 text-muted-foreground mx-2" />}
         </div>
       ))}
     </div>
@@ -77,6 +111,7 @@ export default function Projects() {
   
   const [selectedChains, setSelectedChains] = useState<{
     id: string; dbId?: string; chainName: string; description?: string; billingTypeId?: number | null; isDefault?: boolean;
+    ownerPartnerId?: string;  // 归属方（partner_chains.owner_partner_id），独立保存，不进入链路 RPC 入参
     partners: {id: string, dbId?: string, partnerId: string, level: number, taxRate: number, calculationMethod: "tax" | "profit" | "fixed_price", profitRate?: number, unitPrice?: number, partnerName?: string}[];
   }[]>([]);
   const [originalChains, setOriginalChains] = useState<typeof selectedChains>([]);
@@ -159,6 +194,58 @@ export default function Projects() {
     staleTime: 10 * 60 * 1000, // 10分钟缓存（合作方变化不频繁）
     gcTime: 30 * 60 * 1000, // 30分钟保留（React Query v5 使用 gcTime 替代 cacheTime）
   });
+
+  // 链路归属方：项目详情 RPC 未返回 owner_partner_id，这里单独查一次并做成 chainId -> partnerId 映射
+  const { data: chainOwnerMap = {} as Record<string, string> } = useQuery({
+    queryKey: ['partner-chain-owners'],
+    queryFn: async () => {
+      const { data: chainRows, error: chainRowsError } = await supabase
+        .from('partner_chains')
+        .select('id, owner_partner_id');
+
+      if (chainRowsError) throw chainRowsError;
+
+      const ownerMap: Record<string, string> = {};
+      (chainRows || []).forEach((row: { id: string; owner_partner_id: string | null }) => {
+        if (row.owner_partner_id) ownerMap[row.id] = row.owner_partner_id;
+      });
+      return ownerMap;
+    },
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // 归属方在链路中的位置（仅展示用，不参与计价）
+  const { data: chainOwnerLevelMap = {} as Record<string, number> } = useQuery({
+    queryKey: ['partner-chain-owner-levels'],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('partner_chains')
+        .select('id, owner_level');
+      if (error) throw error;
+      const m: Record<string, number> = {};
+      (rows || []).forEach((row: { id: string; owner_level: number | null }) => {
+        if (row.owner_level) m[row.id] = row.owner_level;
+      });
+      return m;
+    },
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // 归属方候选：仅「本公司」类型的合作方
+  const companyPartners = useMemo(
+    () => partners.filter((p) => p.partnerType === '本公司'),
+    [partners]
+  );
+
+  // 默认归属方：优先名称含「中科」的本公司，否则取第一条本公司
+  const defaultOwnerPartnerId = useMemo(() => {
+    const zhongke = companyPartners.find((p) => (p.name || '').includes('中科'));
+    return zhongke?.id || companyPartners[0]?.id || '';
+  }, [companyPartners]);
 
   // 筛选和排序逻辑
   const filteredAndSortedProjects = useMemo(() => {
@@ -253,6 +340,7 @@ export default function Projects() {
       description: chain.description,
       billingTypeId: Number(chain.billing_type_id) || 1,  // ✅ 修复：直接使用 billing_type_id，无需类型断言
       isDefault: (chain as PartnerChain & { is_default?: boolean }).is_default || false,
+      ownerPartnerId: chainOwnerMap[chain.id] || defaultOwnerPartnerId,
       partners: (chain.partners || []).map((pp) => ({
         id: `partner-existing-${pp.id}`, dbId: pp.id, partnerId: pp.partnerId,
         level: pp.level, taxRate: pp.taxRate,
@@ -309,6 +397,61 @@ export default function Projects() {
       // ✅ 如果链路信息或合作方配置有变更，则返回true
       return chainInfoChanged || partnersChanged;
     });
+  };
+
+  // 归属方单独保存：不改动 update_project_chains_incremental 的入参结构
+  const syncChainOwners = async (projectId: string, chains: typeof selectedChains) => {
+    // 未显式选择时与界面展示保持一致：回落到默认归属方
+    const ownerChains = chains
+      .map((chain) => ({ ...chain, ownerPartnerId: chain.ownerPartnerId || defaultOwnerPartnerId }))
+      .filter((chain) => !!chain.ownerPartnerId);
+    if (!projectId || ownerChains.length === 0) return;
+
+    try {
+      // 1) 已存在的链路：按 dbId 直接更新
+      for (const chain of ownerChains.filter((c) => !!c.dbId)) {
+        const { error } = await supabase
+          .from('partner_chains')
+          .update({ owner_partner_id: chain.ownerPartnerId })
+          .eq('id', chain.dbId!);
+        if (error) throw error;
+      }
+
+      // 2) 新建链路：RPC 返回后按 project_id + chain_name 回查再更新
+      const pendingChains = ownerChains.filter((c) => !c.dbId);
+      if (pendingChains.length > 0) {
+        const { data: chainRows, error: queryError } = await supabase
+          .from('partner_chains')
+          .select('id, chain_name')
+          .eq('project_id', projectId);
+        if (queryError) throw queryError;
+
+        const usedIds = new Set<string>();
+        for (const chain of pendingChains) {
+          const targetName = chain.chainName || '';
+          const matched = (chainRows || []).find(
+            (row: { id: string; chain_name: string | null }) =>
+              row.chain_name === targetName && !usedIds.has(row.id)
+          );
+          if (!matched) continue;
+          usedIds.add(matched.id);
+
+          const { error } = await supabase
+            .from('partner_chains')
+            .update({ owner_partner_id: chain.ownerPartnerId })
+            .eq('id', matched.id);
+          if (error) throw error;
+        }
+      }
+    } catch (ownerError) {
+      // 归属方保存失败不影响项目/链路本身的保存结果
+      console.warn('⚠️ 归属方保存失败（项目与链路已保存）:', ownerError);
+      toast({
+        title: "归属方保存失败",
+        description: "项目与链路已保存，仅「归属方」未写入，请稍后重试",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -447,6 +590,9 @@ export default function Projects() {
           if (error) throw error;
           toast({ title: "项目更新成功", description: "仅更新了项目基本信息" });
         }
+
+        // 链路保存成功后，单独写入各链路归属方（不影响上面的 RPC 入参）
+        await syncChainOwners(projectId, selectedChains);
       } else {
         // ========================================
         // 新建模式：使用原有逻辑（全量保存）
@@ -468,18 +614,26 @@ export default function Projects() {
           }))
         }));
 
-        const { error } = await supabase.rpc('save_project_with_chains_fixed', {
+        const { data: saveResult, error } = await supabase.rpc('save_project_with_chains_fixed', {
           project_id_in: null,
           project_data: projectPayloadForDb,
           chains_data: chainsPayload
         });
 
         if (error) throw error;
+
+        // 新建链路：RPC 返回 project_id 后，单独写入归属方
+        const createdProjectId = (saveResult as { project_id?: string } | null)?.project_id;
+        if (createdProjectId) {
+          await syncChainOwners(createdProjectId, selectedChains);
+        }
+
         toast({ title: "项目创建成功", description: `项目 "${formData.name}" 已成功保存。` });
       }
 
       // 优化：只刷新缓存，不重新加载
       await queryClient.invalidateQueries({ queryKey: ['projects-with-details'] });
+      await queryClient.invalidateQueries({ queryKey: ['partner-chain-owners'] });
       setIsDialogOpen(false);
       resetForm();
     } catch (error) {
@@ -545,7 +699,8 @@ export default function Projects() {
   const addNewChain = () => {
     setSelectedChains(prev => [...prev, {
       id: `chain-new-${Date.now()}`, dbId: undefined,
-      chainName: `链路${prev.length + 1}`, description: '', billingTypeId: 1, isDefault: prev.length === 0, partners: []
+      chainName: `链路${prev.length + 1}`, description: '', billingTypeId: 1, isDefault: prev.length === 0,
+      ownerPartnerId: defaultOwnerPartnerId, partners: []
     }]);
   };
 
@@ -676,7 +831,7 @@ export default function Projects() {
                       {selectedChains.map((chain, chainIndex) => (
                         <div key={chain.id} className="border rounded-lg p-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-3 flex-wrap gap-y-2">
                               <Link className="h-4 w-4" />
                               <Input value={chain.chainName} onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, chainName: e.target.value } : c))} placeholder="链路名称" className="w-40" disabled={isSubmitting}/>
                               <div className="flex items-center space-x-2">
@@ -692,6 +847,20 @@ export default function Projects() {
                                   <option value="2">计车</option>
                                   <option value="3">计方</option>
                                   <option value="4">计件</option>
+                                </select>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Label className="text-xs">归属方</Label>
+                                <select
+                                  value={chain.ownerPartnerId || defaultOwnerPartnerId}
+                                  onChange={(e) => setSelectedChains(prev => prev.map((c, i) => i === chainIndex ? { ...c, ownerPartnerId: e.target.value } : c))}
+                                  className="p-1 border rounded text-sm max-w-[10rem]"
+                                  disabled={isSubmitting}
+                                >
+                                  {companyPartners.length === 0 && (<option value="">暂无本公司</option>)}
+                                  {companyPartners.map((company) => (
+                                    <option key={company.id} value={company.id}>{company.name}</option>
+                                  ))}
                                 </select>
                               </div>
                             </div>
@@ -993,7 +1162,15 @@ export default function Projects() {
                                 </h6>
                                 {chain.description && (<span className="text-xs text-muted-foreground">{chain.description}</span>)}
                               </div>
-                              <PartnerChainDisplay partners={sortedPartners} />
+                              <PartnerChainDisplay
+                                partners={sortedPartners}
+                                ownerName={
+                                  chainOwnerMap[chain.id]
+                                    ? (partners.find((p) => p.id === chainOwnerMap[chain.id])?.name || '')
+                                    : ''
+                                }
+                                ownerLevel={chainOwnerLevelMap[chain.id]}
+                              />
                             </div>
                           );
                         })}

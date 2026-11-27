@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, X, Eye, FileImage, Loader2, Truck, Trash2 } from 'lucide-react';
 import { relaxedSupabase as supabase } from '@/lib/supabase-helpers';
+import { toWebpUploadFiles } from '@/utils/imageToWebp';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   ContextMenu,
@@ -139,16 +140,28 @@ export function VehiclePhotoUpload({
         });
       }
 
+      // 前端本地转 WebP(零服务端成本),失败自动回退原图
+      const webpFiles = await toWebpUploadFiles(filesToUpload.map(f => ({
+        fileName: f.fileName,
+        fileData: f.fileData,
+        customName: f.customName
+      })));
+      webpFiles.forEach((wf, i) => {
+        if (wf.fileName !== filesToUpload[i].fileName && filesToUpload[i].customName) {
+          wf.customName = filesToUpload[i].customName.replace(/\.[^.]+$/, '.webp');
+        }
+      });
+
       // 调用七牛云上传函数
       const { data, error } = await supabase.functions.invoke('qiniu-upload', {
         body: {
-          files: filesToUpload.map(f => ({
+          files: webpFiles.map(f => ({
             fileName: f.fileName,
             fileData: f.fileData
           })),
           namingParams: {
             projectName: 'Truck', // 上传到Truck目录
-            customName: filesToUpload[0].customName
+            customName: webpFiles[0].customName
           }
         }
       });

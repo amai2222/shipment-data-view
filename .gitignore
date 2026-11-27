@@ -30,3 +30,7 @@ dist-ssr
 assets/c__Users_*
 assets/**/*cursor*
 assets/**/*workspaceStorage*
+
+# 工作区数据与CLI临时文件
+.workbuddy/
+supabase/.temp/
